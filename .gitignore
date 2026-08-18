@@ -26,3 +26,6 @@ __pycache__/
 mlruns/
 .ipynb_checkpoints/
 .DS_Store
+
+# Forgejo runner state — registration secret lives here
+runner/

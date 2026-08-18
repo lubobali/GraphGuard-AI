@@ -1,0 +1,52 @@
+# Smoke test — proves the CI chain works end to end before anything depends on it.
+# Deliberately exercises the pieces the real Phase 0 pipeline needs:
+# container networking, git, and uv-managed Python from a pinned version.
+name: smoke
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    # Must be `graphguard` — this repo's own isolated runner.
+    # `ubuntu-latest` would queue forever, and must never land on LuBot's runner.
+    runs-on: graphguard
+    steps:
+      - name: Container identity
+        run: |
+          echo "os:   $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)"
+          echo "node: $(node --version)"
+          echo "user: $(whoami)"
+
+      - name: Install git
+        run: |
+          apt-get update -qq
+          apt-get install -y -qq --no-install-recommends git ca-certificates
+          git --version
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Repo arrived intact
+        run: |
+          test -f PLAN.md   || { echo "PLAN.md missing"; exit 1; }
+          test -f CLAUDE.md || { echo "CLAUDE.md missing"; exit 1; }
+          echo "commit: $(git rev-parse --short HEAD)"
+
+      - name: Install uv
+        run: |
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: uv provides pinned Python
+        run: |
+          uv --version
+          uv python install 3.12
+          uv run --python 3.12 python -c "import sys; print('python:', sys.version.split()[0])"
+
+      - name: Resource caps are enforced
+        run: |
+          LIMIT=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo unknown)
+          echo "cgroup memory.max: $LIMIT (expect ~2147483648 = 2G)"
