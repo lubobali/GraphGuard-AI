@@ -1,0 +1,28 @@
+# Data — several GB, never in git
+data/
+*.csv
+*.parquet
+*.zip
+
+# Credentials
+kaggle.json
+.env
+.env.*
+*.pem
+credentials
+
+# Model artifacts live in S3, not here
+models/
+*.pt
+*.pkl
+*.joblib
+
+# Tooling
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+mlruns/
+.ipynb_checkpoints/
+.DS_Store
