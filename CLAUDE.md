@@ -1,0 +1,161 @@
+# GraphGuard-AI
+
+Real-time money laundering detection with a graph neural network, on the IBM AMLworld
+dataset.
+
+**Full build plan:** `PLAN.md`. Read it before starting a phase — this file is the rules,
+that file is the work.
+
+> **Naming note:** PLAN.md calls this project "Riskline" (`/srv/riskline`,
+> `riskline.lubot.ai`). That name is dead. The project is **GraphGuard-AI**, it lives in
+> `/srv/graphguard`, and it is one project, not two.
+
+---
+
+## Why this exists
+
+Lubo has shipped a lot of AI systems but has never trained and deployed a model. That gap
+blocks him in ML interviews. This project closes it.
+
+**The bar is not "it runs."** The bar is that a senior ML engineer reads this repo and
+cannot find the shortcut. Most portfolio ML projects fail that read in two minutes —
+leakage, an unfair baseline, or a metric that flatters the result. This one has to survive
+it.
+
+Consequences that follow from that bar:
+
+- The dataset is **synthetic** (IBM's simulator). Say so out loud, first, every time.
+- The tabular baseline gets a **real** effort, including graph features. A weak baseline
+  makes the GNN result worthless.
+- **If the GNN loses, that gets written up as a finding.** Do not tune the GNN against the
+  test set to avoid that outcome.
+- Primary metric is **precision@k**, not AUC. At a 0.1% fraud rate, 0.99 AUC can still be
+  a worthless queue.
+
+---
+
+## The leakage contract
+
+The thing most likely to quietly invalidate everything downstream. Every phase holds to it.
+
+1. **Split by time, never randomly.** Earliest window trains, middle validates, latest
+   tests. Frozen once at the start of Phase 2, before any model is trained.
+2. **The graph at time T contains only edges before T.** Building the graph over full
+   history and then splitting is leakage, even though the split looks correct.
+3. **No feature may use information that did not exist at decision time.** Account degree
+   means degree *as of that moment*, not final degree.
+4. **The test window is opened once.** Every tuning decision is made on validation.
+5. **A feature that looks too good gets investigated, not celebrated.** One feature
+   carrying most of the signal is usually leakage, not luck.
+
+**If any rule is violated, the result is void and gets rebuilt.** No exceptions, no "good
+enough for a portfolio."
+
+Three lint guards enforce this mechanically, so it is a build failure and not a document
+nobody rereads: `leakage_guard.py`, `split_integrity_check.py`, `test_set_touch_check.py`.
+
+---
+
+## Hard rules on this box
+
+This server runs **LuBot production**. ~15 `lubot-*` containers are live right now.
+
+**Off limits — never touch, restart, read, or write:**
+
+- anything named `lubot-*`, `forgejo`, `sentinel-*`
+- anything under `/srv/lubot-*`
+- **`aws-job-streamer`** and every AWS resource it owns. It is a live public resume
+  artifact. No existing bucket, role, or policy gets edited.
+
+**GraphGuard's own everything.** Own containers, own Docker network, own volumes, own
+ports, own Postgres and Redis (not LuBot's), own S3 bucket, own IAM user scoped to that
+bucket only. Everything lives in `/srv/graphguard`.
+
+**Hard memory caps on every container.** Not optional — swap on this box sits at ~99%
+full.
+
+**Ask before:** installing anything system-wide, or starting any container.
+
+Budget: ~4GB RAM, ~25GB disk. Box has 8 cores, ~19GB RAM available, ~96GB disk free.
+Keep it that way.
+
+---
+
+## How we work
+
+**One step at a time.** Do a step, stop, say what was done and what is next. Do not run
+ahead through a whole phase.
+
+**RECR loop:**
+1. Write the test first
+2. Implement one task
+3. Check it
+4. Repeat
+
+**Non-negotiable:**
+- **Never weaken a test to make it pass.** That explicitly includes quietly relaxing a
+  leakage guard.
+- **Zero failures before moving forward.** No "pre-existing failures" excuse.
+- Mock only external things.
+- If a phase turns out to be wrong, redo it rather than build on it.
+
+Lubo is learning ML as we go. Explain concepts in simple terms when they come up — short
+answers, not essays.
+
+---
+
+## Testing environment
+
+Stood up in Phase 0, before any modelling code exists.
+
+**From LuBot:**
+- pytest strict mode — `--strict-markers --strict-config`, `xfail_strict = true`
+- Marker taxonomy — categories (`unit`, `db`, `gpu`, `slow`) plus labels (`integration`,
+  `regression`). Default run deselects slow ones
+- Ruff — `E,F,I,W,B,PLR0912,PLR0915,C901`, ceiling that passes today, tightened later
+- prek hooks — ruff lint, ruff format, unit suite, scoped to `.py` changes
+- xdist — `-n 4 --dist=loadgroup`, **identical flags in prek and CI** (drift is a known
+  LuBot failure mode)
+- CI installs with **uv from the committed lockfile** — same lockfile as the container
+- Unit and integration as separate stages
+- Startup check as its own stage: the serving app must import, **load the model from S3,
+  and answer one scoring request**
+
+**ML-specific, which LuBot does not need:**
+- **Determinism** — same seed + same data = byte-identical model
+- **Data contracts** — Pandera schemas asserted as tests, not just applied at runtime
+- **Behaviour fixtures** — hand-built subgraphs (clean fan-out, clean cycle, obviously
+  innocent account) the model must score correctly
+- **Metamorphic tests** — ×10 every amount and the ranking should hold; rename an account
+  and nothing changes
+- **Train/serve parity** — same transaction through batch and online paths, asserted
+- **Latency budget in CI** — p99 under 50ms is an assertion that fails the build
+- **`evaluate()` is tested first.** If it is wrong, every result in the project is wrong
+  and nothing downstream would reveal it
+
+**Reproducibility:** uv with committed `uv.lock`, every seed fixed, every path in config.
+One command from a clean clone. If a result cannot be reproduced, it does not count.
+
+---
+
+## Where we are
+
+| Phase | What | Status |
+|---|---|---|
+| 0 | Ground — skeleton, k3s, AWS, data, test env, MLflow | **in progress** |
+| 1 | Understand the data before touching a model | not started |
+| 2 | Evaluation harness + frozen split + dumb baselines | not started |
+| 3 | Tabular baseline (XGBoost), built to actually win | not started |
+| 4 | The graph model (GraphSAGE, inductive) | not started |
+| 5 | Serving — Feast, Ray Serve on k3s, p99 < 50ms | not started |
+| 6 | The stream — Redpanda, replayed in true time order | not started |
+| 7 | The interface — alert queue, the ring drawn, capacity slider | not started |
+| 8 | Monitoring, Airflow retraining, champion/challenger, write-up | not started |
+| 8b | Make it findable — demo, video, post | not started |
+| 9 | Scale to 180M, optional and honest | not started |
+
+**Phase 0 gate:** `just check` runs tests and lint clean, one command prints the dataset's
+shape, date range, and class balance, and a clean clone reaches that state with a single
+setup command.
+
+Update this table when a phase gate actually passes — not when the code merely runs.
