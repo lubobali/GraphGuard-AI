@@ -20,11 +20,14 @@ jobs:
           echo "node: $(node --version)"
           echo "user: $(whoami)"
 
-      - name: Install git
+      - name: Install git and curl
+        # node:20-bookworm-slim ships with neither. curl is required by the
+        # uv installer; git is required by actions/checkout.
         run: |
           apt-get update -qq
-          apt-get install -y -qq --no-install-recommends git ca-certificates
+          apt-get install -y -qq --no-install-recommends git curl ca-certificates
           git --version
+          curl --version | head -1
 
       - name: Checkout
         uses: actions/checkout@v4
