@@ -81,6 +81,41 @@ Keep it that way.
 
 ---
 
+## CI and remotes
+
+**Forgejo repo:** `lubo/GraphGuard-AI` (private) at https://git.lubot.ai/lubo/GraphGuard-AI
+Separate repo from `lubot`, `lubot-publisher`, `sentinel-ai`.
+
+**`git push` goes to BOTH remotes.** `origin` fetches from GitHub and has two push URLs
+(GitHub + Forgejo). After a push that matters, confirm they match:
+
+```
+git ls-remote origin refs/heads/main   # GitHub
+git ls-remote forgejo refs/heads/main  # Forgejo
+```
+
+If one remote fails, git does **not** roll back the other — they can drift.
+
+**Workflows must use `runs-on: graphguard`.** Not `ubuntu-latest` (queues forever), and
+never LuBot's runner.
+
+**The runner:** `graphguard-runner.service`, own systemd unit, registered to this repo
+only. State in `/srv/graphguard/runner/` — gitignored, `chmod 600`, holds the runner
+credential. Daemon capped at 1G; **each job container capped at 2G, verified in CI, not
+assumed**. One job at a time, 45m timeout, image `node:20-bookworm-slim`.
+
+`forgejo-runner.service` (LuBot) and `sentinel-runner.service` are **not ours** — never
+touch them.
+
+**Forgejo task IDs are global across the instance.** A task number near ours may belong
+to LuBot. Confirm ownership in the runner log (`task N repo is lubo/GraphGuard-AI`)
+before inspecting anything.
+
+**Known cost, not yet fixed:** the job installs `git` and `curl` via apt on every run
+(~7s of a 14s build). Replace with a prebuilt image once the real CI exists.
+
+---
+
 ## How we work
 
 **One step at a time.** Do a step, stop, say what was done and what is next. Do not run
