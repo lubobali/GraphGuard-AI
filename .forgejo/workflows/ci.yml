@@ -39,6 +39,9 @@ jobs:
       - name: Format check
         run: ./.tools/bin/just format-check
 
+      - name: Leakage contract guards
+        run: ./.tools/bin/just guards
+
   test:
     runs-on: graphguard
     steps:

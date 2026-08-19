@@ -44,6 +44,13 @@ toolchain:
     @echo "uv:     $({{UV}} --version)"
     @echo "python: $({{UV}} run python -c 'import sys; print(sys.version.split()[0])')"
 
+# The three leakage-contract guards. Each turns a rule that nobody rereads
+# into a build failure.
+guards:
+    {{UV}} run python scripts/guards/leakage_guard.py
+    {{UV}} run python scripts/guards/split_integrity_check.py
+    {{UV}} run python scripts/guards/test_set_touch_check.py
+
 # Install the git pre-commit hooks. Run once per clone.
 hooks:
     {{PREK}} install
@@ -53,4 +60,4 @@ hooks-all:
     {{PREK}} run --all-files
 
 # The Phase 0 gate. CI runs exactly this.
-check: lint format-check test
+check: lint format-check guards test

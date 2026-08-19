@@ -35,3 +35,26 @@ repos:
         # full test run.
         types: [python]
         pass_filenames: false
+
+      - id: leakage-guard
+        name: leakage guard (contract rule 3)
+        entry: ./.tools/bin/uv run python scripts/guards/leakage_guard.py
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: split-integrity
+        name: split integrity (contract rule 1)
+        entry: ./.tools/bin/uv run python scripts/guards/split_integrity_check.py
+        language: system
+        # Not scoped to python: the split file itself is data, and any commit
+        # could touch it.
+        always_run: true
+        pass_filenames: false
+
+      - id: test-set-touch
+        name: test set touch check (contract rule 4)
+        entry: ./.tools/bin/uv run python scripts/guards/test_set_touch_check.py
+        language: system
+        types: [python]
+        pass_filenames: false
