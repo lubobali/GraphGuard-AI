@@ -3,9 +3,10 @@
 # container networking, git, and uv-managed Python from a pinned version.
 name: smoke
 
+# Manual only. Its job was to prove the runner chain works end to end, which it
+# did. Real checks live in ci.yml now; this stays for debugging the runner
+# itself without touching the pipeline that guards the code.
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
