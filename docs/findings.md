@@ -86,3 +86,55 @@ transacts in.
 
 **Reproduce:** `degree_summary()` in `graphguard.analysis.graph_stats`, and
 grouping the transactions by `from_account`.
+
+---
+
+## FINDING-003 — 38% of laundering is not in any labelled pattern
+
+*Found: 2026-08-19, Phase 1. Acts on: Phase 2 (metrics), Phase 8 (the write-up).*
+
+`HI-Small_Patterns.txt` contains **370 laundering attempts** covering **3,209
+transactions** in 8 shapes:
+
+| Shape | Attempts | Transactions | Avg size |
+|---|---|---|---|
+| CYCLE | 54 | 287 | 5.3 |
+| GATHER-SCATTER | 51 | 716 | 14.0 |
+| BIPARTITE | 49 | 263 | 5.4 |
+| FAN-OUT | 48 | 342 | 7.1 |
+| SCATTER-GATHER | 44 | 626 | 14.2 |
+| STACK | 43 | 466 | 10.8 |
+| RANDOM | 41 | 191 | 4.7 |
+| FAN-IN | 40 | 318 | 8.0 |
+
+The transactions file marks **5,177** transactions as laundering. So:
+
+- **3,209 (62%)** belong to a labelled ring
+- **1,968 (38%)** are laundering but in no labelled pattern
+
+**Why it matters.** Pattern-level recall - "did we catch the whole ring, not one
+hop of it" - can only be computed over the 62%. Reporting it as though it covers
+all laundering would overstate what is being measured. Phase 2 must state the
+denominator explicitly, and Phase 8 must say so in the write-up.
+
+The dataset author notes this: not all laundering follows one of the 8 AMLSim
+patterns.
+
+**Ring shape, measured:**
+
+| | Median | Max |
+|---|---|---|
+| Transfers per ring | 6.5 | 32 |
+| Accounts per ring | 8 | 45 |
+| Days end to end | 3.1 | 8.4 |
+
+A ring is small and slow: about 8 accounts over 3 days. Every individual hop is
+an ordinary transfer for an ordinary amount - the examples inspected by hand
+were EUR 10,476, USD 15,471, EUR 12,196. Nothing in a single row is unusual.
+
+**This is the project's core argument, now measured rather than asserted:** the
+signal does not exist in any single row. It exists in the relationship between
+rows, spanning a median of 8 accounts. A row-level model cannot see it, because
+there is nothing there to see.
+
+**Reproduce:** `parse_patterns()` in `graphguard.analysis.patterns`.
