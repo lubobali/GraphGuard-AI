@@ -10,6 +10,7 @@ set -euo pipefail
 UV_VERSION="0.12.5"
 JUST_VERSION="1.58.0"
 PREK_VERSION="0.2.9"
+KAGGLE_VERSION="1.7.4.5"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TOOLS_DIR="$REPO_ROOT/.tools"
@@ -55,6 +56,14 @@ if [ "$("$BIN_DIR/prek" --version 2>/dev/null | awk '{print $2}')" != "$PREK_VER
   echo "installing prek $PREK_VERSION into .tools/bin"
   UV_TOOL_BIN_DIR="$BIN_DIR" UV_TOOL_DIR="$TOOLS_DIR/uv-tools" \
     "$BIN_DIR/uv" tool install --force "prek==$PREK_VERSION" >/dev/null
+fi
+
+# --- kaggle CLI, pinned ----------------------------------------------------
+# Used once, to fetch the dataset. Project-local like everything else.
+if [ "$("$BIN_DIR/kaggle" --version 2>/dev/null | awk '{print $3}')" != "$KAGGLE_VERSION" ]; then
+  echo "installing kaggle $KAGGLE_VERSION into .tools/bin"
+  UV_TOOL_BIN_DIR="$BIN_DIR" UV_TOOL_DIR="$TOOLS_DIR/uv-tools" \
+    "$BIN_DIR/uv" tool install --force "kaggle==$KAGGLE_VERSION" >/dev/null
 fi
 
 echo

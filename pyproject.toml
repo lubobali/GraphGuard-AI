@@ -4,7 +4,9 @@ version = "0.1.0"
 description = "Money laundering detection with a graph neural network on IBM AMLworld"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+  "polars>=1.17",
+]
 
 [project.optional-dependencies]
 dev = [

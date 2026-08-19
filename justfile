@@ -44,6 +44,22 @@ toolchain:
     @echo "uv:     $({{UV}} --version)"
     @echo "python: $({{UV}} run python -c 'import sys; print(sys.version.split()[0])')"
 
+# Download the raw dataset. Needs .secrets/kaggle.json.
+data-download:
+    KAGGLE_CONFIG_DIR={{justfile_directory()}}/.secrets {{justfile_directory()}}/.tools/bin/kaggle \
+      datasets download ealtman2019/ibm-transactions-for-anti-money-laundering-aml \
+      -f HI-Small_Trans.csv -p data/raw --force
+    KAGGLE_CONFIG_DIR={{justfile_directory()}}/.secrets {{justfile_directory()}}/.tools/bin/kaggle \
+      datasets download ealtman2019/ibm-transactions-for-anti-money-laundering-aml \
+      -f HI-Small_accounts.csv -p data/raw --force
+    KAGGLE_CONFIG_DIR={{justfile_directory()}}/.secrets {{justfile_directory()}}/.tools/bin/kaggle \
+      datasets download ealtman2019/ibm-transactions-for-anti-money-laundering-aml \
+      -f HI-Small_Patterns.txt -p data/raw --force
+
+# Print the dataset's shape, date range and class balance.
+data-summary:
+    {{UV}} run python -m graphguard.data.summary
+
 # The three leakage-contract guards. Each turns a rule that nobody rereads
 # into a build failure.
 guards:

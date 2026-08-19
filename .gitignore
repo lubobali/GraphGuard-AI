@@ -32,3 +32,6 @@ runner/
 
 # Project-local toolchain (uv + Python), rebuilt by scripts/bootstrap.sh
 .tools/
+
+# Credentials — never in git
+.secrets/
