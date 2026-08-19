@@ -200,8 +200,8 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 
 | Phase | What | Status |
 |---|---|---|
-| 0 | Ground — skeleton, k3s, AWS, data, test env, MLflow | **in progress** |
-| 1 | Understand the data before touching a model | not started |
+| 0 | Ground — skeleton, data, test env, guards, MLflow | **done** (2026-08-19) |
+| 1 | Understand the data before touching a model | **in progress** |
 | 2 | Evaluation harness + frozen split + dumb baselines | not started |
 | 3 | Tabular baseline (XGBoost), built to actually win | not started |
 | 4 | The graph model (GraphSAGE, inductive) | not started |
@@ -212,8 +212,16 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 8b | Make it findable — demo, video, post | not started |
 | 9 | Scale to 180M, optional and honest | not started |
 
-**Phase 0 gate:** `just check` runs tests and lint clean, one command prints the dataset's
-shape, date range, and class balance, and a clean clone reaches that state with a single
-setup command.
+**Phase 0 gate — met 2026-08-19.** `./scripts/bootstrap.sh` takes a clean clone to
+working, `just check` runs 32 tests + lint + the three guards clean, and
+`just data-summary` prints 5,078,345 transactions / 515,080 accounts /
+2022-09-01 to 2022-09-18 / 0.102% laundering.
+
+**k3s and AWS were deferred**, not skipped. Neither is in the Phase 0 gate and
+neither is needed before Phase 4-5. On a box this tight, idle services are a cost
+with no benefit yet.
+
+**Phase 1 gate:** he can describe, without notes, what a laundering ring looks like in
+this data and why a row-level model cannot see it.
 
 Update this table when a phase gate actually passes — not when the code merely runs.
