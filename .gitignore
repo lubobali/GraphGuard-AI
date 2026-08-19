@@ -1,5 +1,5 @@
 # Data — several GB, never in git
-data/
+/data/
 *.csv
 *.parquet
 *.zip
