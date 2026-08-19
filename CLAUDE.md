@@ -116,6 +116,29 @@ before inspecting anything.
 
 ---
 
+## Local services
+
+`just mlflow-up` / `mlflow-down` / `mlflow-status` / `mlflow-logs`.
+
+| | |
+|---|---|
+| MLflow UI | `127.0.0.1:5010` (localhost only - tunnel over ssh) |
+| MLflow Postgres | `127.0.0.1:5434` |
+| Compose project | `graphguard` |
+| Network | `graphguard-net` |
+| Volumes | `graphguard-mlflow-db-data`, `graphguard-mlflow-artifacts` |
+| Memory caps | MLflow 1200M, Postgres 512M |
+
+Ports 5000, 5432 and 5433 were already taken on this host, which is why these
+are 5010 and 5434. **Credentials live in `.secrets/`** - gitignored, `chmod 600`,
+generated locally and never committed. `.secrets/kaggle.json` holds the Kaggle
+token, `.secrets/mlflow.env` the database password.
+
+MLflow idles at ~695MB, so its cap is 1200M rather than the 768M first tried -
+at 768M it sat at 91% of its limit and would have been OOM-killed under load.
+
+---
+
 ## How we work
 
 **One step at a time.** Do a step, stop, say what was done and what is next. Do not run

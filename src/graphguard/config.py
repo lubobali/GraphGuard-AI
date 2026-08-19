@@ -23,5 +23,9 @@ TRANSACTIONS_FILE = RAW_DIR / f"{DATASET}_Trans.csv"
 PATTERNS_FILE = RAW_DIR / f"{DATASET}_Patterns.txt"
 ACCOUNTS_FILE = RAW_DIR / f"{DATASET}_accounts.csv"
 
+# MLflow tracking server. Bound to localhost only; nothing is exposed publicly.
+MLFLOW_TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5010")
+MLFLOW_EXPERIMENT = os.environ.get("GRAPHGUARD_EXPERIMENT", "graphguard")
+
 # Fixed everywhere a random choice is made. Reproducibility rule.
 SEED = 42

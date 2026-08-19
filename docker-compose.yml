@@ -1,0 +1,86 @@
+# GraphGuard-AI local services.
+#
+# ISOLATION CONTRACT. This box runs LuBot production. Every value below is
+# chosen so nothing here can reach, collide with, or starve anything else:
+#
+#   - own compose project name (graphguard), so containers, network and
+#     volumes are all namespaced apart from lubot-* and forgejo
+#   - own bridge network, not attached to any existing one
+#   - own Postgres on 5434; 5432 and 5433 are already taken on this host
+#   - MLflow on 5010; 5000 is already taken
+#   - every port bound to 127.0.0.1, never 0.0.0.0. Nothing is reachable
+#     from the internet
+#   - hard memory limits on both services. Swap on this box sits at 100%,
+#     so an unbounded container is a production incident
+#   - pinned image versions, no :latest
+
+name: graphguard
+
+services:
+  mlflow-db:
+    image: postgres:16.6-alpine
+    container_name: graphguard-mlflow-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${MLFLOW_DB_USER}
+      POSTGRES_PASSWORD: ${MLFLOW_DB_PASSWORD}
+      POSTGRES_DB: mlflow
+    ports:
+      - "127.0.0.1:5434:5432"
+    volumes:
+      - mlflow-db-data:/var/lib/postgresql/data
+    networks:
+      - graphguard
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    mem_limit: 512m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${MLFLOW_DB_USER} -d mlflow"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  mlflow:
+    build:
+      context: .
+      dockerfile: docker/mlflow.Dockerfile
+    image: graphguard/mlflow:2.19.0
+    container_name: graphguard-mlflow
+    restart: unless-stopped
+    depends_on:
+      mlflow-db:
+        condition: service_healthy
+    command: >
+      mlflow server
+      --host 0.0.0.0
+      --port 5000
+      --backend-store-uri postgresql://${MLFLOW_DB_USER}:${MLFLOW_DB_PASSWORD}@mlflow-db:5432/mlflow
+      --artifacts-destination /mlflow/artifacts
+      --serve-artifacts
+    ports:
+      - "127.0.0.1:5010:5000"
+    volumes:
+      - mlflow-artifacts:/mlflow/artifacts
+    networks:
+      - graphguard
+    mem_limit: 1200m
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request;urllib.request.urlopen('http://localhost:5000/health')\""]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+
+networks:
+  graphguard:
+    name: graphguard-net
+    driver: bridge
+
+volumes:
+  mlflow-db-data:
+    name: graphguard-mlflow-db-data
+  mlflow-artifacts:
+    name: graphguard-mlflow-artifacts

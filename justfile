@@ -44,6 +44,25 @@ toolchain:
     @echo "uv:     $({{UV}} --version)"
     @echo "python: $({{UV}} run python -c 'import sys; print(sys.version.split()[0])')"
 
+# --- services ---------------------------------------------------------------
+# MLflow + its own Postgres. Isolated from LuBot: own compose project, network,
+# volumes and ports, all bound to 127.0.0.1, both memory-capped.
+
+ENVFILE := justfile_directory() / ".secrets/mlflow.env"
+
+mlflow-up:
+    docker compose --env-file {{ENVFILE}} up -d
+
+mlflow-down:
+    docker compose --env-file {{ENVFILE}} down
+
+mlflow-logs:
+    docker compose --env-file {{ENVFILE}} logs -f --tail=100
+
+mlflow-status:
+    @docker compose --env-file {{ENVFILE}} ps
+    @echo "UI: http://127.0.0.1:5010  (localhost only - tunnel over ssh to view)"
+
 # Download the raw dataset. Needs .secrets/kaggle.json.
 data-download:
     KAGGLE_CONFIG_DIR={{justfile_directory()}}/.secrets {{justfile_directory()}}/.tools/bin/kaggle \
