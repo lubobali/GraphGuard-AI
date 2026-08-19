@@ -29,3 +29,6 @@ mlruns/
 
 # Forgejo runner state — registration secret lives here
 runner/
+
+# Project-local toolchain (uv + Python), rebuilt by scripts/bootstrap.sh
+.tools/

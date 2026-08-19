@@ -54,6 +54,10 @@ intentions:
 ## Development
 
 ```bash
-uv sync --extra dev    # set up from a clean clone
-just check             # lint + tests, the same way CI runs them
+./scripts/bootstrap.sh   # installs the project's own pinned uv, Python and just
+./.tools/bin/just check  # lint + tests, exactly the way CI runs them
 ```
+
+The toolchain lives inside the repo under `.tools/` and is pinned. Nothing is
+shared with other projects on the host, so upgrading a tool elsewhere cannot
+change a result here.

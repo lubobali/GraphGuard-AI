@@ -1,16 +1,17 @@
 # GraphGuard-AI CI.
 #
-# Every job calls a `just` recipe rather than repeating flags, so CI and the
-# local loop cannot drift apart. Dependencies come from the committed lockfile
-# with --locked, so CI fails loudly if uv.lock and pyproject.toml disagree.
+# CI runs the SAME bootstrap script as the local loop, so both get a pinned,
+# identical toolchain: the project's own uv, its own Python, its own just,
+# all under .tools/. Nothing is shared with LuBot or with root's environment.
+#
+# Jobs call `just` recipes rather than repeating flags, so CI and local cannot
+# drift apart.
 name: ci
 
 on:
   push:
   pull_request:
 
-# A newer push makes an in-flight run pointless. The box is shared with LuBot
-# production, so abandoning superseded runs matters.
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
@@ -26,23 +27,17 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Install uv and just
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+      - name: Bootstrap pinned toolchain
+        run: ./scripts/bootstrap.sh
 
-      - name: Install just
-        run: uv tool install rust-just
-
-      - name: Install project from the committed lockfile
-        # --locked fails if uv.lock is stale rather than silently re-resolving.
-        run: uv sync --extra dev --locked
+      - name: Toolchain is the pinned one
+        run: ./.tools/bin/just toolchain
 
       - name: Lint
-        run: just lint
+        run: ./.tools/bin/just lint
 
       - name: Format check
-        run: just format-check
+        run: ./.tools/bin/just format-check
 
   test:
     runs-on: graphguard
@@ -54,17 +49,8 @@ jobs:
 
       - uses: actions/checkout@v4
 
-      - name: Install uv and just
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: Install just
-        run: uv tool install rust-just
-
-      - name: Install project from the committed lockfile
-        run: uv sync --extra dev --locked
+      - name: Bootstrap pinned toolchain
+        run: ./scripts/bootstrap.sh
 
       - name: Unit tests
-        # Same recipe the local loop and prek hooks use. One definition.
-        run: just test
+        run: ./.tools/bin/just test
