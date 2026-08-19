@@ -201,8 +201,8 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | Phase | What | Status |
 |---|---|---|
 | 0 | Ground — skeleton, data, test env, guards, MLflow | **done** (2026-08-19) |
-| 1 | Understand the data before touching a model | **in progress** |
-| 2 | Evaluation harness + frozen split + dumb baselines | not started |
+| 1 | Understand the data before touching a model | **done** (2026-08-19) |
+| 2 | Evaluation harness + frozen split + dumb baselines | **in progress** |
 | 3 | Tabular baseline (XGBoost), built to actually win | not started |
 | 4 | The graph model (GraphSAGE, inductive) | not started |
 | 5 | Serving — Feast, Ray Serve on k3s, p99 < 50ms | not started |
@@ -221,7 +221,13 @@ working, `just check` runs 32 tests + lint + the three guards clean, and
 neither is needed before Phase 4-5. On a box this tight, idle services are a cost
 with no benefit yet.
 
-**Phase 1 gate:** he can describe, without notes, what a laundering ring looks like in
-this data and why a row-level model cannot see it.
+**Phase 1 gate — met 2026-08-19.** A ring is a shape across a median of 8 accounts
+over 3 days: money split out, passed through, sometimes returned in a full circle.
+Every individual hop is an ordinary amount (EUR 10,476, USD 15,471 in the examples
+inspected). The signal does not exist in any single row, so a row-level model has
+nothing to see. See `docs/findings.md` FINDING-002 and FINDING-003.
+
+**Phase 2 gate:** the dumb baselines are scored and their numbers are recorded in
+MLflow. Everything after this is measured against them.
 
 Update this table when a phase gate actually passes — not when the code merely runs.
