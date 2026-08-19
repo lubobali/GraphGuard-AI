@@ -7,6 +7,7 @@
 # .tools/, never the shared ones in /root. Run scripts/bootstrap.sh first.
 
 UV := justfile_directory() / ".tools/bin/uv"
+PREK := justfile_directory() / ".tools/bin/prek"
 
 # Keep interpreters inside the repo rather than the shared uv directory.
 export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
@@ -42,6 +43,14 @@ format-check:
 toolchain:
     @echo "uv:     $({{UV}} --version)"
     @echo "python: $({{UV}} run python -c 'import sys; print(sys.version.split()[0])')"
+
+# Install the git pre-commit hooks. Run once per clone.
+hooks:
+    {{PREK}} install
+
+# Run every hook against the whole repo, not just staged files.
+hooks-all:
+    {{PREK}} run --all-files
 
 # The Phase 0 gate. CI runs exactly this.
 check: lint format-check test

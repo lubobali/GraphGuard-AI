@@ -1,0 +1,37 @@
+# GraphGuard-AI pre-commit hooks, run by prek.
+#
+# Every hook shells out to a `just` recipe rather than repeating the tool
+# flags. That is deliberate: prek, CI and the local loop all invoke the same
+# recipe, so the three cannot drift apart. Drift between hooks and CI is a
+# known failure mode from LuBot.
+#
+# Install with: ./.tools/bin/just hooks
+
+default_install_hook_types: [pre-commit]
+fail_fast: false
+
+repos:
+  - repo: local
+    hooks:
+      - id: ruff-lint
+        name: ruff lint
+        entry: ./.tools/bin/just lint
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: ruff-format
+        name: ruff format check
+        entry: ./.tools/bin/just format-check
+        language: system
+        types: [python]
+        pass_filenames: false
+
+      - id: unit-tests
+        name: unit tests
+        entry: ./.tools/bin/just test
+        language: system
+        # Scoped to Python changes so a docs-only commit does not pay for a
+        # full test run.
+        types: [python]
+        pass_filenames: false

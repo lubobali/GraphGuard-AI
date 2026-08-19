@@ -9,6 +9,7 @@ set -euo pipefail
 
 UV_VERSION="0.12.5"
 JUST_VERSION="1.58.0"
+PREK_VERSION="0.2.9"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 TOOLS_DIR="$REPO_ROOT/.tools"
@@ -47,8 +48,18 @@ if [ "$("$BIN_DIR/just" --version 2>/dev/null | awk '{print $2}')" != "$JUST_VER
     "$BIN_DIR/uv" tool install --force "rust-just==$JUST_VERSION" >/dev/null
 fi
 
+# --- prek, pinned ----------------------------------------------------------
+# pre-commit hook runner. Pinned so a hook cannot behave differently on two
+# machines.
+if [ "$("$BIN_DIR/prek" --version 2>/dev/null | awk '{print $2}')" != "$PREK_VERSION" ]; then
+  echo "installing prek $PREK_VERSION into .tools/bin"
+  UV_TOOL_BIN_DIR="$BIN_DIR" UV_TOOL_DIR="$TOOLS_DIR/uv-tools" \
+    "$BIN_DIR/uv" tool install --force "prek==$PREK_VERSION" >/dev/null
+fi
+
 echo
 echo "toolchain ready:"
 echo "  uv:     $("$BIN_DIR/uv" --version)"
 echo "  just:   $("$BIN_DIR/just" --version)"
+echo "  prek:   $("$BIN_DIR/prek" --version)"
 echo "  python: $("$BIN_DIR/uv" run python -c 'import sys; print(sys.version.split()[0])')"
