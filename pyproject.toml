@@ -1,0 +1,58 @@
+[project]
+name = "graphguard"
+version = "0.1.0"
+description = "Money laundering detection with a graph neural network on IBM AMLworld"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = []
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=8.3",
+  "pytest-xdist>=3.6",
+  "ruff>=0.8",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/graphguard"]
+
+# ---------------------------------------------------------------------------
+# pytest — strict from day one.
+# A typo'd marker fails at collection instead of silently skipping the test.
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = "--strict-markers --strict-config -ra"
+xfail_strict = true
+markers = [
+  # category — exactly one per test
+  "unit: fast, no I/O, no network",
+  "db: needs a database",
+  "gpu: needs a GPU",
+  "slow: deselected by default",
+  # orthogonal labels — combine freely with a category
+  "integration: crosses a component boundary",
+  "regression: locks in a previously fixed bug",
+]
+
+# ---------------------------------------------------------------------------
+# ruff — complexity caps set to a ceiling that passes today, tightened later.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W", "B", "PLR0912", "PLR0915", "C901"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-branches = 12
+max-statements = 50
