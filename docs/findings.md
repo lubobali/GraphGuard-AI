@@ -41,3 +41,48 @@ dataset will look for it.
 
 **Reproduce:** `just data-summary` shows the 17-day range against the documented
 10. Per-day rates come from grouping on `timestamp.dt.date()`.
+
+---
+
+## FINDING-002 — The highest-degree accounts are hubs, not criminals
+
+*Found: 2026-08-19, Phase 1. Acts on: Phase 3 (features), Phase 4 (the model).*
+
+Degree distribution over the 5,078,345 transfers between 515,080 accounts:
+
+| Percentile | Degree |
+|---|---|
+| 50% | 6 |
+| 75% | 27 |
+| 90% | 51 |
+| 99% | 119 |
+| max | 169,756 |
+
+Most accounts are tiny: half make six transfers or fewer across the whole
+18-day window. The distribution then has an extreme tail.
+
+The five largest senders are all at one bank, **Oasis Thrift**, and the
+accounts file labels them as small entities:
+
+| Account | Sent | Labelled | Laundering rate |
+|---|---|---|---|
+| 100428660 | 168,672 | Sole Proprietorship #41 | 0.14% |
+| 1004286A8 | 103,018 | Partnership #2370 | 0.15% |
+| 100428978 | 20,497 | Sole Proprietorship #36613 | 0.14% |
+
+A sole proprietorship sending 168,672 transfers in 18 days is one every nine
+seconds. These are hub or settlement accounts in the generator, not one-person
+businesses.
+
+**Why it matters.** Their laundering rate matches the dataset base rate of
+0.102%. The most connected accounts in the data are unremarkable. Any feature
+built on raw degree - "this account sends to many others" - will rank these
+first and bury real cases. Degree has to be normalised, or the hubs handled
+explicitly, before it is usable.
+
+This is also the first concrete argument for the graph model: what separates
+laundering here is not how *much* an account transacts but the *shape* it
+transacts in.
+
+**Reproduce:** `degree_summary()` in `graphguard.analysis.graph_stats`, and
+grouping the transactions by `from_account`.
