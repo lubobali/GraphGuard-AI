@@ -81,6 +81,10 @@ data-download:
 freeze-split:
     {{UV}} run python -m graphguard.evaluation.freeze_split
 
+# Score the two dumb baselines on validation and record them in MLflow.
+baselines:
+    {{UV}} run python -m graphguard.evaluation.run_baselines
+
 # Print the dataset's shape, date range and class balance.
 data-summary:
     {{UV}} run python -m graphguard.data.summary

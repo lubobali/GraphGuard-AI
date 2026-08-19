@@ -202,8 +202,8 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 |---|---|---|
 | 0 | Ground — skeleton, data, test env, guards, MLflow | **done** (2026-08-19) |
 | 1 | Understand the data before touching a model | **done** (2026-08-19) |
-| 2 | Evaluation harness + frozen split + dumb baselines | **in progress** |
-| 3 | Tabular baseline (XGBoost), built to actually win | not started |
+| 2 | Evaluation harness + frozen split + dumb baselines | **done** (2026-08-19) |
+| 3 | Tabular baseline (XGBoost), built to actually win | next |
 | 4 | The graph model (GraphSAGE, inductive) | not started |
 | 5 | Serving — Feast, Ray Serve on k3s, p99 < 50ms | not started |
 | 6 | The stream — Redpanda, replayed in true time order | not started |
@@ -227,7 +227,16 @@ Every individual hop is an ordinary amount (EUR 10,476, USD 15,471 in the exampl
 inspected). The signal does not exist in any single row, so a row-level model has
 nothing to see. See `docs/findings.md` FINDING-002 and FINDING-003.
 
-**Phase 2 gate:** the dumb baselines are scored and their numbers are recorded in
-MLflow. Everything after this is measured against them.
+**Phase 2 gate — met 2026-08-19.** Split frozen at
+`data/splits/frozen_split.json` (sha256 guarded on every commit). Both dumb
+baselines scored on validation and logged to MLflow: random PR-AUC 0.00103,
+by-amount 0.00170, neither catching any of the 168 labelled rings. See
+FINDING-004.
+
+**Scoring rules from here on.** Every model goes through
+`graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models
+are measured differently. Everything is scored on **validation**. The test split
+stays sealed until the final evaluation (contract rule 4), and
+`test_set_touch_check` counts the call sites.
 
 Update this table when a phase gate actually passes — not when the code merely runs.

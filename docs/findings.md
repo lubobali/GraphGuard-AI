@@ -138,3 +138,35 @@ rows, spanning a median of 8 accounts. A row-level model cannot see it, because
 there is nothing there to see.
 
 **Reproduce:** `parse_patterns()` in `graphguard.analysis.patterns`.
+
+---
+
+## FINDING-004 — The dumb baselines fail, so the data is not trivially easy
+
+*Found: 2026-08-19, Phase 2. Acts on: Phase 3 and 4 (every comparison).*
+
+Both baselines scored on **validation** (1,015,300 rows, 1,083 laundering, 168
+labelled rings). Test remains sealed - contract rule 4.
+
+| | PR-AUC | p@500 | p@5000 | Best lift | Rings caught |
+|---|---|---|---|---|---|
+| base rate | 0.00107 | - | - | 1.00x | - |
+| random | 0.00103 | 0.000 | 0.0002 | 0.19x | 0 / 168 |
+| by amount | 0.00170 | 0.002 | 0.0020 | 1.87x | 0 / 168 |
+
+**The harness sanity-checks out.** A random ranking should score exactly the
+base rate in PR-AUC. It scores 0.00103 against a base rate of 0.00107. That is
+evidence `evaluate()` is not quietly wrong, which matters more than the
+baseline numbers themselves.
+
+**Ranking by amount does not work.** PLAN.md flags the risk that the synthetic
+patterns might be too obvious - "if rank by amount already does well, the
+simulator's patterns are too obvious and we switch to the LI variants". It does
+not do well: best lift 1.87x, and not one of the 168 rings caught. **The project
+stays on HI-Small.**
+
+This is consistent with FINDING-003: laundering hops are ordinary amounts. The
+hand-inspected examples were EUR 10,476 and USD 15,471, indistinguishable from
+ordinary business transfers. A size-based ranking has nothing to grip.
+
+**The floor every later model must clear:** PR-AUC 0.0017, and any ring at all.
