@@ -1,5 +1,10 @@
-# Data — several GB, never in git
-/data/
+# Data — several GB, never in git.
+# The frozen split is the exception: it is small, and it is the record every
+# result is measured against, so it must be tracked and checksummed.
+/data/*
+!/data/splits/
+!/data/splits/*.json
+!/data/splits/*.sha256
 *.csv
 *.parquet
 *.zip

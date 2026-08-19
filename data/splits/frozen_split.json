@@ -1,0 +1,38 @@
+{
+  "boundaries": {
+    "train_end": "2022-09-06T13:34:00",
+    "val_end": "2022-09-08T16:09:00"
+  },
+  "dataset": "HI-Small_Trans.csv",
+  "fractions": {
+    "train": 0.6,
+    "validation": 0.2
+  },
+  "method": "temporal, boundaries at row quantiles of the timestamp",
+  "splits": {
+    "test": {
+      "first": "2022-09-08T16:09:00",
+      "last": "2022-09-10T23:59:00",
+      "laundering": 1143,
+      "laundering_rate": 0.00112528,
+      "transactions": 1015751
+    },
+    "train": {
+      "first": "2022-09-01T00:00:00",
+      "last": "2022-09-06T13:33:00",
+      "laundering": 2296,
+      "laundering_rate": 0.00075373,
+      "transactions": 3046186
+    },
+    "validation": {
+      "first": "2022-09-06T13:34:00",
+      "last": "2022-09-08T16:08:00",
+      "laundering": 1083,
+      "laundering_rate": 0.00106668,
+      "transactions": 1015300
+    }
+  },
+  "tail_cutoff": "2022-09-11T00:00:00",
+  "tail_reason": "FINDING-001: post-period rows are 57-73% laundering",
+  "tail_rows_dropped": 1108
+}

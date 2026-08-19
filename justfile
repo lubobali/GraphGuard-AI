@@ -75,6 +75,12 @@ data-download:
       datasets download ealtman2019/ibm-transactions-for-anti-money-laundering-aml \
       -f HI-Small_Patterns.txt -p data/raw --force
 
+# Compute the temporal split once and freeze it. Rerunning is safe: it is
+# deterministic. Changing it fails split_integrity_check until the recorded
+# checksum is updated in the same commit.
+freeze-split:
+    {{UV}} run python -m graphguard.evaluation.freeze_split
+
 # Print the dataset's shape, date range and class balance.
 data-summary:
     {{UV}} run python -m graphguard.data.summary
