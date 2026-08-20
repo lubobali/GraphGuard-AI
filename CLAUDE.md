@@ -203,8 +203,8 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 0 | Ground — skeleton, data, test env, guards, MLflow | **done** (2026-08-19) |
 | 1 | Understand the data before touching a model | **done** (2026-08-19) |
 | 2 | Evaluation harness + frozen split + dumb baselines | **done** (2026-08-19) |
-| 3 | Tabular baseline (XGBoost), built to actually win | next |
-| 4 | The graph model (GraphSAGE, inductive) | not started |
+| 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
+| 4 | The graph model (GraphSAGE, inductive) | next |
 | 5 | Serving — Feast, Ray Serve on k3s, p99 < 50ms | not started |
 | 6 | The stream — Redpanda, replayed in true time order | not started |
 | 7 | The interface — alert queue, the ring drawn, capacity slider | not started |
@@ -232,6 +232,16 @@ nothing to see. See `docs/findings.md` FINDING-002 and FINDING-003.
 baselines scored on validation and logged to MLflow: random PR-AUC 0.00103,
 by-amount 0.00170, neither catching any of the 168 labelled rings. See
 FINDING-004.
+
+**Phase 3 gate — met 2026-08-20.** Tuned artifact-free XGBoost reaches PR-AUC
+**0.28155** on validation against 0.00170 for the best dumb baseline, catching
+127 of 168 rings at k=5000. The leakage audit is written in
+`docs/leakage_audit.md` with every top feature justified, and three generator
+artifacts identified and excluded (FINDING-006). Test set still unopened.
+
+**Phase 4 must compare the GNN against the tuned artifact-free tabular model**,
+with the same Optuna trial budget. Comparing against the 0.360 figure, or
+against an untuned baseline, would rig it.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models

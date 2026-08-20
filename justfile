@@ -86,6 +86,10 @@ freeze-split:
 train-tabular:
     {{UV}} run python -m graphguard.models.train_tabular
 
+# Optuna search for the tabular baseline. 20 trials, ~13 minutes.
+tune-tabular:
+    {{UV}} run python -m graphguard.models.tune_tabular
+
 # Score the two dumb baselines on validation and record them in MLflow.
 baselines:
     {{UV}} run python -m graphguard.evaluation.run_baselines

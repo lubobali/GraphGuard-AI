@@ -4,7 +4,7 @@ Real-time money laundering detection with a graph neural network.
 
 **Owner:** Lubo Bali
 **Started:** Aug 18, 2026
-**Status:** Phases 0-2 complete. Phase 3 in progress. Last updated 2026-08-20.
+**Status:** Phases 0-3 complete. Phase 4 next. Last updated 2026-08-20.
 **Progress:** see the checkmarks below, `CLAUDE.md` for the phase table, and
 `docs/findings.md` for what the data turned out to actually contain.
 
@@ -230,7 +230,7 @@ separates a senior workflow from a Kaggle notebook.
 **Done means:** the dumb baselines are scored and their numbers are recorded in MLflow.
 Everything after this is measured against them.
 
-### Phase 3 — Tabular baseline, built to actually win 🔨 IN PROGRESS
+### Phase 3 — Tabular baseline, built to actually win ✅ DONE (2026-08-20)
 
 The baseline gets a real effort. A weak baseline makes the GNN result worthless.
 
@@ -239,16 +239,18 @@ The baseline gets a real effort. A weak baseline makes the GNN result worthless.
 - ✅ **Hand-built graph features** — sends so far, distinct counterparties so far, 24h
   velocity, in/out ratio, time since last send. All bounded by `as_of` and all excluding
   the current row. The baseline gets graph information too
-- **Pandera schemas** on every stage of the feature pipeline. A column that changes type
-  or a null rate that jumps should fail the run, not silently degrade the model
-- XGBoost, tuned with **Optuna** on validation only, every trial logged to MLflow
-- Leakage audit: feature importances reviewed, top features explained, anything
-  suspiciously strong traced back to its source
+- ✅ **Pandera schemas** on the raw and feature stages, asserted as tests as well as
+  applied at runtime
+- ✅ XGBoost tuned with **Optuna**, 20 trials on validation only, every trial logged to
+  MLflow. PR-AUC 0.24814 untuned to **0.28155** tuned
+- ✅ Leakage audit in `docs/leakage_audit.md`. Found three generator artifacts carrying
+  65% of the gain — 85% of laundering is ACH and Wire contains none (FINDING-006).
+  Retrained without them and quote the lower number
 
 **Done means:** beats both dumb baselines on precision@k, and the leakage audit is
 written down with each top feature justified. Test set still unopened.
 
-### Phase 4 — The graph model
+### Phase 4 — The graph model 🔨 NEXT
 
 - Build the transaction graph with **time-respecting edges** (leakage contract rule 2)
 - GraphSAGE, **inductive** — it must score accounts it never saw in training

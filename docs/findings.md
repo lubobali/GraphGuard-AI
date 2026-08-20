@@ -246,5 +246,7 @@ catches 121 of 168 rings. The artifacts inflate the result; they do not
 manufacture it. The remaining signal comes from the point-in-time history
 features.
 
-**The number this project quotes is 0.248**, and Phase 4's GNN is compared
-against the artifact-free model. Full audit in `docs/leakage_audit.md`.
+**The number this project quotes is 0.282** - the artifact-free model after 20
+Optuna trials on validation. Phase 4's GNN is compared against that, with the
+same search budget, or the comparison is rigged. Full audit in
+`docs/leakage_audit.md`.

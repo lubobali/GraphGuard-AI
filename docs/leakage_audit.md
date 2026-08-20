@@ -11,13 +11,21 @@ feature that looks too good gets investigated, not celebrated.
 
 ## Headline result
 
-| | With all features | Artifacts removed |
-|---|---|---|
-| PR-AUC | 0.35991 | **0.24814** |
-| precision@50 | 1.00000 | 1.00000 |
-| precision@100 | 0.98000 | 0.94000 |
-| precision@1000 | 0.37500 | 0.29400 |
-| rings caught @5000 | 146 / 168 | 121 / 168 |
+| | With all features | Artifacts removed | Artifacts removed, tuned |
+|---|---|---|---|
+| PR-AUC | 0.35991 | 0.24814 | **0.28155** |
+| precision@50 | 1.00000 | 1.00000 | 0.96000 |
+| precision@100 | 0.98000 | 0.94000 | 0.95000 |
+| precision@1000 | 0.37500 | 0.29400 | 0.33200 |
+| rings caught @5000 | 146 / 168 | 121 / 168 | 127 / 168 |
+
+**The number this project quotes is PR-AUC 0.28155**, from the tuned
+artifact-free model. Tuning was 20 Optuna trials on validation, every trial
+logged to MLflow, search space declared in `graphguard.models.search`.
+
+*Caveat, stated rather than buried:* the tuned run used 300 trees and the
+untuned one 400, so the two are not perfectly controlled. The tuned model won
+with fewer trees, which understates rather than inflates the gain.
 
 Both clear the dumb baselines by a wide margin (random 0.00103, by-amount
 0.00170). **The number that should be quoted is 0.248**, not 0.360.
