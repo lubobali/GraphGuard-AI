@@ -24,16 +24,26 @@ import torch.nn.functional as F
 from torch import nn
 from torch_geometric.nn import SAGEConv
 
-NODE_FEATURE_DIM = 4
+NODE_FEATURE_DIM = 6
 
 
 def node_features(
     edge_index: torch.Tensor, edge_attr: torch.Tensor, num_nodes: int
 ) -> torch.Tensor:
-    """Structural features per node: out/in degree and out/in value.
+    """Structural features per node, all computed from the snapshot itself.
 
-    Log-scaled, because degree here spans 0 to 169,756 (FINDING-002) and a raw
-    count would dominate every other signal.
+    Out/in degree, out/in value, and distinct counterparties in each direction.
+    Distinct counterparties matter separately from raw degree: paying the same
+    supplier fifty times is one relationship, while paying fifty accounts once
+    each is a fan-out. Raw degree cannot tell those apart, and the difference is
+    exactly the laundering shape.
+
+    Given to the GNN deliberately. XGBoost received the equivalent history as
+    explicit columns, so withholding it here would make the comparison a
+    contest of feature engineering rather than of model class.
+
+    Log-scaled, because degree spans 0 to 169,756 (FINDING-002) and a raw count
+    would dominate every other signal.
     """
     x = torch.zeros((num_nodes, NODE_FEATURE_DIM), dtype=torch.float32)
     if edge_index.numel() == 0:
@@ -46,6 +56,15 @@ def node_features(
     x[:, 1].scatter_add_(0, dst, torch.ones_like(amount))  # in-degree
     x[:, 2].scatter_add_(0, src, amount)  # value out
     x[:, 3].scatter_add_(0, dst, amount)  # value in
+
+    # Distinct counterparties. Pairs are deduplicated by encoding (src, dst) as
+    # a single integer, which is exact as long as the encoding cannot collide.
+    pair_id = src * num_nodes + dst
+    unique_pairs = torch.unique(pair_id)
+    u_src, u_dst = unique_pairs // num_nodes, unique_pairs % num_nodes
+    ones = torch.ones(u_src.shape[0], dtype=torch.float32)
+    x[:, 4].scatter_add_(0, u_src, ones)  # distinct accounts paid
+    x[:, 5].scatter_add_(0, u_dst, ones)  # distinct accounts paid by
 
     return torch.log1p(x)
 

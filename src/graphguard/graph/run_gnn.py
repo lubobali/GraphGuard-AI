@@ -20,7 +20,11 @@ from graphguard.evaluation.dataset import attach_pattern_ids, frozen_boundaries
 from graphguard.evaluation.evaluate import DEFAULT_K_VALUES, evaluate
 from graphguard.evaluation.split import truncate_tail
 from graphguard.features.basic import build_basic_features
+from graphguard.features.graph import build_account_history_features
+from graphguard.graph.scaling import EdgeScaler
 from graphguard.graph.train import make_model, run_epoch
+from graphguard.models.tabular import FEATURE_COLUMNS
+from graphguard.models.train_tabular import ARTIFACT_FEATURES
 from graphguard.tracking import log_run, start_tracking
 
 
@@ -33,7 +37,69 @@ def _days_between(start: dt.datetime, end: dt.datetime) -> list[dt.date]:
     return out
 
 
-def main() -> int:
+def _parity_features(train_targets, val_targets, train_end, val_end):
+    """Give the GNN exactly the artifact-free columns the tabular model got.
+
+    Any remaining gap is then attributable to model class rather than to who
+    received better feature engineering.
+    """
+    edge_columns = tuple(
+        c for c in FEATURE_COLUMNS if c not in ARTIFACT_FEATURES and not c.endswith("_code")
+    )
+    train_targets = build_account_history_features(train_targets, as_of=train_end)
+    val_targets = build_account_history_features(val_targets, as_of=val_end)
+
+    # A neural net needs these scaled; XGBoost did not. Statistics from the
+    # training window only, or the validation distribution leaks into the
+    # transform.
+    train_df = train_targets.collect()
+    scaler = EdgeScaler.fit(train_df, edge_columns)
+    return (
+        edge_columns,
+        scaler.transform(train_df, edge_columns).lazy(),
+        scaler.transform(val_targets.collect(), edge_columns).lazy(),
+    )
+
+
+def _report(result: dict, parity: bool) -> None:
+    label = "graphsage + parity features" if parity else "graphsage"
+    print(f"\n--- {label} on validation ---")
+    print(f"  PR-AUC {result['pr_auc']:.5f}   base rate {result['base_rate']:.5%}")
+    for k in DEFAULT_K_VALUES:
+        pat = result["pattern"][k]
+        print(
+            f"  k={k:<6} precision {result['precision_at_k'][k]:8.5f}"
+            f"  lift {result['lift_at_k'][k]:7.2f}x"
+            f"   rings {pat['n_caught']:>3}/{pat['n_patterns']}"
+        )
+
+
+def _log(result: dict, args, edge_columns: tuple[str, ...]) -> None:
+    _, experiment_id = start_tracking()
+    log_run(
+        experiment_id,
+        params={
+            "model": "graphsage_parity" if args.parity_features else "graphsage",
+            "split": "validation",
+            "kind": "gnn",
+            "seed": str(SEED),
+            "epochs": str(args.epochs),
+            "hidden": str(args.hidden),
+            "lr": str(args.lr),
+            "dropout": str(args.dropout),
+            "edge_features": str(len(edge_columns)),
+            "parity_features": str(args.parity_features),
+        },
+        metrics={
+            "pr_auc": result["pr_auc"],
+            **{f"precision_at_{k}": v for k, v in result["precision_at_k"].items()},
+            **{f"pattern_recall_at_{k}": p["recall"] for k, p in result["pattern"].items()},
+        },
+        tags={"phase": "4"},
+    )
+
+
+def _parse_args():
     ap = argparse.ArgumentParser()
     ap.add_argument("--epochs", type=int, default=3)
     ap.add_argument("--hidden", type=int, default=64)
@@ -42,7 +108,17 @@ def main() -> int:
     ap.add_argument("--batch-size", type=int, default=8192)
     ap.add_argument("--max-rows-per-day", type=int, default=200_000)
     ap.add_argument("--smoke", action="store_true", help="one day, tiny, just prove it runs")
-    args = ap.parse_args()
+    ap.add_argument(
+        "--parity-features",
+        action="store_true",
+        help="give the GNN exactly the columns the tabular baseline received, so "
+        "the comparison isolates what graph structure adds",
+    )
+    return ap.parse_args()
+
+
+def main() -> int:
+    args = _parse_args()
 
     t0 = time.time()
     train_end, val_end = frozen_boundaries()
@@ -86,7 +162,21 @@ def main() -> int:
     pos_weight = (n - pos) / pos
     print(f"train rows {n:,}  positives {pos:,}  pos_weight {pos_weight:.0f}")
 
-    model = make_model(hidden=args.hidden, dropout=args.dropout, seed=SEED)
+    # Edge features. With --parity-features the GNN receives exactly the
+    # artifact-free columns XGBoost received, so any remaining gap is
+    # attributable to model class rather than to feature engineering.
+    if args.parity_features:
+        edge_columns, train_targets, val_targets = _parity_features(
+            train_targets, val_targets, train_end, val_end
+        )
+    else:
+        edge_columns = ("log_amount", "hour", "is_same_bank", "amount_ratio")
+
+    print(f"edge features ({len(edge_columns)}): {', '.join(edge_columns)}")
+
+    model = make_model(
+        hidden=args.hidden, dropout=args.dropout, seed=SEED, edge_dim=len(edge_columns)
+    )
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     for epoch in range(args.epochs):
@@ -101,6 +191,7 @@ def main() -> int:
             pos_weight=pos_weight,
             max_rows_per_day=args.max_rows_per_day,
             seed=SEED,
+            edge_columns=edge_columns,
         )
         print(
             f"epoch {epoch + 1}/{args.epochs}  loss {loss:.4f}  ({time.time() - t:.0f}s)",
@@ -109,7 +200,14 @@ def main() -> int:
 
     # Validation: every row scored, nothing subsampled.
     t = time.time()
-    _, scores, labels = run_epoch(model, frame, val_targets, val_days, batch_size=args.batch_size)
+    _, scores, labels = run_epoch(
+        model,
+        frame,
+        val_targets,
+        val_days,
+        batch_size=args.batch_size,
+        edge_columns=edge_columns,
+    )
     print(f"scored {len(scores):,} validation rows ({time.time() - t:.0f}s)", flush=True)
 
     val_rows = val_targets.sort("timestamp").collect()
@@ -138,26 +236,7 @@ def main() -> int:
         )
 
     if not args.smoke:
-        client, experiment_id = start_tracking()
-        log_run(
-            experiment_id,
-            params={
-                "model": "graphsage",
-                "split": "validation",
-                "kind": "gnn",
-                "seed": str(SEED),
-                "epochs": str(args.epochs),
-                "hidden": str(args.hidden),
-                "lr": str(args.lr),
-                "dropout": str(args.dropout),
-            },
-            metrics={
-                "pr_auc": result["pr_auc"],
-                **{f"precision_at_{k}": v for k, v in result["precision_at_k"].items()},
-                **{f"pattern_recall_at_{k}": p["recall"] for k, p in result["pattern"].items()},
-            },
-            tags={"phase": "4"},
-        )
+        _log(result, args, edge_columns)
 
     print(f"\ntotal {time.time() - t0:.0f}s")
     return 0

@@ -30,6 +30,10 @@ from torch_geometric.loader import LinkNeighborLoader
 from graphguard.graph.build import build_snapshot
 from graphguard.graph.model import NODE_FEATURE_DIM, EdgeScorer, node_features
 
+# Default edge features. The runner can pass a wider set -- see run_gnn, which
+# hands the GNN exactly the columns the tabular baseline received, so that the
+# comparison isolates what graph structure adds rather than measuring who got
+# better feature engineering.
 EDGE_FEATURE_COLUMNS = ("log_amount", "hour", "is_same_bank", "amount_ratio")
 
 
@@ -39,22 +43,28 @@ def _day_bounds(day: dt.date) -> tuple[dt.datetime, dt.datetime]:
 
 
 def _pairs_and_features(
-    day_df: pl.DataFrame, node_index: dict[str, int]
+    day_df: pl.DataFrame, node_index: dict[str, int], edge_columns: tuple[str, ...]
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     src = torch.tensor([node_index[a] for a in day_df["from_account"].to_list()], dtype=torch.long)
     dst = torch.tensor([node_index[a] for a in day_df["to_account"].to_list()], dtype=torch.long)
     feats = torch.tensor(
-        day_df.select(EDGE_FEATURE_COLUMNS).cast(pl.Float32).to_numpy(), dtype=torch.float32
+        day_df.select(edge_columns).fill_null(0).cast(pl.Float32).to_numpy(),
+        dtype=torch.float32,
     )
     labels = torch.tensor(day_df["is_laundering"].to_numpy(), dtype=torch.float32)
     return torch.stack([src, dst]), feats, labels
 
 
 def _loader(
-    snapshot, day_df: pl.DataFrame, batch_size: int, num_neighbors: list[int], shuffle: bool
+    snapshot,
+    day_df: pl.DataFrame,
+    batch_size: int,
+    num_neighbors: list[int],
+    shuffle: bool,
+    edge_columns: tuple[str, ...],
 ):
     node_index = {a: i for i, a in enumerate(snapshot.node_ids)}
-    pairs, feats, labels = _pairs_and_features(day_df, node_index)
+    pairs, feats, labels = _pairs_and_features(day_df, node_index, edge_columns)
 
     x = node_features(snapshot.edge_index, snapshot.edge_attr, snapshot.num_nodes)
     data = Data(x=x, edge_index=snapshot.edge_index)
@@ -85,6 +95,7 @@ def run_epoch(
     pos_weight: float = 1.0,
     max_rows_per_day: int | None = None,
     seed: int = 42,
+    edge_columns: tuple[str, ...] = EDGE_FEATURE_COLUMNS,
 ) -> tuple[float, np.ndarray, np.ndarray]:
     """One pass over the given days. Trains if `optimizer` is given.
 
@@ -134,7 +145,12 @@ def run_epoch(
         snapshot = build_snapshot(history, as_of=start, extra_accounts=accounts)
 
         loader, feats, labels = _loader(
-            snapshot, day_df, batch_size, list(num_neighbors), shuffle=training
+            snapshot,
+            day_df,
+            batch_size,
+            list(num_neighbors),
+            shuffle=training,
+            edge_columns=edge_columns,
         )
 
         day_scores = np.zeros(day_df.height, dtype=np.float32)
@@ -167,11 +183,11 @@ def run_epoch(
     )
 
 
-def make_model(hidden: int, dropout: float, seed: int) -> EdgeScorer:
+def make_model(hidden: int, dropout: float, seed: int, edge_dim: int | None = None) -> EdgeScorer:
     torch.manual_seed(seed)
     return EdgeScorer(
         in_channels=NODE_FEATURE_DIM,
         hidden=hidden,
-        edge_dim=len(EDGE_FEATURE_COLUMNS),
+        edge_dim=edge_dim if edge_dim is not None else len(EDGE_FEATURE_COLUMNS),
         dropout=dropout,
     )

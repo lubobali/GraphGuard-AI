@@ -105,3 +105,56 @@ def test_only_target_rows_are_scored_even_mid_day():
     _, scores, labels = run_epoch(make_model(8, 0.0, 1), history, targets, DAYS, batch_size=8)
     assert len(scores) == n_targets
     assert len(labels) == n_targets
+
+
+@pytest.mark.unit
+def test_scaler_statistics_come_from_training_data_only():
+    """Fitting the scaler on validation would leak its distribution.
+
+    The statistics are over log1p values, which is what the scaler documents,
+    so the check is that different training data gives different statistics --
+    not a hand-computed constant.
+    """
+    import math
+
+    from graphguard.graph.scaling import EdgeScaler
+
+    train = pl.DataFrame({"a": [1.0, 2.0, 3.0]})
+    scaler = EdgeScaler.fit(train, ("a",))
+
+    expected = sum(math.log1p(v) for v in (1.0, 2.0, 3.0)) / 3
+    assert scaler.mean["a"] == pytest.approx(expected)
+
+    other = EdgeScaler.fit(pl.DataFrame({"a": [100.0, 200.0, 300.0]}), ("a",))
+    assert other.mean["a"] != pytest.approx(scaler.mean["a"])
+
+
+@pytest.mark.unit
+def test_scaler_makes_huge_values_small():
+    from graphguard.graph.scaling import EdgeScaler
+
+    train = pl.DataFrame({"a": [0.0, 1e9, 2e9]})
+    scaler = EdgeScaler.fit(train, ("a",))
+    out = scaler.transform(pl.DataFrame({"a": [2e9]}), ("a",))
+    assert abs(out["a"][0]) < 10
+
+
+@pytest.mark.unit
+def test_scaler_survives_a_constant_column():
+    """std of zero must not produce inf or nan."""
+    from graphguard.graph.scaling import EdgeScaler
+
+    train = pl.DataFrame({"a": [5.0, 5.0, 5.0]})
+    scaler = EdgeScaler.fit(train, ("a",))
+    out = scaler.transform(pl.DataFrame({"a": [5.0, 7.0]}), ("a",))
+    assert out["a"].is_finite().all()
+
+
+@pytest.mark.unit
+def test_scaler_handles_nulls():
+    from graphguard.graph.scaling import EdgeScaler
+
+    train = pl.DataFrame({"a": [1.0, None, 3.0]})
+    scaler = EdgeScaler.fit(train, ("a",))
+    out = scaler.transform(pl.DataFrame({"a": [None]}), ("a",))
+    assert out["a"].is_finite().all()

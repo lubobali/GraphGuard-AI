@@ -78,3 +78,31 @@ def test_model_is_deterministic_for_a_fixed_seed():
     pairs = torch.tensor([[0, 1]])
     ef = torch.zeros(1, 2)
     assert torch.allclose(a(x, ei, pairs, ef), b(x, ei, pairs, ef))
+
+
+@pytest.mark.unit
+def test_distinct_counterparties_differ_from_raw_degree():
+    """Two payments to the same account is one counterparty, not two."""
+    # node 0 pays node 1 twice; node 2 pays nodes 1 and 3 once each
+    edge_index = torch.tensor([[0, 0, 2, 2], [1, 1, 1, 3]])
+    edge_attr = torch.ones((4, 1))
+    f = node_features(edge_index, edge_attr, num_nodes=4)
+    out_deg, distinct_out = f[:, 0], f[:, 4]
+    assert out_deg[0] == out_deg[2]  # both sent twice
+    assert distinct_out[0] < distinct_out[2]  # but 0 reached fewer accounts
+
+
+@pytest.mark.unit
+def test_distinct_in_counts_unique_payers():
+    edge_index = torch.tensor([[0, 0, 1], [2, 2, 2]])
+    edge_attr = torch.ones((3, 1))
+    f = node_features(edge_index, edge_attr, num_nodes=3)
+    assert f[2, 5] > 0  # node 2 received from two distinct payers
+
+
+@pytest.mark.unit
+def test_feature_width_matches_the_declared_dim():
+    from graphguard.graph.model import NODE_FEATURE_DIM
+
+    f = node_features(torch.tensor([[0], [1]]), torch.ones((1, 1)), num_nodes=2)
+    assert f.shape[1] == NODE_FEATURE_DIM
