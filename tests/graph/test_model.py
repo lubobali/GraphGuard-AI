@@ -106,3 +106,21 @@ def test_feature_width_matches_the_declared_dim():
 
     f = node_features(torch.tensor([[0], [1]]), torch.ones((1, 1)), num_nodes=2)
     assert f.shape[1] == NODE_FEATURE_DIM
+
+
+@pytest.mark.unit
+def test_disabling_the_graph_zeroes_the_node_embeddings():
+    """The ablation must actually remove the graph, not just relabel it."""
+    model = EdgeScorer(in_channels=6, hidden=8, edge_dim=2, use_graph=False).eval()
+    x = torch.randn(4, 6)
+    edge_index = torch.tensor([[0, 1], [1, 2]])
+    assert model.encode(x, edge_index).abs().sum() == 0
+
+
+@pytest.mark.unit
+def test_disabled_graph_still_produces_scores():
+    model = EdgeScorer(in_channels=6, hidden=8, edge_dim=2, use_graph=False).eval()
+    out = model(
+        torch.randn(4, 6), torch.tensor([[0, 1], [1, 2]]), torch.tensor([[0, 1]]), torch.randn(1, 2)
+    )
+    assert out.shape == (1,) and torch.isfinite(out).all()

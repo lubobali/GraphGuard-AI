@@ -72,8 +72,20 @@ def node_features(
 class EdgeScorer(nn.Module):
     """Two SAGE layers, then an MLP over (payer, payee, transaction)."""
 
-    def __init__(self, in_channels: int, hidden: int, edge_dim: int, dropout: float = 0.2):
+    def __init__(
+        self,
+        in_channels: int,
+        hidden: int,
+        edge_dim: int,
+        dropout: float = 0.2,
+        use_graph: bool = True,
+    ):
         super().__init__()
+        # use_graph=False zeroes the node embeddings, leaving an MLP over the
+        # edge features alone. That is the ablation that separates "the graph
+        # is not helping" from "the neural training is broken" -- without it,
+        # a bad number is unattributable.
+        self.use_graph = use_graph
         self.conv1 = SAGEConv(in_channels, hidden)
         self.conv2 = SAGEConv(hidden, hidden)
         self.dropout = dropout
@@ -86,6 +98,8 @@ class EdgeScorer(nn.Module):
         )
 
     def encode(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        if not self.use_graph:
+            return torch.zeros((x.shape[0], self.conv2.out_channels), device=x.device)
         h = F.relu(self.conv1(x, edge_index))
         h = F.dropout(h, p=self.dropout, training=self.training)
         return self.conv2(h, edge_index)

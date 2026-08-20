@@ -109,6 +109,11 @@ def _parse_args():
     ap.add_argument("--max-rows-per-day", type=int, default=200_000)
     ap.add_argument("--smoke", action="store_true", help="one day, tiny, just prove it runs")
     ap.add_argument(
+        "--no-graph",
+        action="store_true",
+        help="ablation: zero the node embeddings, leaving an MLP over edge features",
+    )
+    ap.add_argument(
         "--parity-features",
         action="store_true",
         help="give the GNN exactly the columns the tabular baseline received, so "
@@ -175,7 +180,11 @@ def main() -> int:
     print(f"edge features ({len(edge_columns)}): {', '.join(edge_columns)}")
 
     model = make_model(
-        hidden=args.hidden, dropout=args.dropout, seed=SEED, edge_dim=len(edge_columns)
+        hidden=args.hidden,
+        dropout=args.dropout,
+        seed=SEED,
+        edge_dim=len(edge_columns),
+        use_graph=not args.no_graph,
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 

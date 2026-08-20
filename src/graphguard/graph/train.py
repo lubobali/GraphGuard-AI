@@ -183,11 +183,18 @@ def run_epoch(
     )
 
 
-def make_model(hidden: int, dropout: float, seed: int, edge_dim: int | None = None) -> EdgeScorer:
+def make_model(
+    hidden: int,
+    dropout: float,
+    seed: int,
+    edge_dim: int | None = None,
+    use_graph: bool = True,
+) -> EdgeScorer:
     torch.manual_seed(seed)
     return EdgeScorer(
         in_channels=NODE_FEATURE_DIM,
         hidden=hidden,
         edge_dim=edge_dim if edge_dim is not None else len(EDGE_FEATURE_COLUMNS),
         dropout=dropout,
+        use_graph=use_graph,
     )
