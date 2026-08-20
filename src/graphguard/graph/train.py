@@ -75,7 +75,8 @@ def _loader(
 
 def run_epoch(
     model: EdgeScorer,
-    frame: pl.LazyFrame,
+    history: pl.LazyFrame,
+    targets: pl.LazyFrame,
     days: list[dt.date],
     *,
     optimizer=None,
@@ -87,8 +88,18 @@ def run_epoch(
 ) -> tuple[float, np.ndarray, np.ndarray]:
     """One pass over the given days. Trains if `optimizer` is given.
 
-    Returns (mean loss, scores, labels) with scores aligned to the input rows
-    of those days, in day then original order.
+    `history` is what the graph is built from -- the full record, including
+    earlier splits, because a validation row's past legitimately includes the
+    training window. `targets` is what gets scored, and only that.
+
+    Keeping them separate is not tidiness. A split boundary falls in the middle
+    of a day here, so walking whole days over one frame would score training
+    rows as if they were validation, and the length mismatch would be papered
+    over by truncation rather than raised. Scores and labels would then be
+    misaligned and every metric would be fiction.
+
+    Returns (mean loss, scores, labels) aligned to `targets` in day then
+    timestamp order.
     """
     training = optimizer is not None
     model.train(training)
@@ -101,7 +112,7 @@ def run_epoch(
     for day in days:
         start, end = _day_bounds(day)
         day_df = (
-            frame.filter((pl.col("timestamp") >= start) & (pl.col("timestamp") < end))
+            targets.filter((pl.col("timestamp") >= start) & (pl.col("timestamp") < end))
             .sort("timestamp")
             .collect()
         )
@@ -120,7 +131,7 @@ def run_epoch(
         accounts = list(
             dict.fromkeys(day_df["from_account"].to_list() + day_df["to_account"].to_list())
         )
-        snapshot = build_snapshot(frame, as_of=start, extra_accounts=accounts)
+        snapshot = build_snapshot(history, as_of=start, extra_accounts=accounts)
 
         loader, feats, labels = _loader(
             snapshot, day_df, batch_size, list(num_neighbors), shuffle=training
