@@ -170,3 +170,45 @@ hand-inspected examples were EUR 10,476 and USD 15,471, indistinguishable from
 ordinary business transfers. A size-based ranking has nothing to grip.
 
 **The floor every later model must clear:** PR-AUC 0.0017, and any ring at all.
+
+---
+
+## FINDING-005 — Two features look too good, and both are probably artifacts
+
+*Found: 2026-08-20, Phase 3. Acts on: Phase 3 leakage audit, Phase 8 write-up.*
+
+Median feature values by class over the training window (medians, not means -
+means here are dominated by the hub accounts of FINDING-002):
+
+| Feature | Normal | Laundering |
+|---|---|---|
+| distinct counterparties so far | 3 | 2 |
+| sends in last 24h | 3 | 2 |
+| log amount | 7.33 | 8.85 |
+| **is_self_transfer** | **18.0%** | **0.2%** |
+| **is_cross_currency** | **1.3%** | **0.0%** |
+
+**Laundering accounts are less busy, not more.** By median they have fewer
+counterparties and fewer recent sends than ordinary accounts. The intuition
+that launderers are hyperactive is wrong in this data, and any feature built on
+that assumption will point the wrong way.
+
+**The two flagged features.** Contract rule 5 says a feature that looks too good
+gets investigated rather than celebrated. Neither is leakage - both are known at
+decision time - but both look like properties of the generator rather than of
+laundering:
+
+- `is_self_transfer`: 18% of ordinary traffic is an account paying itself
+  ("Reinvestment" rows). The generator appears never to emit a self-transfer as
+  a laundering hop. A model can therefore exclude 18% of the negative class for
+  free.
+- `is_cross_currency`: no laundering row converts currency *within* the row.
+  Laundering chains do hop currencies, but between hops, never inside one.
+
+**What must happen.** The Phase 3 leakage audit has to report feature importance
+with and without these two. If the model's performance collapses without them,
+the result is an artifact of the simulator and must be reported as such. Phase 8
+must say plainly that these two would not exist in real bank data.
+
+**Reproduce:** group the training split by `is_laundering` and take medians of
+the columns from `graphguard.features.basic` and `graphguard.features.graph`.

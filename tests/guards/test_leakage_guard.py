@@ -72,3 +72,23 @@ def test_allowlisted_file_is_skipped(monkeypatch):
     monkeypatch.setitem(leakage_guard.ALLOWLIST, "src/graphguard/features/x.py", "reason")
     source = "def build_x(df):\n    return df\n"
     assert check_source("src/graphguard/features/x.py", source) == []
+
+
+@pytest.mark.unit
+def test_allowlisting_one_function_leaves_the_rest_of_the_file_guarded(monkeypatch):
+    """Per-function exemptions must not disarm the whole file."""
+    import leakage_guard
+
+    rel = "src/graphguard/features/x.py"
+    monkeypatch.setitem(leakage_guard.ALLOWLIST, f"{rel}::build_safe", "row-level only")
+
+    source = """
+def build_safe(df):
+    return df
+
+def build_unsafe(df):
+    return df.group_by("account").len()
+"""
+    problems = check_source(rel, source)
+    assert len(problems) == 1
+    assert "build_unsafe" in problems[0]

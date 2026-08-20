@@ -34,6 +34,11 @@ minversion = "8.0"
 testpaths = ["tests"]
 addopts = "--strict-markers --strict-config -ra"
 xfail_strict = true
+filterwarnings = [
+  # join_asof with `by` cannot verify sortedness; the frames are sorted
+  # explicitly immediately before the join. Informational, not a defect.
+  "ignore:Sortedness of columns cannot be checked:UserWarning",
+]
 markers = [
   # category — exactly one per test
   "unit: fast, no I/O, no network",

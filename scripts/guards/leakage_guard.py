@@ -40,8 +40,22 @@ FORBIDDEN_COLUMNS = (
     "label",
 )
 
-# path -> reason. Every entry is a deliberate, reviewed exception.
-ALLOWLIST: dict[str, str] = {}
+# Deliberate, reviewed exceptions. Two forms:
+#
+#   "path"                 -- skip the whole file. Use sparingly: every future
+#                             function added to that file escapes the guard too.
+#   "path::function_name"  -- skip one function. Preferred, because the rest of
+#                             the file stays guarded.
+#
+# Every entry needs a reason that says why the function cannot see the future.
+ALLOWLIST: dict[str, str] = {
+    "src/graphguard/features/basic.py::build_basic_features": (
+        "row-level only: every value is derived from the transaction being "
+        "scored, with no aggregation over history, so there is no future to "
+        "see. Verified by reading the function: no group_by, no cum_*, no "
+        "join, no window."
+    ),
+}
 
 
 def _has_cutoff(fn: ast.FunctionDef | ast.AsyncFunctionDef) -> bool:
@@ -60,7 +74,11 @@ def check_source(rel: str, source: str) -> list[str]:
 
     for node in ast.walk(tree):
         if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
-            if node.name.startswith(BUILDER_PREFIXES) and not _has_cutoff(node):
+            if (
+                node.name.startswith(BUILDER_PREFIXES)
+                and not _has_cutoff(node)
+                and f"{rel}::{node.name}" not in ALLOWLIST
+            ):
                 problems.append(
                     f"{rel}:{node.lineno}: {node.name}() builds features but takes no "
                     f"time cutoff (one of: {', '.join(sorted(CUTOFF_PARAMS))}). "
