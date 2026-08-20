@@ -9,6 +9,7 @@ dependencies = [
   "mlflow-skinny>=2.19",
   "scikit-learn>=1.6",
   "numpy>=2.0",
+  "pandera[polars]>=0.22",
 ]
 
 [project.optional-dependencies]
@@ -38,6 +39,10 @@ filterwarnings = [
   # join_asof with `by` cannot verify sortedness; the frames are sorted
   # explicitly immediately before the join. Informational, not a defect.
   "ignore:Sortedness of columns cannot be checked:UserWarning",
+  # pandera 0.22 calls pl.concat(how="horizontal"), deprecated in polars
+  # 1.42.1. Third-party; nothing to fix on our side. Remove this line when
+  # pandera updates, and let the suite tell us it is stale.
+  "ignore:the default behavior of `how='horizontal'` for `concat`:DeprecationWarning",
 ]
 markers = [
   # category — exactly one per test

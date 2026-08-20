@@ -73,24 +73,34 @@ def check_source(rel: str, source: str) -> list[str]:
     tree = ast.parse(source, filename=rel)
 
     for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+
+        if (
+            node.name.startswith(BUILDER_PREFIXES)
+            and not _has_cutoff(node)
+            and f"{rel}::{node.name}" not in ALLOWLIST
+        ):
+            problems.append(
+                f"{rel}:{node.lineno}: {node.name}() builds features but takes no "
+                f"time cutoff (one of: {', '.join(sorted(CUTOFF_PARAMS))}). "
+                f"Without it, the function can see the future."
+            )
+
+        # Label columns must not be read by feature *computation*. Scoped to
+        # function bodies on purpose: a schema declaring that `is_laundering`
+        # must be 0 or 1 is a data contract, not a feature reading its own
+        # answer. Anything inside a function is computation and is checked.
+        for inner in ast.walk(node):
             if (
-                node.name.startswith(BUILDER_PREFIXES)
-                and not _has_cutoff(node)
-                and f"{rel}::{node.name}" not in ALLOWLIST
+                isinstance(inner, ast.Constant)
+                and isinstance(inner.value, str)
+                and inner.value in FORBIDDEN_COLUMNS
             ):
                 problems.append(
-                    f"{rel}:{node.lineno}: {node.name}() builds features but takes no "
-                    f"time cutoff (one of: {', '.join(sorted(CUTOFF_PARAMS))}). "
-                    f"Without it, the function can see the future."
-                )
-        # Any literal mention of a label column inside feature code.
-        if isinstance(node, ast.Constant) and isinstance(node.value, str):
-            if node.value in FORBIDDEN_COLUMNS:
-                problems.append(
-                    f"{rel}:{node.lineno}: references forbidden column "
-                    f"{node.value!r}. Label columns are knowable only after the "
-                    f"fact and must not reach feature code."
+                    f"{rel}:{inner.lineno}: {node.name}() references forbidden "
+                    f"column {inner.value!r}. Label columns are knowable only "
+                    f"after the fact and must not reach feature code."
                 )
 
     return problems

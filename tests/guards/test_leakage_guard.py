@@ -92,3 +92,24 @@ def build_unsafe(df):
     problems = check_source(rel, source)
     assert len(problems) == 1
     assert "build_unsafe" in problems[0]
+
+
+@pytest.mark.unit
+def test_label_reference_inside_a_function_is_still_rejected():
+    """Scoping the check to function bodies must not let real leakage through."""
+    source = """
+def helper(df, as_of):
+    return df.select("is_laundering")
+"""
+    problems = check_source("src/graphguard/features/x.py", source)
+    assert len(problems) == 1
+    assert "forbidden column" in problems[0]
+
+
+@pytest.mark.unit
+def test_module_level_schema_declaration_is_not_a_violation():
+    """A contract saying the label must be 0 or 1 is not feature code."""
+    source = """
+SCHEMA = {"is_laundering": "int in {0,1}"}
+"""
+    assert check_source("src/graphguard/features/x.py", source) == []
