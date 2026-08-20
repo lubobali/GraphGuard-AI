@@ -4,7 +4,9 @@ Real-time money laundering detection with a graph neural network.
 
 **Owner:** Lubo Bali
 **Started:** Aug 18, 2026
-**Status:** Phase 0, not started
+**Status:** Phases 0-2 complete. Phase 3 in progress. Last updated 2026-08-20.
+**Progress:** see the checkmarks below, `CLAUDE.md` for the phase table, and
+`docs/findings.md` for what the data turned out to actually contain.
 
 ---
 
@@ -164,23 +166,26 @@ Budget: ~4GB RAM, ~25GB disk. Box currently has 19GB available and 98GB free.
 Each phase has a **done means** that can be checked. A phase is not finished because
 the code runs. It is finished when the gate passes.
 
-### Phase 0 — Ground
+### Phase 0 — Ground ✅ DONE (2026-08-19)
 
 Set up the box and get the data on it. No modeling.
 
-- Isolated project skeleton, own user, own compose file, memory caps
-- **k3s installed**, memory-capped, with the serving namespace created and nothing else
-  on the cluster
-- **AWS set up clean:** new S3 bucket, new IAM user scoped to that bucket only, keys in
-  the project's own env file. Verified it cannot see or touch job-streamer's resources
-- `kaggle` CLI, download HI-Small directly to the server
-- Load with Polars, confirm row count, column names, date range, fraud rate
-- **Full test environment stood up before any modelling code** — see "Testing and
-  quality environment" below. pytest strict mode, marker taxonomy, ruff with complexity
-  caps, prek hooks, Forgejo CI, xdist flags identical in both places
-- The three custom lint guards written and wired into prek, even though they have almost
-  nothing to guard yet. They exist so the rules cannot be broken later by accident
-- MLflow up, logging to local Postgres
+- ✅ Isolated project skeleton, own compose file, memory caps
+- ⏸️ **k3s** — DEFERRED to Phase 5. Not in the Phase 0 gate and not needed until serving.
+  Idle services cost RAM on a box that is already tight
+- ⏸️ **AWS** — DEFERRED to Phase 4. Not in the Phase 0 gate and not needed until there is
+  a trained model to store
+- ✅ `kaggle` CLI (project-local), HI-Small downloaded to the server — 487MB, 3 files
+- ✅ Loaded with Polars — 5,078,345 transactions, 515,080 accounts, Sep 1-18, 0.102%.
+  Found two columns both named `Account`; found the file runs 8 days past its
+  documented end (FINDING-001)
+- ✅ **Full test environment before any modelling code.** pytest strict mode, marker
+  taxonomy, ruff with complexity caps, prek hooks, Forgejo CI on its own isolated
+  runner, xdist flags defined once in the justfile and called by both
+- ✅ **The three lint guards**, wired into prek and CI. Each proven to block a real
+  commit, not just to run
+- ✅ MLflow up on its own Postgres — own compose project, network, volumes, ports
+  5010/5434 bound to localhost, both memory-capped
 
 - **Reproducibility from day one:** **uv** with a committed `uv.lock`, every seed fixed,
   every path in config not hardcoded, one command to set up from a clean clone. The same
@@ -193,42 +198,47 @@ with a single setup command.
 
 *Rough time: 2-3 sessions.*
 
-### Phase 1 — Understand the data before touching a model
+### Phase 1 — Understand the data before touching a model ✅ DONE (2026-08-19)
 
 The phase most people skip, and the reason their results are meaningless.
 
-- Graph statistics: accounts, transfers, degree distribution, connected components
-- Read the pattern files. Reconstruct one fan-out, one cycle, one scatter-gather **by
-  hand** and look at them
-- How long does a ring take, end to end? How many accounts? What amounts?
-- What fraction of laundering transactions are in a labeled pattern, and what fraction
-  are unlabeled singletons?
+- ✅ Graph statistics — median degree 6, p99 119, max 169,756. The biggest accounts are
+  hubs laundering at the base rate, not criminals (FINDING-002)
+- ✅ Pattern file parsed; a fan-out, a cycle and a scatter-gather reconstructed and read
+  by hand
+- ✅ Median ring: 6.5 transfers, 8 accounts, 3.1 days. Every hop an ordinary amount
+- ✅ 62% in a labelled ring, 38% not (FINDING-003). Pattern recall can only ever be
+  computed over the 62%, and the denominator is reported
 
 **Done means:** he can describe, without notes, what a laundering ring looks like in
 this data and why a row-level model cannot see it. If he cannot say that, the GNN
 result later is not defensible.
 
-### Phase 2 — The evaluation harness, before any model
+### Phase 2 — The evaluation harness, before any model ✅ DONE (2026-08-19)
 
 Build the scoreboard before there is anything to score. This is the ordering that
 separates a senior workflow from a Kaggle notebook.
 
-- Temporal split, computed once, **written to disk and frozen**
-- precision@k, PR-AUC, pattern-level recall
-- Cost function: investigator hours against laundering value missed
-- Two dumb baselines to beat: **random ranking**, and **rank by amount**
-- A single `evaluate(predictions)` entry point every model must go through
+- ✅ Temporal split frozen to `data/splits/frozen_split.json`, checksum guarded on every
+  commit. Verified deterministic and verified the guard fails on a tampered file
+- ✅ precision@k, PR-AUC, pattern recall reported two ways (strict and hit-rate)
+- ✅ Cost function: investigator hours against laundering value missed
+- ✅ Both scored on validation. Random PR-AUC 0.00103 (= base rate, which is the harness
+  sanity check), by-amount 0.00170. Neither caught any of the 168 rings (FINDING-004)
+- ✅ Single `evaluate()` entry point in `graphguard.evaluation.evaluate`
 
 **Done means:** the dumb baselines are scored and their numbers are recorded in MLflow.
 Everything after this is measured against them.
 
-### Phase 3 — Tabular baseline, built to actually win
+### Phase 3 — Tabular baseline, built to actually win 🔨 IN PROGRESS
 
 The baseline gets a real effort. A weak baseline makes the GNN result worthless.
 
-- Point-in-time features: amount, currency, payment format, hour, account age
-- **Hand-built graph features** — degree so far, in/out ratio, distinct counterparties,
-  velocity windows. The baseline gets graph information too. This is the fair fight
+- ✅ Point-in-time row features: amount, log amount, currency, cross-currency, payment
+  format, hour, weekday, self-transfer, same-bank
+- ✅ **Hand-built graph features** — sends so far, distinct counterparties so far, 24h
+  velocity, in/out ratio, time since last send. All bounded by `as_of` and all excluding
+  the current row. The baseline gets graph information too
 - **Pandera schemas** on every stage of the feature pipeline. A column that changes type
   or a null rate that jumps should fail the run, not silently degrade the model
 - XGBoost, tuned with **Optuna** on validation only, every trial logged to MLflow
