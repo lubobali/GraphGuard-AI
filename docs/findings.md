@@ -250,3 +250,40 @@ features.
 Optuna trials on validation. Phase 4's GNN is compared against that, with the
 same search budget, or the comparison is rigged. Full audit in
 `docs/leakage_audit.md`.
+
+---
+
+## FINDING-007 — The graph helps, but the tuned tree still wins by 6x
+
+*Found: 2026-08-20, Phase 4. Acts on: Phase 8 write-up.*
+
+| Model | PR-AUC | Rings @5000 |
+|---|---|---|
+| random | 0.00107 | 0 / 168 |
+| by amount | 0.00170 | 0 / 168 |
+| MLP, graph off | 0.01869 | 34 / 168 |
+| GraphSAGE | 0.04470 | 60 / 168 |
+| XGBoost | **0.28155** | **127 / 168** |
+
+Same features, same split, same `evaluate()`, same 20-trial Optuna budget.
+
+**The graph contributes measurably.** Within the search, 12 trials ran with
+message passing on and 8 with it off: best 0.06198 against 0.01869, and 60
+rings against 34. Structure is worth about 3.3x over the same features alone.
+
+**The tree still wins by roughly 6x**, consistent with the literature on
+gradient-boosted trees versus neural networks for tabular features.
+
+**The largest single effect was `pos_weight`.** Fixed at the exact class ratio
+of 1326 -- correct for XGBoost's `scale_pos_weight` -- gradient descent was
+destabilised and the GNN scored 0.0075. Optuna chose 6.34 and it improved 8x.
+The same number is right for one model class and catastrophic for the other.
+
+**Most likely place a better result hides:** day-granularity snapshots. A
+transaction is scored against a graph frozen at the start of its day and cannot
+see same-day neighbours, while the tree's features are exact to the second.
+Rings take a median of 3.1 days to complete, so much of the structure does not
+exist yet at scoring time. A continuous-time model would not have this
+handicap. Stated as a known limitation, not a disproven hypothesis.
+
+Full table and caveats in `docs/model_comparison.md`.

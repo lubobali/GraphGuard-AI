@@ -204,7 +204,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 1 | Understand the data before touching a model | **done** (2026-08-19) |
 | 2 | Evaluation harness + frozen split + dumb baselines | **done** (2026-08-19) |
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
-| 4 | The graph model (GraphSAGE, inductive) | next |
+| 4 | The graph model (GraphSAGE, inductive) | **comparison done** (2026-08-20) |
 | 5 | Serving — Feast, Ray Serve on k3s, p99 < 50ms | not started |
 | 6 | The stream — Redpanda, replayed in true time order | not started |
 | 7 | The interface — alert queue, the ring drawn, capacity slider | not started |
@@ -242,6 +242,17 @@ artifacts identified and excluded (FINDING-006). Test set still unopened.
 **Phase 4 must compare the GNN against the tuned artifact-free tabular model**,
 with the same Optuna trial budget. Comparing against the 0.360 figure, or
 against an untuned baseline, would rig it.
+
+**Phase 4 comparison — done 2026-08-20.** GraphSAGE reaches PR-AUC 0.04470 and
+60/168 rings against XGBoost's 0.28155 and 127/168, on the same features, split,
+entry point and 20-trial budget. The graph itself contributes 3.3x over the same
+model with message passing disabled (0.06198 vs 0.01869 across the search), so
+structure earns its place even though the tree wins overall. The dominant effect
+was `pos_weight`: the exact class ratio of 1326 is correct for a tree and
+destabilises gradient descent, and Optuna's 6.34 improved the GNN 8x. Full table
+and caveats in `docs/model_comparison.md`, recorded as FINDING-007.
+
+Still open in Phase 4: GNNExplainer, and S3/SageMaker which remain deferred.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models

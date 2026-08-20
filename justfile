@@ -90,6 +90,17 @@ train-tabular:
 tune-tabular:
     {{UV}} run python -m graphguard.models.tune_tabular
 
+# Train the GNN. --parity-features gives it exactly the columns the tabular
+# model got, so the comparison isolates what graph structure adds.
+train-gnn:
+    {{UV}} run python -m graphguard.graph.run_gnn --epochs 3 --parity-features \
+      --hidden 128 --dropout 0.30 --lr 0.005222 --pos-weight 6.338 \
+      --max-rows-per-day 120000
+
+# Optuna search for the GNN, same 20-trial budget the baseline received.
+tune-gnn:
+    {{UV}} run python -m graphguard.graph.tune_gnn
+
 # Score the two dumb baselines on validation and record them in MLflow.
 baselines:
     {{UV}} run python -m graphguard.evaluation.run_baselines

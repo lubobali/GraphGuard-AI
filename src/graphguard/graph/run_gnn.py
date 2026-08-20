@@ -107,6 +107,13 @@ def _parse_args():
     ap.add_argument("--lr", type=float, default=0.005)
     ap.add_argument("--batch-size", type=int, default=8192)
     ap.add_argument("--max-rows-per-day", type=int, default=200_000)
+    ap.add_argument(
+        "--pos-weight",
+        type=float,
+        default=None,
+        help="override the class ratio. The exact ratio (1326) destabilises "
+        "gradient descent; the Optuna search chose 6.34.",
+    )
     ap.add_argument("--smoke", action="store_true", help="one day, tiny, just prove it runs")
     ap.add_argument(
         "--no-graph",
@@ -164,7 +171,7 @@ def main() -> int:
         .collect()
     )
     n, pos = int(counts["n"][0]), int(counts["pos"][0])
-    pos_weight = (n - pos) / pos
+    pos_weight = args.pos_weight if args.pos_weight is not None else (n - pos) / pos
     print(f"train rows {n:,}  positives {pos:,}  pos_weight {pos_weight:.0f}")
 
     # Edge features. With --parity-features the GNN receives exactly the

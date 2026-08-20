@@ -250,15 +250,18 @@ The baseline gets a real effort. A weak baseline makes the GNN result worthless.
 **Done means:** beats both dumb baselines on precision@k, and the leakage audit is
 written down with each top feature justified. Test set still unopened.
 
-### Phase 4 — The graph model 🔨 NEXT
+### Phase 4 — The graph model 🔨 IN PROGRESS (comparison done 2026-08-20)
 
-- Build the transaction graph with **time-respecting edges** (leakage contract rule 2)
-- GraphSAGE, **inductive** — it must score accounts it never saw in training
-- Neighbor sampling so it fits in CPU memory
-- Handle the imbalance deliberately: focal loss or weighted sampling, decided and
-  justified, not defaulted
-- Same `evaluate()` entry point, same frozen split
-- Tuned with **Optuna**, same as the baseline, so neither model got a luckier search
+- ✅ Transaction graph as day snapshots with **time-respecting edges**. The frame is cut
+  by `as_of` before the node mapping is built, so no later edge reaches even the index
+- ✅ GraphSAGE, **inductive**. Accounts appearing for the first time get a node with zero
+  features rather than an error
+- ✅ Neighbour sampling via LinkNeighborLoader (needs pyg-lib, pinned in the lockfile)
+- ✅ Imbalance handled with `pos_weight`, **searched rather than fixed**. The exact class
+  ratio of 1326 is right for a tree and catastrophic for gradient descent; Optuna chose
+  6.34 and the GNN improved 8x. Largest single effect in the phase
+- ✅ Same `evaluate()` entry point, same frozen split
+- ✅ Tuned with **Optuna**, 20 trials, the same budget the baseline received
 - **GNNExplainer** on flagged accounts: which neighbours and which hops drove the score.
   This is what makes Phase 7's "draw the ring" screen possible, and in a regulated
   domain a model that cannot explain itself cannot be deployed
