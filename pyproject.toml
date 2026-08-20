@@ -14,6 +14,7 @@ dependencies = [
   "optuna>=4.0",
   "torch>=2.5",
   "torch-geometric>=2.6",
+  "pyg-lib>=0.8",
 ]
 
 [project.optional-dependencies]
@@ -25,10 +26,19 @@ dev = [
 
 [tool.uv.sources]
 torch = { index = "pytorch-cpu" }
+# Compiled neighbour-sampling kernels. LinkNeighborLoader refuses to run
+# without them, and they are only published on PyG's own index.
+pyg-lib = { index = "pyg" }
 
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[[tool.uv.index]]
+name = "pyg"
+url = "https://data.pyg.org/whl/torch-2.13.0+cpu.html"
+format = "flat"
 explicit = true
 
 [build-system]

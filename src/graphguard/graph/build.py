@@ -51,11 +51,21 @@ def snapshot_index(transactions: pl.LazyFrame, origin: dt.datetime | None = None
     )
 
 
-def build_snapshot(transactions: pl.LazyFrame, as_of: dt.datetime) -> Snapshot:
+def build_snapshot(
+    transactions: pl.LazyFrame,
+    as_of: dt.datetime,
+    extra_accounts: list[str] | None = None,
+) -> Snapshot:
     """Graph of everything strictly before `as_of`.
 
     `as_of` is not optional and is not a filter applied afterwards: the frame is
     cut first, so no later edge can reach the node mapping either.
+
+    `extra_accounts` adds nodes without adding edges. The transactions being
+    scored involve accounts that may never have transacted before -- a new
+    customer -- and they still need a node index. They get zero features, which
+    is honest: nothing is known about them yet. This is the inductive path, and
+    it is exercised in production every day.
     """
     past = (
         transactions.filter(pl.col("timestamp") < as_of)
@@ -64,9 +74,11 @@ def build_snapshot(transactions: pl.LazyFrame, as_of: dt.datetime) -> Snapshot:
         .collect()
     )
 
+    extra = list(dict.fromkeys(extra_accounts or []))
+
     if past.height == 0:
         empty = torch.empty((2, 0), dtype=torch.long)
-        return Snapshot([], empty, torch.empty((0, 1)), torch.empty(0))
+        return Snapshot(extra, empty, torch.empty((0, 1)), torch.empty(0))
 
     # Node ids in first-appearance order, so the mapping is deterministic.
     accounts = pl.concat(
@@ -75,7 +87,7 @@ def build_snapshot(transactions: pl.LazyFrame, as_of: dt.datetime) -> Snapshot:
             past.select(pl.col("to_account").alias("a")),
         ]
     )["a"]
-    node_ids = list(dict.fromkeys(accounts.to_list()))
+    node_ids = list(dict.fromkeys([*accounts.to_list(), *extra]))
     index = {account: i for i, account in enumerate(node_ids)}
 
     src = torch.tensor([index[a] for a in past["from_account"].to_list()], dtype=torch.long)

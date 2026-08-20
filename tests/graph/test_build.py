@@ -86,3 +86,24 @@ def test_node_ids_are_stable_for_the_same_cutoff():
     first = build_snapshot(FRAME, as_of=T0 + dt.timedelta(days=3))
     second = build_snapshot(FRAME, as_of=T0 + dt.timedelta(days=3))
     assert first.node_ids == second.node_ids
+
+
+@pytest.mark.unit
+def test_extra_accounts_become_nodes_without_edges():
+    """A brand new account being scored still needs a node index."""
+    g = build_snapshot(FRAME, as_of=T0 + dt.timedelta(days=2), extra_accounts=["Z"])
+    assert "Z" in g.node_ids
+    assert g.num_edges == 2  # unchanged
+
+
+@pytest.mark.unit
+def test_extra_accounts_already_present_are_not_duplicated():
+    g = build_snapshot(FRAME, as_of=T0 + dt.timedelta(days=2), extra_accounts=["A"])
+    assert g.node_ids.count("A") == 1
+
+
+@pytest.mark.unit
+def test_extra_accounts_work_when_there_is_no_history_at_all():
+    g = build_snapshot(FRAME, as_of=T0, extra_accounts=["A", "B"])
+    assert g.num_nodes == 2
+    assert g.num_edges == 0
