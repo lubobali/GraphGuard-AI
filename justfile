@@ -81,6 +81,11 @@ data-download:
 freeze-split:
     {{UV}} run python -m graphguard.evaluation.freeze_split
 
+# Train the tabular baseline and score it on validation, with and without the
+# suspected generator artifacts.
+train-tabular:
+    {{UV}} run python -m graphguard.models.train_tabular
+
 # Score the two dumb baselines on validation and record them in MLflow.
 baselines:
     {{UV}} run python -m graphguard.evaluation.run_baselines

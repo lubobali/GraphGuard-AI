@@ -212,3 +212,39 @@ must say plainly that these two would not exist in real bank data.
 
 **Reproduce:** group the training split by `is_laundering` and take medians of
 the columns from `graphguard.features.basic` and `graphguard.features.graph`.
+
+---
+
+## FINDING-006 — 85% of laundering is ACH, and Wire contains none at all
+
+*Found: 2026-08-20, Phase 3. Acts on: Phase 4 comparison, Phase 8 write-up.*
+
+`payment_format` alone carries 45% of the tabular model's gain. The reason:
+
+| Format | Rows | Laundering | Share of all laundering |
+|---|---|---|---|
+| ACH | 599,689 (11.8%) | 3,828 | **84.7%** |
+| Reinvestment | 481,056 | **0** | 0% |
+| Wire | 171,855 | **0** | 0% |
+
+IBM's generator emits laundering hops almost exclusively as ACH and never as a
+wire transfer. Real laundering uses wires heavily; correspondent banking is the
+classic layering channel. The feature is learning the simulator, not the crime.
+
+**Measured impact.** Retraining without `payment_format`, `is_cross_currency`
+and `is_self_transfer`:
+
+| | With | Without |
+|---|---|---|
+| PR-AUC | 0.35991 | **0.24814** |
+| precision@1000 | 0.375 | 0.294 |
+| rings caught @5000 | 146/168 | 121/168 |
+
+**The model does not collapse.** It loses about 31% of PR-AUC, which is real
+and must be reported, but 0.248 is still 146x the by-amount baseline and still
+catches 121 of 168 rings. The artifacts inflate the result; they do not
+manufacture it. The remaining signal comes from the point-in-time history
+features.
+
+**The number this project quotes is 0.248**, and Phase 4's GNN is compared
+against the artifact-free model. Full audit in `docs/leakage_audit.md`.
