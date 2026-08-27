@@ -16,6 +16,7 @@ dependencies = [
   "torch-geometric>=2.6",
   "pyg-lib>=0.8",
   "redis>=5.2",
+  "ray[serve]>=2.40",
 ]
 
 [project.optional-dependencies]

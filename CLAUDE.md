@@ -145,6 +145,40 @@ at 768M it sat at 91% of its limit and would have been OOM-killed under load.
 
 ---
 
+## k3s
+
+Installed 2026-08-27 for Phase 5 serving. Single node, named `graphguard`.
+
+```
+k3s kubectl get nodes          # node status
+systemctl status k3s           # the service
+/usr/local/bin/k3s-uninstall.sh  # full rollback if ever needed
+```
+
+**Installed with `--disable traefik --disable servicelb --disable metrics-server`.**
+That is not tidiness: k3s's built-in load balancer binds host ports 80 and 443, and
+nginx is already serving lubot.ai, staging.lubot.ai and git.lubot.ai on those ports.
+Leaving servicelb enabled would have put k3s in a fight with production nginx.
+
+**It needed a box-wide kernel change.** `fs.inotify.max_user_instances` was at the
+default 128 with 134 instances already in use by ~118 Docker containers, so k3s could
+not allocate a watcher and failed with "too many open files". Raised to 1024 in
+`/etc/sysctl.d/99-graphguard-inotify.conf`. Additive only, no restarts required, and
+audited against LuBot beforehand: LuBot neither reads nor sets that sysctl, ships no
+conflicting sysctl.d file, and had no inotify errors in its logs. The `99-` prefix makes
+it load after the `10-*` platform defaults.
+
+**Verified not to have disturbed Docker.** All 18 named LuBot services present after
+install, 13 networks unchanged, Docker's 94 iptables rules intact, lubot.ai and
+git.lubot.ai still answering. iptables grew from 188 to 320 rules, all of it k3s's own
+`KUBE-*` chains.
+
+**Do not run `k3s-killall.sh` casually.** It rewrites the whole iptables table via
+`iptables-restore`, and Docker's rules live there. Stop the service and clear stale
+processes surgically instead.
+
+---
+
 ## How we work
 
 **One step at a time.** Do a step, stop, say what was done and what is next. Do not run
