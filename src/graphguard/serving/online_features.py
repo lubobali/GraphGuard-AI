@@ -29,6 +29,8 @@ ACCOUNT_FEATURES: tuple[str, ...] = (
     "sender_n_sent_before",
     "sender_amount_sent_before",
     "sender_distinct_out_before",
+    "sender_sent_last_24h",
+    "sender_seconds_since_last_send",
     "receiver_n_received_before",
     "receiver_amount_received_before",
     "receiver_distinct_in_before",
@@ -48,6 +50,11 @@ class AccountState:
     distinct_out: int
     distinct_in: int
     last_seen: dt.datetime | None
+    # The model uses both of these, so the store must carry them. Holding a
+    # feature at zero because serving forgot to store it is not staleness, it
+    # is a missing feature, and it looks exactly like staleness in a metric.
+    last_sent: dt.datetime | None = None
+    sent_last_24h: int = 0
     is_cold: bool = False
 
     @classmethod
@@ -62,6 +69,8 @@ class AccountState:
             distinct_out=0,
             distinct_in=0,
             last_seen=None,
+            last_sent=None,
+            sent_last_24h=0,
             is_cold=True,
         )
 
@@ -74,6 +83,8 @@ def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict
     """
     past = transactions.filter(pl.col("timestamp") < as_of)
 
+    window_start = as_of - dt.timedelta(hours=24)
+
     sent = (
         past.group_by("from_account")
         .agg(
@@ -81,6 +92,7 @@ def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict
             pl.col("amount_paid").sum().alias("amount_sent"),
             pl.col("to_account").n_unique().alias("distinct_out"),
             pl.col("timestamp").max().alias("last_sent"),
+            (pl.col("timestamp") >= window_start).sum().alias("sent_last_24h"),
         )
         .rename({"from_account": "account"})
     )
@@ -104,6 +116,7 @@ def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict
             pl.col("amount_received").fill_null(0.0),
             pl.col("distinct_out").fill_null(0),
             pl.col("distinct_in").fill_null(0),
+            pl.col("sent_last_24h").fill_null(0),
         )
         .with_columns(
             pl.max_horizontal("last_sent", "last_received").alias("last_seen"),
@@ -121,6 +134,8 @@ def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict
             distinct_out=int(row["distinct_out"]),
             distinct_in=int(row["distinct_in"]),
             last_seen=row["last_seen"],
+            last_sent=row["last_sent"],
+            sent_last_24h=int(row["sent_last_24h"]),
         )
         for row in joined.iter_rows(named=True)
     }
@@ -135,6 +150,7 @@ def to_model_row(
     amount_received: float,
     from_bank: str,
     to_bank: str,
+    payment_currency_code: float = 0.0,
 ) -> dict[str, float]:
     """Assemble one scoring row from two stored states plus the fresh transfer.
 
@@ -148,6 +164,14 @@ def to_model_row(
         "sender_n_sent_before": float(sender.n_sent),
         "sender_amount_sent_before": float(sender.amount_sent),
         "sender_distinct_out_before": float(sender.distinct_out),
+        "sender_sent_last_24h": float(sender.sent_last_24h),
+        # Null when the account has never sent. XGBoost treats NaN as missing
+        # and learns a direction for it, which is what training saw too.
+        "sender_seconds_since_last_send": (
+            (timestamp - sender.last_sent).total_seconds()
+            if sender.last_sent is not None
+            else float("nan")
+        ),
         "receiver_n_received_before": float(receiver.n_received),
         "receiver_amount_received_before": float(receiver.amount_received),
         "receiver_distinct_in_before": float(receiver.distinct_in),
@@ -159,4 +183,5 @@ def to_model_row(
         "log_amount": math.log1p(amount_paid),
         "amount_ratio": (amount_received / amount_paid) if amount_paid > 0 else 1.0,
         "is_same_bank": float(from_bank == to_bank),
+        "payment_currency_code": float(payment_currency_code),
     }

@@ -33,6 +33,7 @@ PARITY_COLUMNS = (
     "receiver_amount_received_before",
     "receiver_distinct_in_before",
     "in_out_ratio_before",
+    "sender_sent_last_24h",
 )
 
 

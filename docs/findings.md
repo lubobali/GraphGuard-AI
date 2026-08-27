@@ -287,3 +287,69 @@ exist yet at scoring time. A continuous-time model would not have this
 handicap. Stated as a known limitation, not a disproven hypothesis.
 
 Full table and caveats in `docs/model_comparison.md`.
+
+---
+
+## FINDING-008 — Cumulative-count features cannot survive a batch-refreshed store
+
+*Found: 2026-08-27, Phase 5. Acts on: Phase 5 design, Phase 6 stream.*
+
+The model was trained on exact point-in-time features and then scored on the
+same validation window using features read from a periodically refreshed online
+store, which is what production does:
+
+| Policy | PR-AUC | p@1000 | Rings @5000 | vs exact |
+|---|---|---|---|---|
+| exact (training path) | 0.28155 | 0.332 | 127/168 | — |
+| refresh every 6h | 0.04723 | 0.115 | 69/168 | **-83.2%** |
+| refresh every 24h | 0.04713 | 0.112 | 68/168 | -83.3% |
+
+**The tell was that 6h and 24h are nearly identical.** If the cost were
+proportional to staleness, four times the staleness would not produce the same
+number. That similarity is what prompted looking for a mechanism rather than
+accepting "staleness is expensive" as the finding.
+
+**The mechanism.** Every history feature here is a **cumulative count that grows
+without bound** -- transfers sent, amount sent, distinct counterparties. A stale
+count is *systematically too low*, never too high. The whole feature
+distribution shifts downward and the model is scoring inputs unlike its training
+distribution, which is a different failure from simply having slightly old
+numbers.
+
+Measured on the validation window against a snapshot at its start:
+
+| Feature | Mean value | Mean absolute error |
+|---|---|---|
+| sender_n_sent_before | 6,238 | 1,108 |
+| sender_amount_sent_before | — | 375,482,801 |
+| sender_sent_last_24h | 1,256 | 18.7 |
+
+The magnitudes come from the hubs in FINDING-002: the largest account makes
+168,672 transfers, so six hours of staleness is thousands of missing rows for
+it, while the median account with six transfers across 18 days is barely
+affected. A dataset with a heavy degree tail is exactly where batch refresh
+fails.
+
+**Two false starts on the way here, both recorded because both were nearly
+reported as results.** The first measurement zero-filled three features the
+serving path did not carry -- `sender_sent_last_24h`,
+`sender_seconds_since_last_send` and `payment_currency_code` -- and read as an
+87% staleness penalty that was actually a missing-feature penalty. The
+measurement now raises rather than zero-fills. The second was a diagnostic
+comparing *mean* feature values, which matched to within 1% while individual
+rows differed by thousands. Aggregate agreement is not row agreement.
+
+**What this changes.** Periodic batch refresh is the wrong design for these
+features. Two directions, to be decided in Phase 5:
+
+1. **Incremental counters.** The stream updates each account's counts as
+   transactions arrive, so the store is never behind. This is what Phase 6's
+   consumer is already positioned to do, and it makes the stream load-bearing
+   rather than a demo.
+2. **Bounded features.** Replace unbounded cumulative counts with windowed or
+   decayed ones, which are bounded and degrade gracefully when stale.
+
+Direction 1 preserves the measured 0.28155. Direction 2 would require retraining
+and re-evaluating, and its ceiling is unknown.
+
+**Reproduce:** `just measure-staleness`.

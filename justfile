@@ -101,6 +101,10 @@ train-gnn:
 tune-gnn:
     {{UV}} run python -m graphguard.graph.tune_gnn
 
+# What a periodically refreshed online store costs, measured not assumed.
+measure-staleness:
+    {{UV}} run python -m graphguard.serving.measure_staleness
+
 # Score the two dumb baselines on validation and record them in MLflow.
 baselines:
     {{UV}} run python -m graphguard.evaluation.run_baselines
