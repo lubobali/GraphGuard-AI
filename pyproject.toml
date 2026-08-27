@@ -12,14 +12,25 @@ dependencies = [
   "pandera[polars]>=0.22",
   "xgboost>=2.1",
   "optuna>=4.0",
-  "torch>=2.5",
-  "torch-geometric>=2.6",
-  "pyg-lib>=0.8",
   "redis>=5.2",
   "ray[serve]>=2.40",
+  # Ray Serve 2.58 imports jinja2 in its HAProxy manager without declaring it.
+  # Locally this was masked: torch requires jinja2, so it was always present.
+  # Moving torch to the gnn extra removed it from the base set and the
+  # container crash-looped on import. Declared explicitly rather than relying
+  # on another package happening to pull it.
+  "jinja2>=3.1",
 ]
 
 [project.optional-dependencies]
+# The GNN is the research arm, not the served model (PLAN.md R-1). Keeping
+# torch out of the base dependency set keeps roughly 1.2GB of it out of the
+# serving container, which ships only what it actually runs.
+gnn = [
+  "torch>=2.5",
+  "torch-geometric>=2.6",
+  "pyg-lib>=0.8",
+]
 dev = [
   "pytest>=8.3",
   "pytest-xdist>=3.6",

@@ -760,18 +760,15 @@ name = "graphguard"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "jinja2" },
     { name = "mlflow-skinny" },
     { name = "numpy" },
     { name = "optuna" },
     { name = "pandera", extra = ["polars"] },
     { name = "polars" },
-    { name = "pyg-lib" },
     { name = "ray", extra = ["serve"] },
     { name = "redis" },
     { name = "scikit-learn" },
-    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
-    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
-    { name = "torch-geometric" },
     { name = "xgboost" },
 ]
 
@@ -781,26 +778,33 @@ dev = [
     { name = "pytest-xdist" },
     { name = "ruff" },
 ]
+gnn = [
+    { name = "pyg-lib" },
+    { name = "torch", version = "2.13.0", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform == 'darwin'" },
+    { name = "torch", version = "2.13.0+cpu", source = { registry = "https://download.pytorch.org/whl/cpu" }, marker = "sys_platform != 'darwin'" },
+    { name = "torch-geometric" },
+]
 
 [package.metadata]
 requires-dist = [
+    { name = "jinja2", specifier = ">=3.1" },
     { name = "mlflow-skinny", specifier = ">=2.19" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "optuna", specifier = ">=4.0" },
     { name = "pandera", extras = ["polars"], specifier = ">=0.22" },
     { name = "polars", specifier = ">=1.17" },
-    { name = "pyg-lib", specifier = ">=0.8", index = "https://data.pyg.org/whl/torch-2.13.0+cpu.html" },
+    { name = "pyg-lib", marker = "extra == 'gnn'", specifier = ">=0.8", index = "https://data.pyg.org/whl/torch-2.13.0+cpu.html" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6" },
     { name = "ray", extras = ["serve"], specifier = ">=2.40" },
     { name = "redis", specifier = ">=5.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },
     { name = "scikit-learn", specifier = ">=1.6" },
-    { name = "torch", specifier = ">=2.5", index = "https://download.pytorch.org/whl/cpu" },
-    { name = "torch-geometric", specifier = ">=2.6" },
+    { name = "torch", marker = "extra == 'gnn'", specifier = ">=2.5", index = "https://download.pytorch.org/whl/cpu" },
+    { name = "torch-geometric", marker = "extra == 'gnn'", specifier = ">=2.6" },
     { name = "xgboost", specifier = ">=2.1" },
 ]
-provides-extras = ["dev"]
+provides-extras = ["gnn", "dev"]
 
 [[package]]
 name = "greenlet"

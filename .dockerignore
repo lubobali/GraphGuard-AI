@@ -1,0 +1,15 @@
+# Never send these to the build daemon. The venv alone is 2.1GB and the raw
+# data 487MB; the image builds its own environment from the lockfile.
+.venv/
+.tools/
+data/
+mlruns/
+.git/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+*.py[cod]
+.secrets/
+runner/
+tests/
+docs/

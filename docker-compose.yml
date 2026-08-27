@@ -92,7 +92,15 @@ services:
       --save ""
       --appendonly no
     ports:
+      # localhost for host tooling, and the k3s pod bridge so pods can reach it.
+      # 10.42.0.1 is cni0, a private bridge: pods on 10.42.0.0/24 can reach it,
+      # the internet cannot. That matters here because ufw is inactive on this
+      # box, so a 0.0.0.0 bind would be publicly exposed.
+      #
+      # Coupling worth knowing: cni0 only exists while k3s is running, so this
+      # container will fail to start if k3s is down.
       - "127.0.0.1:6380:6379"
+      - "10.42.0.1:6380:6379"
     networks:
       - graphguard
     mem_limit: 256m
