@@ -55,6 +55,11 @@ class AccountState:
     # is a missing feature, and it looks exactly like staleness in a metric.
     last_sent: dt.datetime | None = None
     sent_last_24h: int = 0
+    # When this state was computed. Staleness is measured against this, not
+    # against the account's last activity: those are different questions, and
+    # conflating them means monitoring reports account recency while believing
+    # it is reporting store freshness.
+    materialised_at: dt.datetime | None = None
     is_cold: bool = False
 
     @classmethod
@@ -71,6 +76,7 @@ class AccountState:
             last_seen=None,
             last_sent=None,
             sent_last_24h=0,
+            materialised_at=None,
             is_cold=True,
         )
 
@@ -136,6 +142,7 @@ def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict
             last_seen=row["last_seen"],
             last_sent=row["last_sent"],
             sent_last_24h=int(row["sent_last_24h"]),
+            materialised_at=as_of,
         )
         for row in joined.iter_rows(named=True)
     }

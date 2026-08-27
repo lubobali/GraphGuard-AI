@@ -52,9 +52,15 @@ class ScoringService:
 
     @staticmethod
     def _staleness(state: AccountState, at: dt.datetime) -> float | None:
-        if state.is_cold or state.last_seen is None:
+        """How old the stored state is: now minus when it was materialised.
+
+        Not `at - last_seen`, which is how long since the account last did
+        anything. That is account recency, a different question, and reporting
+        it as staleness would have monitoring watch the wrong number.
+        """
+        if state.is_cold or state.materialised_at is None:
             return None
-        return (at - state.last_seen).total_seconds()
+        return (at - state.materialised_at).total_seconds()
 
     def score(self, request: ScoringRequest) -> ScoringResponse:
         # One round trip for both accounts, not two. Inside a 50ms budget the

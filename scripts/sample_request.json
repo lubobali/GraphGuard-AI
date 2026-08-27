@@ -1,0 +1,10 @@
+{
+  "from_account": "NEW_A",
+  "to_account": "NEW_B",
+  "amount_paid": 15000.0,
+  "amount_received": 15000.0,
+  "from_bank": "010",
+  "to_bank": "011",
+  "payment_currency": "US Dollar",
+  "timestamp": "2022-09-07T14:30:00"
+}

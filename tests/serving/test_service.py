@@ -64,6 +64,7 @@ def service():
             last_seen=T0 - dt.timedelta(hours=1),
             last_sent=T0 - dt.timedelta(hours=1),
             sent_last_24h=9,
+            materialised_at=T0 - dt.timedelta(hours=1),
         )
     )
     return ScoringService(bundle=bundle, store=store)
@@ -119,7 +120,8 @@ def test_unknown_currency_does_not_crash(service):
 
 @pytest.mark.unit
 def test_response_reports_feature_staleness(service):
-    """How old the stored state was. The UI and monitoring both need it."""
+    """How old the stored state is -- when it was materialised, not when the
+    account last acted. The UI and monitoring both need it."""
     out = service.score(_request())
     assert out.sender_staleness_seconds == pytest.approx(3600, abs=1)
 
@@ -141,3 +143,42 @@ def test_scoring_is_deterministic(service):
     a = service.score(_request())
     b = service.score(_request())
     assert a.score == b.score
+
+
+@pytest.mark.unit
+def test_staleness_is_store_age_not_account_recency():
+    """These are different questions and conflating them is a monitoring bug.
+
+    The account last acted 10 days before the request, but the store was
+    materialised 1 hour before it. Staleness is 1 hour.
+    """
+    import numpy as np
+    import xgboost as xgb
+
+    from graphguard.serving.model_bundle import ModelBundle
+    from graphguard.serving.store import InMemoryFeatureStore
+
+    rng = np.random.default_rng(0)
+    X = rng.random((100, len(FEATURES)))
+    model = xgb.XGBClassifier(n_estimators=4, max_depth=2).fit(X, (X[:, 0] > 0.5).astype(int))
+    bundle = ModelBundle(model, FEATURES, {"payment_currency": {"US Dollar": 0}}, "fixture")
+
+    store = InMemoryFeatureStore()
+    store.put(
+        AccountState(
+            account="OLD_ACTIVITY",
+            n_sent=5,
+            n_received=1,
+            amount_sent=10.0,
+            amount_received=1.0,
+            distinct_out=2,
+            distinct_in=1,
+            last_seen=T0 - dt.timedelta(days=10),
+            last_sent=T0 - dt.timedelta(days=10),
+            sent_last_24h=0,
+            materialised_at=T0 - dt.timedelta(hours=1),
+        )
+    )
+    svc = ScoringService(bundle=bundle, store=store)
+    out = svc.score(_request(sender="OLD_ACTIVITY", receiver="OLD_ACTIVITY"))
+    assert out.sender_staleness_seconds == pytest.approx(3600, abs=1)

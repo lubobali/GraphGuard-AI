@@ -51,6 +51,7 @@ def _encode(state: AccountState) -> dict[str, str]:
         "sent_last_24h": str(state.sent_last_24h),
         "last_seen": ts(state.last_seen),
         "last_sent": ts(state.last_sent),
+        "materialised_at": ts(state.materialised_at),
     }
 
 
@@ -69,6 +70,7 @@ def _decode(account: str, raw: dict[str, str]) -> AccountState:
         sent_last_24h=int(raw["sent_last_24h"]),
         last_seen=ts(raw["last_seen"]),
         last_sent=ts(raw["last_sent"]),
+        materialised_at=ts(raw.get("materialised_at", _NULL)),
     )
 
 

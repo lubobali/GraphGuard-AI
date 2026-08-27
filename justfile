@@ -113,6 +113,31 @@ build-artifacts:
 measure-latency:
     {{UV}} run python -m graphguard.serving.measure_latency
 
+# Start the Ray head node (capped: this box runs LuBot production too).
+# Uses the venv binaries directly: launching via `uv run` makes Ray record
+# .tools/bin/uv as the interpreter, a relative path its workers cannot find.
+ray-up:
+    {{justfile_directory()}}/.venv/bin/ray start --head --num-cpus=2 \
+      --object-store-memory=200000000 --dashboard-host=127.0.0.1 \
+      --dashboard-port=8265 --disable-usage-stats
+
+ray-down:
+    {{justfile_directory()}}/.venv/bin/ray stop
+
+# Deploy the scorer. Endpoint at http://127.0.0.1:8000/
+serve-up:
+    {{justfile_directory()}}/.venv/bin/serve run graphguard.serving.app:app --non-blocking
+
+serve-status:
+    {{justfile_directory()}}/.venv/bin/serve status
+
+# Score a sample transaction against the live endpoint.
+serve-smoke:
+    @curl -s http://127.0.0.1:8000/health
+    @echo
+    @curl -s -X POST http://127.0.0.1:8000/ -H 'Content-Type: application/json' -d @scripts/sample_request.json
+    @echo
+
 # Score the two dumb baselines on validation and record them in MLflow.
 baselines:
     {{UV}} run python -m graphguard.evaluation.run_baselines

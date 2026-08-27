@@ -32,6 +32,13 @@ def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--requests", type=int, default=2000)
     ap.add_argument("--warmup", type=int, default=100)
+    ap.add_argument(
+        "--http",
+        default=None,
+        help="measure through the live endpoint instead of in-process, e.g. "
+        "http://127.0.0.1:8000/. This is the number the Phase 5 gate asks for: "
+        "in-process timing omits serialisation, the proxy and the queue.",
+    )
     args = ap.parse_args()
 
     train_end, val_end = frozen_boundaries()
@@ -45,7 +52,11 @@ def main() -> int:
         .collect()
     )
 
-    service = ScoringService(bundle=ModelBundle.load(BUNDLE_DIR), store=RedisFeatureStore())
+    service = (
+        None
+        if args.http
+        else ScoringService(bundle=ModelBundle.load(BUNDLE_DIR), store=RedisFeatureStore())
+    )
 
     requests = [
         ScoringRequest(
@@ -61,22 +72,52 @@ def main() -> int:
         for r in sample.iter_rows(named=True)
     ]
 
+    if args.http:
+        import json
+        import urllib.request
+
+        def call(request: ScoringRequest) -> dict:
+            payload = json.dumps(
+                {
+                    "from_account": request.from_account,
+                    "to_account": request.to_account,
+                    "amount_paid": request.amount_paid,
+                    "amount_received": request.amount_received,
+                    "from_bank": request.from_bank,
+                    "to_bank": request.to_bank,
+                    "payment_currency": request.payment_currency,
+                    "timestamp": request.timestamp.isoformat(),
+                }
+            ).encode()
+            req = urllib.request.Request(
+                args.http, data=payload, headers={"Content-Type": "application/json"}
+            )
+            with urllib.request.urlopen(req, timeout=10) as resp:
+                return json.loads(resp.read())
+    else:
+
+        def call(request: ScoringRequest) -> dict:
+            r = service.score(request)
+            return {"sender_cold": r.sender_cold, "receiver_cold": r.receiver_cold}
+
     for request in requests[: args.warmup]:
-        service.score(request)
+        call(request)
 
     timings_ms: list[float] = []
     cold = 0
     for request in requests[args.warmup :]:
         started = time.perf_counter()
-        response = service.score(request)
+        response = call(request)
         timings_ms.append((time.perf_counter() - started) * 1000)
-        cold += int(response.sender_cold or response.receiver_cold)
+        cold += int(response["sender_cold"] or response["receiver_cold"])
 
     timings_ms.sort()
     p50 = statistics.median(timings_ms)
     p95 = timings_ms[int(len(timings_ms) * 0.95)]
     p99 = timings_ms[int(len(timings_ms) * 0.99)]
 
+    where = f"over HTTP at {args.http}" if args.http else "in-process"
+    print(f"measured      {where}")
     print(f"requests      {len(timings_ms):,}  ({cold:,} involved a cold account)")
     print(f"p50           {p50:7.2f} ms")
     print(f"p95           {p95:7.2f} ms")
