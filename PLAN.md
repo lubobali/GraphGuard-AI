@@ -1,12 +1,58 @@
 # Riskline — build plan
 
-Real-time money laundering detection with a graph neural network.
+Real-time money laundering detection on a transaction graph.
+
+*Originally: "with a graph neural network". Phase 4 measured the GNN losing to a
+tuned tabular baseline by 6x, so the production model is XGBoost and the GNN is
+the research arm. See "Plan revisions" below.*
 
 **Owner:** Lubo Bali
 **Started:** Aug 18, 2026
 **Status:** Phases 0-3 complete. Phase 4 next. Last updated 2026-08-20.
 **Progress:** see the checkmarks below, `CLAUDE.md` for the phase table, and
 `docs/findings.md` for what the data turned out to actually contain.
+
+---
+
+## Plan revisions
+
+Changes to this plan, with the evidence that forced them. A plan that quietly
+rewrites itself to match the result is worth nothing; the point of writing it
+first was to be able to see where reality disagreed.
+
+### R-1 — The production model is XGBoost, not the GNN
+
+*2026-08-20, after Phase 4. Affects Phases 5, 7, 8 and the stack table.*
+
+The plan assumed the GNN would win and built the serving design around it:
+precompute **embeddings**, store **embeddings** in Feast, monitor **embedding**
+staleness, explain with **GNNExplainer**.
+
+Phase 4 measured otherwise. On identical features, the same frozen split, the
+same `evaluate()` and the same 20-trial Optuna budget:
+
+| | PR-AUC | Rings @5000 |
+|---|---|---|
+| GraphSAGE | 0.04470 | 60 / 168 |
+| XGBoost | **0.28155** | **127 / 168** |
+
+**What changes.** Serving stores **point-in-time account features**, not
+embeddings — the columns XGBoost actually consumes. Explainability for the
+production path is **SHAP over those features**; GNNExplainer stays, but scoped
+to the GNN arm rather than to production. Staleness is monitored on features
+rather than embeddings.
+
+**What does not change.** The architecture is untouched: an online store still
+exists for the same reason, train/serve skew is still prevented by one shared
+definition, the latency budget is still p99 under 50ms, and the "draw the ring"
+screen still works because rings come from the graph and the labelled patterns,
+not from the model.
+
+**What is deliberately kept.** The GNN is not deleted. Graph structure was worth
+3.3x over identical features without it (FINDING-007), the gap to the tree is a
+model-class gap on tabular features, and Phase 9 exists partly to ask whether
+more data changes that answer. It is a documented negative result, which is the
+rarer and more defensible thing to have.
 
 ---
 
@@ -113,20 +159,20 @@ alternatives.
 |---|---|---|
 | Packaging | **uv** | already what LuBot runs, including in CI. `uv.lock` pins exact versions, which is what makes the Phase 0 reproducibility gate real. Used in local, CI, **and** the Docker image, or it recreates the drift the CI-mirrors-prod rule exists to prevent |
 | Dataframes | **Polars** | pandas would work at 5M and stop working at 32M |
-| **Graph neural network (GNN)** | **PyTorch Geometric** | the standard GNN library; GraphSAGE, inductive, neighbor sampling. This is the centerpiece of the project |
-| Baseline | **XGBoost** | still the right answer for tabular, and the honest opponent |
+| **Graph neural network (GNN)** | **PyTorch Geometric** | the standard GNN library; GraphSAGE, inductive, neighbor sampling. Written as the centerpiece; Phase 4 measured it losing to the baseline, so it is the research arm and XGBoost serves (R-1) |
+| Baseline → **production model** | **XGBoost** | still the right answer for tabular, and the honest opponent. It won Phase 4 by 6x and is what gets served (R-1) |
 | Tracking | **MLflow** | every run recorded, or the comparison is anecdote. Model Registry handles promotion |
 | Tuning | **Optuna** | hyperparameter search that is recorded and reproducible, not a notebook full of guesses |
 | Orchestration | **Airflow** | the retraining pipeline as a real DAG. He has shipped Airflow before, so this is existing ground, not new learning |
 | Data quality | **Pandera** | schema and expectation checks on every pipeline stage; bad data fails loudly instead of quietly training a worse model |
-| Explainability | **GNNExplainer** | which accounts and hops drove the score. Non-optional in a regulated domain |
+| Explainability | **SHAP** (production) + **GNNExplainer** (GNN arm) | which features and which hops drove the score. Non-optional in a regulated domain. SHAP explains the model that actually serves; GNNExplainer explains the research one (R-1) |
 | Narratives | **NVIDIA NIM (LLM)** | writes the plain-English case summary an investigator reads. Uses the stack he already runs |
 | Feature store | **Feast** | solves train/serve skew structurally instead of testing for it |
 | Serving | **Ray Serve on k3s** | real model serving on real Kubernetes. k3s is a full k8s distribution light enough for one box, so "deployed ML services on Kubernetes" is true and not a stretch |
-| Artifacts | **AWS S3** | trained models, embeddings, and evaluation outputs versioned in S3 rather than on a disk that could die |
+| Artifacts | **AWS S3** | trained models, feature snapshots, and evaluation outputs versioned in S3 rather than on a disk that could die |
 | GPU training | **AWS SageMaker** | Phase 4 training jobs when CPU gets too slow. Rented by the hour, not a standing cost |
 | Stream | **Redpanda** | Kafka-compatible, one binary, fits next to LuBot |
-| Online store | **Redis** | embedding + counter lookups inside the latency budget |
+| Online store | **Redis** | account feature + counter lookups inside the latency budget |
 | Records | **Postgres** | every decision and the features behind it |
 | Drift | **Evidently** | standard, and stops us hand-rolling charts |
 | Frontend | **Vite + React + Tailwind** | same stack as LuBot, nothing new to learn |
@@ -263,8 +309,10 @@ written down with each top feature justified. Test set still unopened.
 - ✅ Same `evaluate()` entry point, same frozen split
 - ✅ Tuned with **Optuna**, 20 trials, the same budget the baseline received
 - **GNNExplainer** on flagged accounts: which neighbours and which hops drove the score.
-  This is what makes Phase 7's "draw the ring" screen possible, and in a regulated
-  domain a model that cannot explain itself cannot be deployed
+  Scoped to the GNN arm after R-1 — the served model is the tree, so Phase 7's "why this
+  alert" comes from SHAP. Still worth having: in a regulated domain a model that cannot
+  explain itself cannot be deployed, and this is what would be needed if the GNN ever
+  became the production model
 - **Train on CPU first.** When iteration gets painful, move the training job to
   **SageMaker** on a GPU instance and push the trained model to **S3**. Rented by the
   run, shut down after. Roughly $1.50/hr on a small GPU instance, so a handful of runs
@@ -282,15 +330,18 @@ avoid this outcome.
 
 The hard engineering. You cannot walk a graph in 30ms.
 
-- Precompute account embeddings in batch, write them to the **Feast** online store
-  (Redis underneath). Feast is here for one reason: the offline features used in
-  training and the online features used in serving come from the same definition, so
-  train/serve skew is prevented by construction rather than caught by a test
-- At scoring time: fetch both accounts' embeddings, combine with the fresh transaction
+- Precompute **point-in-time account features** in batch — counterparties so far,
+  velocity, in/out ratio, the columns XGBoost consumes — and write them to the **Feast**
+  online store (Redis underneath). Originally written as embeddings; the production model
+  is the tree, so the payload is features (R-1). Feast is here for one reason: the offline
+  features used in training and the online features used in serving come from the same
+  definition, so train/serve skew is prevented by construction rather than caught by a test
+- At scoring time: fetch both accounts' features, combine with the fresh transaction
   features, score
 - Latency budget: **p99 under 50ms**, measured, not assumed
-- Staleness policy: how old can an embedding be before it is wrong, how often refreshed,
-  what happens on a cold account never seen before
+- Staleness policy: how old can a stored feature be before it is wrong, how often
+  refreshed, what happens on a cold account never seen before. The cold path is not
+  hypothetical — 515,080 accounts appear across 18 days and a new one arrives constantly
 - **Ray Serve deployed on k3s**, model pulled from S3 at startup so the running version
   is always traceable to a specific artifact
 - Stateless services on Kubernetes, stateful ones (Postgres, Redis, Redpanda) stay in
@@ -318,12 +369,13 @@ Same stack as LuBot's frontend. Written for a person who does not know what a mo
   makes the whole project land, because you can see the shape
 - **Capacity slider** — how many alerts a day can you work, and what does that cost you
   in missed laundering. Real numbers from the real evaluation, recomputed live
-- **Why this alert** — the accounts and hops that drove the score, straight from
-  GNNExplainer
+- **Why this alert** — the features that drove the score, from **SHAP** over the
+  production model, alongside the accounts and hops from the subgraph. Written as
+  GNNExplainer; the tree serves, so SHAP explains the thing that actually decided (R-1)
 - **Case summary in plain English** — an LLM turns the flagged subgraph and its
   explanation into the paragraph an investigator actually reads. This is real AML
   practice, since investigators write narrative reports on every case, and it is
-  grounded in the graph output rather than invented. Runs on NVIDIA NIM, the stack he
+  grounded in the model output and the subgraph rather than invented. Runs on NVIDIA NIM, the stack he
   already uses
 
 **Done means:** someone non-technical looks at it and can say what the system does and
@@ -331,7 +383,7 @@ what they would do next. Test it on a real person, not on yourself.
 
 ### Phase 8 — Monitoring, and the honest write-up
 
-- Embedding staleness, score distribution, alert volume, drift via Evidently
+- Feature staleness, score distribution, alert volume, drift via Evidently
 - Train/serve parity check — same transactions through both paths, compared
 - **Retraining as an Airflow DAG**, not a cron job: pull new labelled data → rebuild
   features → retrain → evaluate against the frozen split → register in MLflow → promote
@@ -498,8 +550,8 @@ deliberately harder. Better to find that out in Phase 2 than Phase 4.
 **CPU training is too slow to iterate.** Likely at some point. Mitigation: rent a GPU
 for a few hours, roughly $0.50/hr. No hardware purchase.
 
-**Embeddings go stale and nobody notices.** Mitigation: staleness is a monitored metric
-in Phase 8, not an assumption in Phase 5.
+**Stored features go stale and nobody notices.** Mitigation: staleness is a monitored
+metric in Phase 8, not an assumption in Phase 5.
 
 **Scope creep into a second problem.** Card fraud and laundering are different problems.
 This project is laundering only. Card fraud is a different repo, later, or never.

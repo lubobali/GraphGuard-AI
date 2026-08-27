@@ -4,7 +4,13 @@ Real-time money laundering detection with a graph neural network, on the IBM AML
 dataset.
 
 **Full build plan:** `PLAN.md`. Read it before starting a phase — this file is the rules,
-that file is the work.
+that file is the work. **Read its "Plan revisions" section too**: the plan has been
+changed once against evidence (R-1, the GNN losing Phase 4), and revisions are recorded
+there with their cause rather than applied silently.
+
+**The production model is XGBoost, not the GNN** (R-1). Serving, explainability and
+monitoring all follow the tree. The GNN is kept as a documented negative result and as
+the research arm.
 
 > **Naming note:** PLAN.md calls this project "Riskline" (`/srv/riskline`,
 > `riskline.lubot.ai`). That name is dead. The project is **GraphGuard-AI**, it lives in
