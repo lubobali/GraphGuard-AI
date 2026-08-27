@@ -15,6 +15,8 @@ export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
 # xdist settings, shared by every test recipe.
 XDIST := "-n 4 --dist=loadgroup"
 
+IMAGE_TAG := "0.1.2"
+
 default:
     @just --list
 
@@ -137,6 +139,30 @@ serve-smoke:
     @echo
     @curl -s -X POST http://127.0.0.1:8000/ -H 'Content-Type: application/json' -d @scripts/sample_request.json
     @echo
+
+# --- kubernetes -------------------------------------------------------------
+# Build the serving image and import it straight into k3s containerd. No
+# registry: this is a single node, and pushing 2.3GB to a registry to pull it
+# back onto the same disk would be theatre.
+image-build:
+    docker build -t graphguard/serving:{{IMAGE_TAG}} .
+    docker save graphguard/serving:{{IMAGE_TAG}} | k3s ctr images import -
+
+k8s-deploy:
+    k3s kubectl apply -f k8s/rayservice.yaml
+
+k8s-status:
+    @k3s kubectl get rayservice -n graphguard
+    @k3s kubectl get pods -n graphguard
+
+# Score a sample transaction through the cluster service.
+k8s-smoke:
+    @k3s kubectl exec -n graphguard $(k3s kubectl get pods -n graphguard --no-headers | awk '{print $1}' | head -1) -- \
+      bash -lc 'wget -q -O- http://graphguard-scorer-serve-svc:8000/health'
+    @echo
+
+k8s-logs:
+    k3s kubectl logs -n graphguard -l ray.io/node-type=head --tail=50
 
 # Score the two dumb baselines on validation and record them in MLflow.
 baselines:

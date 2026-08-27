@@ -1,0 +1,70 @@
+# GraphGuard scoring service on Ray Serve, managed by KubeRay.
+#
+# Head-only on purpose. A separate worker group would double the Ray overhead
+# for no benefit at this request volume, and this box runs LuBot production
+# alongside it. Serve replicas run on the head.
+#
+# The image is imported directly into k3s containerd, so imagePullPolicy must
+# be IfNotPresent -- Always would send it looking for a registry that does not
+# exist.
+apiVersion: ray.io/v1
+kind: RayService
+metadata:
+  name: graphguard-scorer
+  namespace: graphguard
+spec:
+  serveConfigV2: |
+    applications:
+      - name: graphguard
+        import_path: graphguard.serving.app:app
+        route_prefix: /
+        # No runtime_env.working_dir on purpose. /app holds the 1.4GB venv, and
+        # Ray would try to package it as the runtime environment on every
+        # deploy. The code is installed as a real package in the image
+        # (uv sync --no-editable), so the import path resolves without it.
+        deployments:
+          - name: Scorer
+            num_replicas: 2
+            ray_actor_options:
+              num_cpus: 0.5
+
+  rayClusterConfig:
+    rayVersion: "2.58.0"
+    headGroupSpec:
+      rayStartParams:
+        num-cpus: "2"
+        dashboard-host: "0.0.0.0"
+      template:
+        spec:
+          containers:
+            - name: ray-head
+              image: graphguard/serving:0.1.2
+              imagePullPolicy: IfNotPresent
+              env:
+                # KubeRay launches the head through a login shell, which resets
+                # PATH and loses the venv the image put on it. Set explicitly
+                # here rather than relying on the image's ENV surviving.
+                - name: PATH
+                  value: "/app/.venv/bin:/usr/local/bin:/usr/local/sbin:/usr/sbin:/usr/bin:/sbin:/bin"
+                # The online store lives in Docker, not in k3s. Stateful
+                # services stay in Docker with their own volumes; stateless
+                # ones run here. 10.42.0.1 is the pod bridge on the host.
+                - name: GRAPHGUARD_REDIS_URL
+                  value: "redis://10.42.0.1:6380/0"
+                - name: GRAPHGUARD_BUNDLE
+                  value: "/app/models/production"
+              resources:
+                limits:
+                  cpu: "2"
+                  memory: "3Gi"
+                requests:
+                  cpu: "500m"
+                  memory: "2Gi"
+              ports:
+                - containerPort: 6379
+                  name: gcs
+                - containerPort: 8265
+                  name: dashboard
+                - containerPort: 8000
+                  name: serve
+    workerGroupSpecs: []
