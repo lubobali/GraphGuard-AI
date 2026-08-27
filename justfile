@@ -105,6 +105,14 @@ tune-gnn:
 measure-staleness:
     {{UV}} run python -m graphguard.serving.measure_staleness
 
+# Train the production model, save the bundle, fill the online store.
+build-artifacts:
+    {{UV}} run python -m graphguard.serving.build_artifacts
+
+# End-to-end scoring latency against real Redis and the real model.
+measure-latency:
+    {{UV}} run python -m graphguard.serving.measure_latency
+
 # Score the two dumb baselines on validation and record them in MLflow.
 baselines:
     {{UV}} run python -m graphguard.evaluation.run_baselines

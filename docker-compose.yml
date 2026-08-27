@@ -74,6 +74,34 @@ services:
       retries: 5
       start_period: 40s
 
+  redis:
+    image: redis:7.4.1-alpine
+    container_name: graphguard-redis
+    restart: unless-stopped
+    # The online feature store. 515,080 accounts at roughly 200 bytes each is
+    # about 100MB, so 256MB leaves headroom.
+    #
+    # noeviction rather than allkeys-lru on purpose: silently evicting an
+    # account turns it into a cold account, the model scores it on zeros, and
+    # nothing reports that it happened. Failing a write loudly is better than
+    # degrading a score quietly.
+    command: >
+      redis-server
+      --maxmemory 200mb
+      --maxmemory-policy noeviction
+      --save ""
+      --appendonly no
+    ports:
+      - "127.0.0.1:6380:6379"
+    networks:
+      - graphguard
+    mem_limit: 256m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
 networks:
   graphguard:
     name: graphguard-net
