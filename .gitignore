@@ -42,4 +42,4 @@ runner/
 .secrets/
 
 # Lakehouse warehouse files (Iceberg/Parquet). Rebuilt by `just lakehouse-build`.
-lakehouse/
+/lakehouse/

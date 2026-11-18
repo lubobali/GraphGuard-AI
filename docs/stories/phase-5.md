@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a and S5.6b done; S5.6c approved, in progress.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a, S5.6b and S5.6c done; S5.6d next.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -490,7 +490,7 @@ the catalog database (S5.8c).
 - *Build slower over the network* → measured; S3 is in the same region (3.7 ms)
 - *Memory*: no new resident process; DuckDB is capped at 512 MB and runs only on demand
 
-### S5.6c — Lakekeeper: a real REST catalog for the lakehouse
+### S5.6c — Lakekeeper: a real REST catalog for the lakehouse ✅ done 2026-11-18
 
 **In one line:** replace the Python-only table list with a small catalog server that
 every engine talks to through the standard Iceberg REST API — the open-source
@@ -510,50 +510,61 @@ path, and cannot write at all without a REST catalog. Every later step — permi
 **Acceptance criteria**
 
 *Before anything starts*
-- [ ] **Lubo approves starting the container** (box rule). Compose file and RAM cap
-      shown to him first
+- [x] **Lubo approves starting the container** (box rule). Compose file and RAM cap
+      shown to him first — approved 2026-11-18 ("let's do 6c as expanded"), with the
+      limits stated: one container, 256 MB cap, 127.0.0.1 only, hardened
 
 *The service*
-- [ ] Lakekeeper **v0.15.x**, pinned by image **digest**, in GraphGuard's compose project
+- [x] Lakekeeper **v0.15.x**, pinned by image **digest**, in GraphGuard's compose project
       on `graphguard-net`, hard memory cap (start at 256 MB), `restart: unless-stopped`
-- [ ] Bound to **127.0.0.1 only** — not on the public interface, not reachable from
+- [x] Bound to **127.0.0.1 only** — not on the public interface, not reachable from
       other Docker networks or k3s pods — verified by trying from a Docker container and
-      a pod, not assumed
-- [ ] Its state lives in its **own database and user** in GraphGuard's existing Postgres
+      a pod, not assumed — public IP: refused; from a k3s pod: host bridge, public IP, name
+      and the container's own IP (172.25.0.5:8181 and :9000) all blocked
+- [x] Its state lives in its **own database and user** in GraphGuard's existing Postgres
       (like `lakehouse`), refused on `mlflow` and `lakehouse`; no new database server
-- [ ] Its encryption key and S3 credentials come from `.secrets/` (600, gitignored),
+- [x] Its encryption key and S3 credentials come from `.secrets/` (600, gitignored),
       never the compose file or git
-- [ ] Hardened like `lubot-prod-backend`: non-root, `read_only`, `cap_drop: ALL`,
-      `no-new-privileges`, `pids_limit`, log rotation, healthcheck
-- [ ] **Measured**: idle RAM and RAM during a full `lakehouse-build`; kept only if it
-      fits the budget (the research's estimate is 30-100 MB — measured, not trusted)
+- [x] Hardened like `lubot-prod-backend`: non-root, `read_only`, `cap_drop: ALL`,
+      `no-new-privileges`, `pids_limit`, log rotation, healthcheck — verified with
+      `docker inspect`: uid 65532, read-only root, cap_drop ALL, no-new-privileges, pids 128
+- [x] **Measured**: idle RAM and RAM during a full `lakehouse-build`; kept only if it
+      fits the budget (the research's estimate is 30-100 MB — measured, not trusted) —
+      **23.5 MB idle, 30-32 MB during a full build** (cgroup, 1 s samples)
 
 *The tables move to it — no data copied*
-- [ ] A Lakekeeper **warehouse** pointing at `s3://graphguard-lakehouse-0dcd18/lakehouse`
-- [ ] The existing tables are **registered** in Lakekeeper from their current metadata
-      (no rewrite, no copy); snapshot ids and history unchanged
-- [ ] `open_catalog()` returns the REST catalog; the SQL catalog stays readable as the
+- [x] A Lakekeeper **warehouse** pointing at `s3://graphguard-lakehouse-0dcd18/lakehouse`
+- [x] The existing tables are **registered** in Lakekeeper from their current metadata
+      (no rewrite, no copy); snapshot ids and history unchanged — all five, metadata,
+      current snapshot, history and location identical
+- [x] `open_catalog()` returns the REST catalog; the SQL catalog stays readable as the
       **rollback** for this story, then is retired in writing
-- [ ] **Given** the same tables, **when** read through Lakekeeper, **then** row hashes equal
+- [x] **Given** the same tables, **when** read through Lakekeeper, **then** row hashes equal
       the SQL catalog's
-- [ ] `just lakehouse-build`, `just store-load` and `just build-artifacts` work through
-      Lakekeeper; the 2,000 scores stay identical (max difference 0.0)
-- [ ] Time travel through Lakekeeper returns the older snapshot's rows
+- [x] `just lakehouse-build`, `just store-load` and `just build-artifacts` work through
+      Lakekeeper; the 2,000 scores stay identical (max difference 0.0) — build 31 s,
+      reload 13 s, 2,000/2,000 identical; `build-artifacts`' read path (lineage + pinned
+      silver scan) checked without retraining production
+- [x] Time travel through Lakekeeper returns the older snapshot's rows
 
 *DuckDB through the catalog*
-- [ ] DuckDB `ATTACH`es the Lakekeeper catalog instead of reading metadata file paths;
-      `just sql` keeps working; `sealed` still never exposed
-- [ ] **MERGE works**: a test performs `MERGE INTO` on a lakehouse table through
+- [x] DuckDB `ATTACH`es the Lakekeeper catalog instead of reading metadata file paths;
+      `just sql` keeps working; `sealed` still never exposed — *refined*: ATTACH is used
+      for writes only, because it exposes every namespace; `just sql` views are looked
+      up through Lakekeeper. Full ATTACH for `just sql` after S5.6d denies `sealed`
+- [x] **MERGE works**: a test performs `MERGE INTO` on a lakehouse table through
       DuckDB and reads back the change, with a new snapshot. (Real late-label updates
       are Phase 6's label-delay policy; this story proves the capability)
-- [ ] DuckDB-written files are readable by PyIceberg and Polars (format v2, field ids)
+- [x] DuckDB-written files are readable by PyIceberg and Polars (format v2, field ids)
 
 *Tests and guards*
-- [ ] Unit tests run against an **in-process REST catalog** where possible, or a
+- [x] Unit tests run against an **in-process REST catalog** where possible, or a
       Lakekeeper container started only for the test run; CI skips anything that needs
-      a live Lakekeeper by an explicit flag with the reason printed
-- [ ] All three leakage guards pass; `test_set_touch_check` still blocks `sealed`
-- [ ] `just check` green; CI green; committed; pushed; remotes match; LuBot before/after
+      a live Lakekeeper by an explicit flag with the reason printed — table logic stays
+      unit-tested on throwaway SQL catalogs (catalog-agnostic); 4 live tests on the real
+      Lakekeeper in throwaway namespaces; CI skips them with `GRAPHGUARD_SKIP_LAKEKEEPER_TESTS=1`
+- [x] All three leakage guards pass; `test_set_touch_check` still blocks `sealed`
+- [x] `just check` green; CI green; committed; pushed; remotes match; LuBot before/after
       unchanged
 
 **Definition of Done:** every box ticked; Lakekeeper measured and inside the budget;
@@ -608,7 +619,7 @@ Grants and vended credentials. The sealed test set becomes a **permission denial
 negative test**: the training identity cannot read `sealed`.
 
 ### S5.6e — Feast, lineage, worksheets *(short until its turn)*
-Feast (library) over Iceberg → Redis, asserted equal to the Polars output (ADR 0002 on
+Feast (library) over Iceberg → Redis, asserted equal to the Polars output (ADR 0003 on
 Feast). OpenLineage audit records. marimo worksheets, started only when needed.
 
 ## S5.7 — The running model is traceable to one artifact

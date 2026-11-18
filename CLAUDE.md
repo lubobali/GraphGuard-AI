@@ -150,9 +150,11 @@ MLflow's cap is 1200M rather than the 768M first tried: in August it idled at
 
 ## The lakehouse (S5.6a, 2026-11-18)
 
-Iceberg v2 tables, PyIceberg **SQL catalog in its own `lakehouse` database** inside the
-MLflow Postgres (own DB user, no CONNECT on `mlflow`), warehouse on local disk under
-`lakehouse/` (gitignored). No new container. Research and roadmap:
+Iceberg v2 tables served by **Lakekeeper** (S5.6c), an Iceberg REST catalog —
+container `graphguard-lakekeeper`, **127.0.0.1:8181 only**, no login until S5.6d (Dex),
+~30 MB, state in its own `lakekeeper` database in the MLflow Postgres. Runbook
+`docs/runbooks/lakekeeper.md`, decision ADR 0002. The S5.6a SQL catalog (`lakehouse`
+database) is a stale rollback: `GRAPHGUARD_CATALOG=sql`. Research and roadmap:
 `docs/research/Open source lakehouse on one box.md`; later steps S5.6b-e (S3 + DuckDB,
 Lakekeeper REST catalog, governance, Feast).
 
@@ -182,6 +184,10 @@ test also runs on a fake S3 (moto). Setup steps: `docs/runbooks/aws-setup.md`.
 `silver_transactions`, `gold_account_features_asof`, `gold_labels` (never `sealed`),
 capped at 512MB. History in SQL must order by **(timestamp, source_row)**, never time
 alone: 9.4% of transactions tie on the minute (FINDING-010).
+
+**Lakekeeper:** `just lakekeeper-status | lakekeeper-up | lakekeeper-down | lakekeeper-init`.
+DuckDB writes (MERGE) go through `attach_catalog_for_writes`, which exposes every
+namespace — never use it in `just sql` before S5.6d.
 
 **Do not run lakehouse jobs while MLflow is busy with heavy training** — Ray at peak +
 busy MLflow + a ~1.1GB job would reach the 4GB budget. Aggregations read silver **in

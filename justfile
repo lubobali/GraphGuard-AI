@@ -115,6 +115,25 @@ build-artifacts:
 lakehouse-build:
     {{UV}} run python -m graphguard.lakehouse.build
 
+# --- the lakehouse catalog: Lakekeeper (S5.6c) --------------------------------
+# Start only Lakekeeper (migrate first). --no-deps: never restarts MLflow or Redis.
+lakekeeper-up:
+    docker compose --env-file {{ENVFILE}} up --no-deps lakekeeper-migrate
+    docker compose --env-file {{ENVFILE}} up -d --no-deps lakekeeper
+
+lakekeeper-down:
+    docker compose --env-file {{ENVFILE}} stop lakekeeper
+
+# Bootstrap + create the `graphguard` warehouse on S3. Idempotent.
+lakekeeper-init:
+    {{UV}} run python -m graphguard.lakehouse.lakekeeper
+
+# Exit 1 unless Lakekeeper is healthy.
+lakekeeper-status:
+    @docker inspect graphguard-lakekeeper --format 'container: {{{{.State.Status}}, health: {{{{.State.Health.Status}}'
+    @docker stats --no-stream --format 'memory: {{{{.MemUsage}}' graphguard-lakekeeper
+    @curl -sf http://127.0.0.1:8181/health > /dev/null && echo "health endpoint: ok" || (echo "LAKEKEEPER UNHEALTHY" >&2; exit 1)
+
 # Ad-hoc SQL over the lakehouse with DuckDB (read-only views, capped at 512MB).
 #   just sql "select count(*) from silver_transactions"
 sql query="":

@@ -110,6 +110,68 @@ services:
       timeout: 3s
       retries: 5
 
+  # --- the lakehouse catalog (S5.6c) ------------------------------------------
+  # Lakekeeper: an Iceberg REST catalog, the open-source counterpart of
+  # Databricks' Unity Catalog. Its state lives in its own `lakekeeper` database
+  # in mlflow-db (own user, refused on mlflow and lakehouse). It has NO login
+  # until S5.6d (Dex), which is why it is bound to 127.0.0.1 only and lives on
+  # graphguard-net alone. Credentials (DB URL, encryption key) come from
+  # .secrets/lakekeeper.env, never from this file. Hardened like
+  # lubot-prod-backend: non-root, read-only root, no capabilities.
+  lakekeeper-migrate:
+    image: quay.io/lakekeeper/catalog:v0.15.1@sha256:22dcb6044c106a962c242b70051bd226bd50c9134c763121d8713c37fe9a70ec
+    container_name: graphguard-lakekeeper-migrate
+    command: ["migrate"]
+    restart: "no"
+    env_file: .secrets/lakekeeper.env
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 256m
+    networks:
+      - graphguard
+    depends_on:
+      mlflow-db:
+        condition: service_healthy
+
+  lakekeeper:
+    image: quay.io/lakekeeper/catalog:v0.15.1@sha256:22dcb6044c106a962c242b70051bd226bd50c9134c763121d8713c37fe9a70ec
+    container_name: graphguard-lakekeeper
+    command: ["serve"]
+    restart: unless-stopped
+    env_file: .secrets/lakekeeper.env
+    environment:
+      LAKEKEEPER__AUTHZ_BACKEND: allowall  # until S5.6d; see the note above
+      LAKEKEEPER__BASE_URI: http://127.0.0.1:8181
+    user: "65532:65532"
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 256m
+    ports:
+      - "127.0.0.1:8181:8181"
+    networks:
+      - graphguard
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "/home/nonroot/lakekeeper", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      lakekeeper-migrate:
+        condition: service_completed_successfully
+
 networks:
   graphguard:
     name: graphguard-net

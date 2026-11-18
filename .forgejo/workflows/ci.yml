@@ -61,4 +61,5 @@ jobs:
         # Everywhere else an unreachable Redis fails them (S5.6a).
         env:
           GRAPHGUARD_SKIP_REDIS_TESTS: "1"
+          GRAPHGUARD_SKIP_LAKEKEEPER_TESTS: "1"
         run: ./.tools/bin/just test
