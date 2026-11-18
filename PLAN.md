@@ -436,6 +436,10 @@ cold-account path tested rather than assumed, and the Ray and Feast decisions re
 
 ### Phase 6 — The stream
 
+- **First: the scorer alert.** Once the stream depends on the scorer, an outage must
+  reach a human. `just k8s-check` on a cron, an **email only on state change**
+  (healthy↔broken), runbook `docs/runbooks/scorer-down.md`. Moved here from S5.2; Phase
+  8 monitoring replaces it
 - **Kafka 4.x** (KRaft, single node, hard memory cap — measured before committing), one
   topic, transactions replayed **in true time order**, accelerated. Was Redpanda (R-2)
 - Consumer scores each one and writes the decision plus its features to Postgres

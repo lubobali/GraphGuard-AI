@@ -65,8 +65,14 @@ Acceptance criteria:
       waiting reason, e.g. ImagePullBackOff), no live pods, or the image missing or
       unpinned. 10 unit tests; run live, healthy → 0, missing image → 1.
       `just k8s-status` calls it too
-- [ ] **Run on a schedule**, so nobody has to remember: a cron entry calling
-      `just k8s-check`. Waiting for Lubo's OK — `/etc/cron.d` is a box-wide change
+- [x] A runbook for when it fires: `docs/runbooks/scorer-down.md`
+- [—] **Run on a schedule, with an email on state change** — *moved to the start of
+      Phase 6* (Lubo, 2026-11-18). Nothing depends on the endpoint yet; the stream will.
+      Plan: cron every 15 min, email only when healthy↔broken changes, sent with Python's
+      smtplib (nothing installed box-wide), Gmail app password in `.secrets/`. Phase 8
+      monitoring replaces it
+
+S5.2 done 2026-11-18, with the alert deferred as above.
 - [x] Old unused images (`serving:0.1.0`, `0.1.1`) removed from Docker, disk recorded
       before and after — removed 2026-11-18 in a box-wide cleanup run by the LuBot
       session (disk 77% → 58%, 51GB → 92GB free); GraphGuard re-verified after: pod,
