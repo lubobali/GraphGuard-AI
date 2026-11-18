@@ -1,6 +1,11 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1 done.
+**Status:** approved by Lubo 2026-11-18. S5.1 and S5.2 done; S5.3 in progress.
+
+**How stories are expanded:** one at a time, just before work starts on it (Lubo,
+2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
+of Done, tasks, estimate, dependencies, out of scope, risks — using what the previous
+one taught us. Stories below the current one stay short until their turn.
 
 ## Main goal
 
@@ -80,25 +85,69 @@ S5.2 done 2026-11-18, with the alert deferred as above.
 
 Rolls up to: "a live endpoint on k3s" — one that stays live.
 
-## S5.3 — Does Ray Serve earn its memory?
+## S5.3 — Keep Ray Serve, and make it fit and safe
 
-**As the** owner of a 4GB budget on a shared box, **I want** Ray Serve's real memory
-on k3s measured, **so that** we keep it only if it fits, and can say why in an
-interview.
+**Decision already made (Lubo, 2026-11-18):** Ray Serve stays. This story is not
+"Ray or FastAPI"; it is "Ray, proven to fit the budget and closed to attack".
 
-Acceptance criteria:
-- [ ] Head pod memory measured idle and under the S5.4 load, from the kernel/cgroup,
-      not from a config value
-- [ ] Total GraphGuard memory (k3s + MLflow + Postgres + Redis + Ray) written down
-      against the 4GB budget
-- [ ] Ray version checked: ≥ 2.52 (CVE-2025-62593), dashboard reachable only inside
-      the cluster
-- [ ] Decision written as `docs/adr/0001-serving-runtime.md`: keep Ray Serve, or
-      replace with FastAPI on k3s — options, numbers, decision, consequences
-- [ ] If replaced: the replacement passes the same smoke and latency tests before Ray
-      is removed
+**User story**
+**As the** owner of a 4GB memory budget on a box that runs LuBot production, **I want**
+Ray Serve's real memory measured, right-sized and its security checked, **so that** the
+scorer can run for months beside LuBot without starving it, and I can explain the
+trade-off in an interview.
 
-Rolls up to: "the Ray decision recorded".
+**Acceptance criteria**
+- [ ] **Given** the scorer is idle, **when** memory is read from the pod's cgroup (not
+      from the YAML), **then** the idle figure is recorded
+- [ ] **Given** a burst of 2,000 real validation transactions, **when** memory is read
+      during the burst, **then** the peak figure is recorded (a small load generator
+      here; the formal latency run is S5.4)
+- [ ] **Given** all GraphGuard parts (k3s, Ray, MLflow, its Postgres, Redis), **when**
+      their memory is added up, **then** the total is written down against the 4GB
+      budget
+- [ ] **If** the total is over budget, **then** Ray is right-sized — fewer replicas,
+      smaller object store, a tighter memory limit — and re-measured until it fits,
+      with p99 still under 50ms
+- [ ] The pod's memory **limit** sits a safe margin above the measured peak (not 3Gi
+      by habit), and the **request** matches real use
+- [ ] Ray version is ≥ 2.52 (CVE-2025-62593, actively exploited); if not, upgraded
+      and re-verified with `just k8s-check` and one scoring request
+- [ ] The Ray dashboard (port 8265) is reachable only inside the cluster — verified by
+      trying from the host, not assumed from the Service type
+- [ ] `docs/adr/0001-serving-runtime.md` written: context, options (Ray Serve, FastAPI,
+      BentoML), decision, the measured numbers, consequences
+- [ ] LuBot unaffected: same containers, lubot.ai 200, before and after any change
+
+**Definition of Done:** every box above ticked, `just check` green, committed and
+pushed with both remotes matching. Rolls up to the phase gate: "the Ray decision
+recorded".
+
+**Tasks**
+1. Read the cgroup memory of the Ray head pod while idle
+2. Write a small burst script (reuses the validation transactions) and read peak memory
+3. Read memory for k3s, MLflow, Postgres, Redis; add it up
+4. Check the Ray version inside the image; check where 8265 is reachable from
+5. If over budget or unpatched: change `k8s/rayservice.yaml` (replicas, object store,
+   limits) or the image's Ray pin; redeploy; re-measure
+6. Write ADR 0001
+7. LuBot before/after check; commit; push
+
+**Estimate:** 3 story points, about one session. Up to 5 if Ray must be upgraded,
+because that means rebuilding the image.
+
+**Dependencies:** S5.1 (live pod) ✅. Nothing else. S5.4 depends on this, because p99
+must be measured on the final, right-sized Ray.
+
+**Out of scope:** replacing Ray (decided against); the formal p99 report (S5.4);
+monitoring dashboards (Phase 8).
+
+**Risks**
+- *Ray needs a version upgrade* → image rebuild, ~2.3GB build. Disk is fine now (92GB
+  free); the build cache grows again, which is expected
+- *Right-sizing makes it slower* → every change is re-checked against p99 < 50ms before
+  it is kept
+- *Upgrading breaks KubeRay compatibility* → check the KubeRay/Ray version matrix first;
+  the current image stays in Docker as the rollback
 
 ## S5.4 — p99 measured on k3s, not just on the laptop path
 
