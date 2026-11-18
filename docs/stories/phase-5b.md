@@ -115,12 +115,19 @@ What it delivered (runbook `docs/runbooks/ci.md`):
 - The **serving image rebuilt** from the current lock on a digest-pinned, patched base
   (0.1.3), rolled out with zero downtime; 2,000/2,000 scores identical
 
-### S5b.3 — Backups *(short until its turn)*
-**As the** owner, **I want** MLflow's history backed up off the box with a restore that
-is actually tested, **so that** a dead disk does not erase every experiment.
-- Own restic repo in an own B2 bucket (Lubo creates bucket + key; nothing of LuBot's
-  backup reused). Daily; restore-check timer (pattern: MissionCopilot)
-- The online store needs no backup — it is rebuilt from data (S5b.1 proves how fast)
+### S5b.3 — Backups off the box, immutable, with a weekly restore drill *(expanded 2026-11-18, awaiting approval)*
+
+**As the** owner of a box that was hacked once, **I want** GraphGuard's experiment history,
+catalogs, identities and secrets backed up off the box every night — encrypted, kept
+immutable for 30 days, and restored automatically every week to prove it — **so that** a
+dead disk, a bad migration or an attacker with root costs at most a day of work, never the
+project.
+
+Covers: a nightly restic backup to a new Object-Lock bucket through a backup-only key that
+cannot destroy history; a weekly drill that restores into a throwaway Postgres and compares
+row counts with live; `just backup-status` failing loudly when backups stop; a disaster
+rebuild runbook walked once. Needs one AWS console step from Lubo. The full story is
+private until done.
 
 ### S5b.4 — k3s control plane and the box's second wall *(short until its turn)*
 **As the** owner, **I want** k3s's admin ports reachable from the box only, and a host
