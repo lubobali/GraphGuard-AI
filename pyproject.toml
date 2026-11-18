@@ -32,11 +32,13 @@ gnn = [
   "pyg-lib>=0.8",
 ]
 dev = [
+  "moto[s3,server]>=5.0",
   "pytest>=8.3",
   "pytest-xdist>=3.6",
   "ruff>=0.8",
 ]
 lakehouse = [
+    "duckdb>=1.4",
     "pyiceberg[pyarrow,pyiceberg-core,sql-postgres]>=0.12",
 ]
 

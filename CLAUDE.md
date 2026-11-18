@@ -170,6 +170,17 @@ just build-artifacts   # trains from silver, logs snapshot ids + split sha + git
 just store-load        # Redis from gold, ~15s, peak ~0.55GB, in place, no retraining
 ```
 
+**Storage (S5.6b):** local disk until `.secrets/aws.env` is filled in
+(`docs/runbooks/aws-setup.md` — Lubo's step), then automatically GraphGuard's own S3
+bucket `graphguard-lakehouse-0dcd18`, prefix `lakehouse/`, via an IAM user that can
+touch nothing else (live tests expect AccessDenied outside it). Every lakehouse test
+runs on local disk and on a fake S3 (moto).
+
+**SQL:** `just sql "select ..."` — DuckDB 2.0, views `bronze_transactions_raw`,
+`silver_transactions`, `gold_account_features_asof`, `gold_labels` (never `sealed`),
+capped at 512MB. History in SQL must order by **(timestamp, source_row)**, never time
+alone: 9.4% of transactions tie on the minute (FINDING-010).
+
 **Do not run lakehouse jobs while MLflow is busy with heavy training** — Ray at peak +
 busy MLflow + a ~1.1GB job would reach the 4GB budget. Aggregations read silver **in
 source order** (`scan_in_source_order`); FINDING-009 explains why and what parity

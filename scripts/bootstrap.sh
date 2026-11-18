@@ -41,6 +41,11 @@ cd "$REPO_ROOT"
 "$BIN_DIR/uv" python install
 "$BIN_DIR/uv" sync --extra dev --extra gnn --extra lakehouse --locked
 
+# DuckDB's Iceberg and S3 extensions, pre-fetched into the project's own .tools/
+# (not ~/.duckdb), so tests and `just sql` never download mid-run.
+mkdir -p "$REPO_ROOT/.tools/duckdb_extensions"
+"$BIN_DIR/uv" run --no-sync python -c "import duckdb; c = duckdb.connect(); c.execute(\"SET extension_directory='$REPO_ROOT/.tools/duckdb_extensions'\"); c.execute('INSTALL iceberg; INSTALL httpfs')"
+
 # --- just, pinned ----------------------------------------------------------
 # Installed with the project's own uv, into the project's own bin dir.
 if [ "$("$BIN_DIR/just" --version 2>/dev/null | awk '{print $2}')" != "$JUST_VERSION" ]; then

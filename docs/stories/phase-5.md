@@ -398,11 +398,14 @@ us-east-1 answers in **3.7 ms** to connect, 24 ms to first byte — same region.
       AWS answers AccessDenied — a test that expects the denial
 
 *The warehouse moves*
-- [ ] The catalog's warehouse points at `s3://<bucket>/lakehouse/`; the local path stays
-      available for tests and as a fallback
+- [~] The catalog's warehouse points at `s3://<bucket>/lakehouse/`; the local path stays
+      available for tests and as a fallback — *code done*: S3 automatically once
+      `.secrets/aws.env` is filled, local until then; `GRAPHGUARD_LAKEHOUSE_WAREHOUSE`
+      forces either. Every lakehouse test runs on local disk **and** a fake S3 (moto)
 - [ ] `just lakehouse-build` writes all tables to S3; Iceberg metadata, Parquet files
       and orphan cleanup all work against S3 (cleanup re-implemented for S3: list
-      the prefix, delete what no snapshot references)
+      the prefix, delete what no snapshot references) — *proven on fake S3*; real bucket
+      waits for AWS
 - [ ] **Given** the same CSV, **when** built to S3 and to local disk, **then** every
       table's contents are identical (row hashes)
 - [ ] `just store-load` from the S3 gold gives the same 512,705 accounts and the same
@@ -412,19 +415,25 @@ us-east-1 answers in **3.7 ms** to connect, 24 ms to first byte — same region.
       recorded
 
 *DuckDB for SQL*
-- [ ] DuckDB added to the `lakehouse` extra (project-only), with `memory_limit` set
-      (512 MB) and a spill directory
-- [ ] SQL reads the S3 Iceberg tables: row counts per layer match PyIceberg's
-- [ ] **As-of parity**: DuckDB `ASOF JOIN` with a **strict `>`** gives the same account
+- [x] DuckDB added to the `lakehouse` extra (project-only), with `memory_limit` set
+      (512 MB) and a spill directory — DuckDB **2.0.0** (settles the research's version
+      conflict); Iceberg + httpfs extensions pre-fetched by bootstrap into `.tools/`
+- [~] SQL reads the S3 Iceberg tables: row counts per layer match PyIceberg's — on local
+      and fake S3 ✅; real S3 waits for AWS
+- [x] **As-of parity**: DuckDB `ASOF JOIN` with a **strict `>`** gives the same account
       state at a transaction's time as the Polars path, on a sample — and a unit test
-      for the exact-same-timestamp edge
-- [ ] A small `just sql` (or worksheet script) to run ad-hoc queries, read-only
-- [ ] DuckDB never names `sealed` (the guard enforces it)
+      for the exact-same-timestamp edge — on **all 4,061,486** silver rows, counts exact.
+      Strict `>` on *time* alone is wrong on 381,911 rows (ties, FINDING-010); strict `>`
+      on (time, source_row) matches training
+- [x] A small `just sql` (or worksheet script) to run ad-hoc queries, read-only
+- [x] DuckDB never names `sealed` (the guard enforces it) — and a test asserts no SQL
+      view exposes it
 
 *Measured*
 - [ ] Build time and peak RAM to S3 vs local; S3 request count and bytes per build;
       monthly cost estimate written down
-- [ ] DuckDB query peak RAM stays under its 512 MB cap
+- [x] DuckDB query peak RAM stays under its 512 MB cap — 4M-row history query in 8.9 s,
+      process peak 1.13 GB including Python, Polars and the 4M-row result frame
 
 *Everywhere*
 - [ ] `just check` green; CI green (S3 tests skipped in CI by an explicit flag, like

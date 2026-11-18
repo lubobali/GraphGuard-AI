@@ -115,6 +115,11 @@ build-artifacts:
 lakehouse-build:
     {{UV}} run python -m graphguard.lakehouse.build
 
+# Ad-hoc SQL over the lakehouse with DuckDB (read-only views, capped at 512MB).
+#   just sql "select count(*) from silver_transactions"
+sql query="":
+    {{UV}} run python -m graphguard.lakehouse.sql "{{query}}"
+
 # Fill Redis from gold.account_features_asof. No retraining. In place: the store
 # is never empty mid-reload.
 store-load:

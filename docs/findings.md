@@ -396,3 +396,44 @@ differences for free, and because "same order" is what makes a rebuild from the
 same snapshot reproducible. Within one engine, rebuilds are exact: rebuilding the
 lakehouse from the same CSV gave tables identical to the previous build, read
 back through Iceberg time travel.
+
+## FINDING-010 — "Before" means time, then arrival order: 9.4% of transactions tie
+
+*Found: 2026-11-18, Phase 5 (S5.6b, DuckDB over the lakehouse). Acts on: every SQL or
+stream implementation of a history feature, and Phase 6's replay order.*
+
+Timestamps in AMLworld have **minute resolution**, and many accounts send several
+transfers in the same minute. Training's history features sort by time and keep
+the source file's order for ties (`cum_count() - 1` after a stable sort), so the
+second of two same-minute transfers counts the first as "before". That is a real
+definition: it treats file order as arrival order.
+
+The natural SQL way to write the same feature -- an ASOF join on "strictly earlier
+in time" -- treats same-minute transfers as simultaneous. Measured over all
+4,061,486 silver transactions, that version disagrees with training on:
+
+| Feature | Rows that would differ |
+|---|---|
+| `sender_n_sent_before` | **381,911 (9.4%)** |
+| `receiver_n_received_before` | 100,534 (2.5%) |
+
+Nothing would have failed. The SQL would have looked correct, and the features it
+produced would have quietly differed from what the model was trained on -- the
+exact train/serve skew this project exists to prevent.
+
+**The fix uses `source_row`** (added for FINDING-009): DuckDB orders by
+(timestamp, source_row), the same tie-break as training. With it, both counts match
+training **on all 4,061,486 rows**. A regression test keeps the strictly-earlier
+version around solely to show that it disagrees on a tie.
+
+**What it means for Phase 6.** The replayed stream must deliver same-minute
+transfers in source order, or the online features will not match training.
+
+**A second, smaller thing found on the way.** Money sums agree bit for bit on 2.7M
+rows and within 8.9 × 10⁻⁸ relative on the rest. That gap is larger than the 1-ulp
+noise of FINDING-009, and the cause is in training's formula, not DuckDB's:
+training computes `cum_sum() - amount_paid` ("running total including me, minus
+me"). When `amount_paid` is huge, subtracting it back loses the low digits of the
+remainder. DuckDB sums only the earlier rows, so it is the more precise of the two.
+The model is unaffected at this scale; changing training's formula would mean
+retraining, which is its own decision.
