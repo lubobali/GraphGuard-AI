@@ -96,13 +96,19 @@ tests. Runbook: `docs/runbooks/data-services.md`. The detailed record stays priv
   lacks (e.g. listing artifacts). Pin the client to the server's major, or upgrade the
   server, in one step with a tested restore (S5b.3)
 
-### S5b.2 — Supply chain *(short until its turn)*
-**As the** owner, **I want** CI jobs and commits unable to leak secrets or run tampered
-code, **so that** the build pipeline is not a way in.
-- Runner job containers: `--cap-drop=ALL`, `no-new-privileges`, a network per job
-  (pattern: `lubobali-runner`)
-- `actions/checkout` pinned by commit SHA, not `@v4`
-- gitleaks in prek and CI (pattern: lubobali CI)
+### S5b.2 — Supply chain and CI: isolated jobs, pinned code, scanned commits *(expanded 2026-11-18, awaiting approval)*
+
+**As the** owner of a box that runs CI for several projects, **I want** GraphGuard's CI jobs
+isolated from every other container, stripped of privileges, built only from pinned code,
+and every commit and dependency scanned, **so that** a poisoned dependency, action or image
+cannot reach anything else on the box, and a leaked secret or a known-vulnerable package
+fails the build instead of shipping.
+
+Covers: a fresh network per job with a probe that proves isolation on every run; a small
+pinned CI image so jobs run with no capabilities; actions pinned to commit SHAs (tested);
+secret scanning in pre-commit and CI plus a one-time full-history scan; an automatic
+"≥ 2 weeks old" dependency rule, a lock check and a vulnerability scan. The full story is
+private until done (CLAUDE.md rule).
 
 ### S5b.3 — Backups *(short until its turn)*
 **As the** owner, **I want** MLflow's history backed up off the box with a restore that
