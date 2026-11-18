@@ -7,9 +7,10 @@ import re
 import polars as pl
 import pytest
 
+from graphguard.config import REPO_ROOT
 from graphguard.evaluation.dataset import SPLIT_FILE
 from graphguard.lakehouse.catalog import open_catalog
-from graphguard.lakehouse.lineage import training_lineage
+from graphguard.lakehouse.lineage import NOT_A_GIT_CHECKOUT, training_lineage
 from graphguard.lakehouse.tables import (
     TRACKED_TABLES,
     write_bronze,
@@ -57,4 +58,12 @@ def test_lineage_never_mentions_the_sealed_table(cat):
 def test_lineage_pins_the_frozen_split_and_the_code(cat):
     lin = training_lineage(cat)
     assert lin["frozen_split_sha256"] == hashlib.sha256(SPLIT_FILE.read_bytes()).hexdigest()
-    assert re.fullmatch(r"[0-9a-f]{40}(-dirty)?", lin["git_sha"])
+    if (REPO_ROOT / ".git").exists():
+        assert re.fullmatch(r"[0-9a-f]{40}(-dirty)?", lin["git_sha"])
+    else:  # a tarball or image: said explicitly, never a crash or a fake sha
+        assert lin["git_sha"] == NOT_A_GIT_CHECKOUT
+
+
+def test_an_explicit_sha_from_the_environment_wins(cat, monkeypatch):
+    monkeypatch.setenv("GRAPHGUARD_GIT_SHA", "a" * 40)
+    assert training_lineage(cat)["git_sha"] == "a" * 40

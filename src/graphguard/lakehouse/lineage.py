@@ -16,8 +16,22 @@ from graphguard.config import REPO_ROOT
 from graphguard.evaluation.dataset import SPLIT_FILE
 from graphguard.lakehouse.tables import current_snapshot_ids
 
+NOT_A_GIT_CHECKOUT = "unknown-not-a-git-checkout"
+
 
 def _git_sha() -> str:
+    """The commit the code came from.
+
+    GRAPHGUARD_GIT_SHA wins when set (a Docker image or a tarball has no .git).
+    Without either, the run records that explicitly instead of crashing: a model
+    trained from untracked code must say so, not fail to train.
+    """
+    import os
+
+    if sha := os.environ.get("GRAPHGUARD_GIT_SHA"):
+        return sha
+    if not (REPO_ROOT / ".git").exists():
+        return NOT_A_GIT_CHECKOUT
     sha = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
     ).stdout.strip()
