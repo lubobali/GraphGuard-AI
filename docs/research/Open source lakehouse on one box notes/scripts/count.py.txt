@@ -1,0 +1,33 @@
+import json,re,sys
+from collections import Counter,defaultdict
+rows=json.load(open(sys.argv[1]))
+KW={'Iceberg':r'\biceberg\b','Delta Lake':r'\bdelta( lake|\s+tables?)\b','Hudi':r'\bhudi\b','lakehouse':r'\blake ?house','Databricks':r'\bdatabricks\b','Snowflake':r'\bsnowflake\b','Unity Catalog':r'unity catalog','Polaris':r'\bpolaris\b','Spark':r'\b(py)?spark\b','Flink':r'\bflink\b','Kafka':r'\bkafka\b','dbt':r'\bdbt\b','SQLMesh':r'sqlmesh','Airflow':r'\bairflow\b','Dagster':r'\bdagster\b','Trino/Presto':r'\b(trino|presto|starburst)\b','DuckDB':r'\bduckdb\b','Polars':r'\bpolars\b','S3':r'\bs3\b','BigQuery':r'\bbigquery\b','Redshift':r'\bredshift\b','data contracts':r'data contracts?','data quality':r'data quality','lineage':r'\blineage\b','medallion':r'medallion|bronze.{0,20}silver','feature store':r'feature (store|platform)','Parquet':r'\bparquet\b','Hive':r'\bhive\b','Kubernetes':r'\bkubernetes|\bk8s\b','Terraform':r'\bterraform\b','MLflow':r'\bmlflow\b','Feast/Tecton':r'\b(feast|tecton)\b','Ray':r'\bray\b','data lake':r'data ?lake\b','catalog/governance':r'data catalog|governance|datahub|amundsen'}
+PREF=re.compile(r'(preferred|nice[- ]to[- ]have|bonus|a plus|pluses|would be great|desired|ideally|stand out|extra credit)',re.I)
+cnt=Counter();req=Counter();pref=Counter()
+fin=set('stripe robinhood affirm chime brex coinbase sofi mercury carta checkr adyen block betterment toast gusto monzo wise n26 upstart current ramp plaid sardine alloy persona trm-labs airwallex gocardless socure sift ripple gemini'.split())
+fc=Counter();nf=0
+per=[]
+for co,title,url,date,loc,txt in rows:
+    t=txt or ''; low=t.lower()
+    # find first preferred-header position
+    m=PREF.search(t); cut=m.start() if m else len(t)
+    hits=[]
+    for k,p in KW.items():
+        ms=[x.start() for x in re.finditer(p,low,re.I)]
+        if ms:
+            cnt[k]+=1; hits.append(k)
+            if co in fin: fc[k]+=1
+            if any(s<cut for s in ms): req[k]+=1
+            else: pref[k]+=1
+    if co in fin: nf+=1
+    per.append((co,title,url,(date or '')[:10],hits))
+N=len(rows)
+print(f"N={N} fintech={nf} tech={N-nf}")
+print(f"{'kw':20}{'all':>5}{'%':>6}{'fin':>5}{'tech':>5}{'reqzone':>8}{'prefzone':>9}")
+for k,v in cnt.most_common():
+    print(f"{k:20}{v:5}{100*v/N:6.1f}{fc[k]:5}{v-fc[k]:5}{req[k]:8}{pref[k]:9}")
+for k in KW:
+    if k not in cnt: print(k,0)
+dates=sorted(p[3] for p in per if p[3]); print('dates',dates[0],dates[len(dates)//2],dates[-1])
+print('2026 posts',sum(1 for p in per if p[3].startswith('2026')))
+json.dump(per,open('per.json','w'))

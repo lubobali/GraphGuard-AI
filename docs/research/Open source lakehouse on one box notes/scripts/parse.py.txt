@@ -1,0 +1,32 @@
+import json,sys,os,re,html,glob
+d=sys.argv[1]
+TITLE=re.compile(r'(data engineer|analytics engineer|data platform|ml platform|machine learning platform|ml infra|machine learning infra|machine learning engineer|ml engineer|data infrastructure|ai platform|feature)',re.I)
+EXCL=re.compile(r'(manager|director|head of|intern|sales|solutions|account|recruit|product manager|security|support|field)',re.I)
+rows=[]
+def clean(t):
+    t=html.unescape(t or ''); t=html.unescape(t)
+    t=re.sub(r'<(br|/p|/li|/h\d|/div)[^>]*>','\n',t); t=re.sub(r'<[^>]+>',' ',t); return t
+for f in glob.glob(os.path.join(d,'*.json')):
+    src=os.path.basename(f)[:-5]
+    try: j=json.load(open(f))
+    except: continue
+    if src.startswith('gh_'):
+        for x in j.get('jobs',[]): rows.append((src[3:],x['title'],x.get('absolute_url'),x.get('first_published') or x.get('updated_at'),x.get('location',{}).get('name'),clean(x.get('content'))))
+    elif src.startswith('ash_'):
+        for x in j.get('jobs',[]): rows.append((src[4:],x['title'],x.get('jobUrl'),x.get('publishedAt'),x.get('location'),x.get('descriptionPlain') or clean(x.get('descriptionHtml'))))
+    elif src.startswith('lev_'):
+        for x in (j if isinstance(j,list) else []):
+            import datetime
+            txt=(x.get('descriptionPlain') or '')+'\n'+'\n'.join(l.get('text','')+'\n'+clean(l.get('content')) for l in x.get('lists',[]))+'\n'+(x.get('additionalPlain') or '')
+            rows.append((src[4:],x['text'],x.get('hostedUrl'),datetime.datetime.utcfromtimestamp(x['createdAt']/1000).isoformat(),x.get('categories',{}).get('location'),txt))
+sel=[r for r in rows if TITLE.search(r[1]) and not EXCL.search(r[1]) and r[0]!='databricks']
+# dedupe by company+title
+seen=set();out=[]
+for r in sel:
+    k=(r[0],r[1].strip().lower())
+    if k in seen: continue
+    seen.add(k); out.append(r)
+json.dump(out,open(os.path.join(d,'..','selected.json'),'w'))
+print(len(rows),len(sel),len(out))
+from collections import Counter
+print(Counter(r[0] for r in out))
