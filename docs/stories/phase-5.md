@@ -367,9 +367,108 @@ container.
 - *Upsert memory*: PyIceberg upserts used ~80GB for 34M rows in one report → tables are
   append-only by design; late labels wait for DuckDB MERGE in S5.6c
 
-### S5.6b — Warehouse on our own S3; DuckDB *(short until its turn)*
-Move the warehouse to our own S3 bucket (own IAM user, Lubo signs off). Add DuckDB 2.0
-for SQL, with an as-of parity check against Polars. Same results from S3 as from disk.
+### S5.6b — The warehouse on our own S3, and DuckDB for SQL
+
+**User story**
+**As an** ML engineer, **I want** the lakehouse's files in GraphGuard's own S3 bucket
+and a SQL engine that reads them, **so that** the data survives the box (a dead disk no
+longer means rebuilding everything), the storage is real cloud object storage the way
+Databricks and Snowflake use it, and the tables can be explored with plain SQL.
+
+**Why now:** today every table lives on this box's disk. S3 costs ~$1/month at this
+size, uses **zero** RAM or disk here, and is what S5.7 (model loaded from S3) and
+S5.6c (Lakekeeper's credential vending) need anyway. Measured from the box: S3
+us-east-1 answers in **3.7 ms** to connect, 24 ms to first byte — same region.
+
+**Acceptance criteria**
+
+*AWS — created by Lubo from a checklist (the one step that is his)*
+- [ ] A **new** bucket for GraphGuard only, us-east-1, Block Public Access on,
+      versioning on, default encryption on. Nothing belonging to `aws-job-streamer`
+      is read, reused or edited
+- [ ] A **new** IAM user `graphguard-lakehouse` whose policy allows only
+      `s3:ListBucket` on that bucket and `s3:GetObject/PutObject/DeleteObject` on its
+      `lakehouse/` prefix — nothing else in the account
+- [ ] Its keys are put into `.secrets/aws.env` (600, gitignored) **by Lubo**; they are
+      never pasted into chat, code, git or the image
+
+*Least privilege, proven — not assumed*
+- [ ] **Given** the lakehouse keys, **when** they write under `lakehouse/`, **then** it
+      works; **when** they write outside it, list another bucket, or touch IAM, **then**
+      AWS answers AccessDenied — a test that expects the denial
+
+*The warehouse moves*
+- [ ] The catalog's warehouse points at `s3://<bucket>/lakehouse/`; the local path stays
+      available for tests and as a fallback
+- [ ] `just lakehouse-build` writes all tables to S3; Iceberg metadata, Parquet files
+      and orphan cleanup all work against S3 (cleanup re-implemented for S3: list
+      the prefix, delete what no snapshot references)
+- [ ] **Given** the same CSV, **when** built to S3 and to local disk, **then** every
+      table's contents are identical (row hashes)
+- [ ] `just store-load` from the S3 gold gives the same 512,705 accounts and the same
+      2,000 scores as today (max difference 0.0)
+- [ ] Time travel works on S3: an older snapshot reads back the older rows
+- [ ] Local warehouse files deleted only **after** the S3 copy is verified; disk freed
+      recorded
+
+*DuckDB for SQL*
+- [ ] DuckDB added to the `lakehouse` extra (project-only), with `memory_limit` set
+      (512 MB) and a spill directory
+- [ ] SQL reads the S3 Iceberg tables: row counts per layer match PyIceberg's
+- [ ] **As-of parity**: DuckDB `ASOF JOIN` with a **strict `>`** gives the same account
+      state at a transaction's time as the Polars path, on a sample — and a unit test
+      for the exact-same-timestamp edge
+- [ ] A small `just sql` (or worksheet script) to run ad-hoc queries, read-only
+- [ ] DuckDB never names `sealed` (the guard enforces it)
+
+*Measured*
+- [ ] Build time and peak RAM to S3 vs local; S3 request count and bytes per build;
+      monthly cost estimate written down
+- [ ] DuckDB query peak RAM stays under its 512 MB cap
+
+*Everywhere*
+- [ ] `just check` green; CI green (S3 tests skipped in CI by an explicit flag, like
+      Redis — CI has no AWS keys); committed; pushed; remotes match; LuBot untouched
+
+**Definition of Done:** every box ticked; the scorer gives identical scores from the
+S3-built store; no secret outside `.secrets/`; the denial test proves the keys can do
+nothing beyond `lakehouse/`.
+
+**Tasks**
+1. Write the AWS checklist + the exact IAM policy JSON (`docs/runbooks/aws-setup.md`);
+   **Lubo creates** the bucket, user and keys and fills `.secrets/aws.env`
+2. Tests first: S3 round trip, the AccessDenied test, local-vs-S3 identity, S3 orphan
+   cleanup, DuckDB ASOF strict-before edge
+3. Make the catalog/warehouse S3-aware (PyArrow's S3 filesystem, credentials from
+   `.secrets/`); S3 orphan cleanup
+4. Build to S3; compare with the local build; time travel check
+5. `store-load` from S3; 2,000-score comparison
+6. Add DuckDB; SQL counts; ASOF parity on a real sample; `just sql`
+7. Measure RAM, time, requests, cost; delete the local warehouse after verification
+8. Docs (CLAUDE.md, runbook), `just check`, commit, push
+
+**Estimate:** 5 story points, ~2 sessions. One external wait: Lubo's AWS step.
+
+**Dependencies:** S5.6a ✅. **Lubo:** AWS bucket + IAM user + keys. S5.7 later adds a
+separate **read-only** user for the scorer on a `models/` prefix of the same bucket.
+
+**Out of scope:** Lakekeeper and credential vending (S5.6c), DuckDB writes / MERGE
+(they need a REST catalog — S5.6c), the scorer reading from S3 (S5.7), backups of
+the catalog database (S5.8c).
+
+**Risks**
+- *Keys leak* → only in `.secrets/` (600, gitignored); least-privilege policy limits
+  the damage to one prefix; versioning lets deleted objects be recovered; the denial
+  test proves the limit
+- *Orphan cleanup deletes live files on S3* → it only deletes keys no remaining snapshot
+  references, and the S3 version is tested before it runs on real data; bucket
+  versioning is the safety net
+- *Cost surprise* → requests and bytes measured per build; a build is ~40 files, far
+  inside free tiers; estimate written down
+- *DuckDB's Iceberg extension version quirks* (the research found conflicting version
+  notes) → check the installed version; read-only use in this story
+- *Build slower over the network* → measured; S3 is in the same region (3.7 ms)
+- *Memory*: no new resident process; DuckDB is capped at 512 MB and runs only on demand
 
 ### S5.6c — Lakekeeper REST catalog *(short until its turn)*
 Lakekeeper as the catalog, capped, internal only; existing tables registered. Late labels
