@@ -69,9 +69,9 @@ graphguard-lakekeeper-vending (role)      policy graphguard-lakehouse-s3 → lak
    role before saving).
 6. **Delete the S5.6b key** of user `graphguard-lakehouse` — *not done: Lubo kept it
    active (2026-11-18), an accepted risk; it is the one key that still reaches `sealed`
-   directly on S3. No job reads it* once every job runs without
-   `.secrets/aws.env` (verified 2026-11-18 by moving the file away and running the
-   build, reload, SQL, training's read and the full test suite).
+   directly on S3.* No job reads it: every job runs without `.secrets/aws.env`
+   (verified 2026-11-18 by moving the file away and running the build, reload, SQL,
+   training's read and the full test suite).
 
 ## Proven by tests
 
