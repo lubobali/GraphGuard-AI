@@ -53,90 +53,25 @@ from the internet but with work to do inside, for GraphGuard and for the box
 | S5b.4 | k3s control plane off the public interface; second wall for the box | box-wide | **high**, with the LuBot session |
 | S5b.5 | One Unix user (or container) per job | GraphGuard | medium |
 | S5b.6 | Keys and secrets: rotation, the retired AWS key | GraphGuard + AWS | low, needs Lubo |
+| S5b.7 | MLflow server 2 → 3 (one major, matched client), after S5b.3's backups | GraphGuard | medium |
 
 Facts already established: Hetzner firewall = TCP 80/443 inbound only (Lubo's console,
 2026-11-18). Ray dashboard locked by NetworkPolicy (S5.3). Scorer runs as uid 10001.
 
 ---
 
-### S5b.1 — Harden GraphGuard's own containers and pod
+### S5b.1 — Harden GraphGuard's own runtime: Redis, Postgres, MLflow, the scorer pod *(expanded 2026-11-18, awaiting approval)*
 
-**User story**
-**As the** owner of a box that was hacked once, **I want** every GraphGuard container
-and pod locked down to the standard of `lubot-prod-backend`, **so that** if any one of
-them is ever broken into, the attacker gets as little as possible and cannot reach
-further.
+**As the** owner of a box that was hacked once, **I want** GraphGuard's data services and
+scorer pod patched, protected by least-privilege users, and locked down to the standard
+Dex, OpenFGA and Lakekeeper already meet, **so that** an attacker who lands anywhere on
+the box can neither use GraphGuard's data nor use a GraphGuard service as a step further.
 
-**Acceptance criteria**
-
-*Redis — the online store*
-- [ ] **Given** a client with no password, **when** it runs any command, **then** Redis
-      answers `NOAUTH`. The password lives in `.secrets/redis.env` (600, gitignored)
-- [ ] The scorer gets the password from a **Kubernetes Secret**, never from the YAML,
-      the image or git; host tools get it from `.secrets/`
-- [ ] **Before any Redis restart**, the reload is proven: `just build-artifacts` (or a
-      new `just store-load`) refills all accounts, timed and written down — Redis keeps
-      nothing on disk by design, so a restart empties it
-- [ ] **Given** Redis was restarted, **when** the store is reloaded, **then** the key
-      count matches before (512,707) and a stored account scores `cold: false`
-
-*Compose containers (Redis, MLflow, MLflow Postgres)*
-- [ ] `cap_drop: [ALL]`, adding back only what each image's entrypoint is shown to need
-- [ ] `security_opt: [no-new-privileges:true]`
-- [ ] `pids_limit` and log rotation (`max-size`, `max-file`) on each
-- [ ] Images pinned by **digest**, not just tag
-- [ ] Each container healthy after the change; MLflow UI 200; runs and experiments still
-      listed; Postgres data intact
-
-*The scorer pod*
-- [ ] `securityContext`: `runAsNonRoot: true`, `runAsUser: 10001`,
-      `allowPrivilegeEscalation: false`, `capabilities: drop [ALL]`,
-      `seccompProfile: RuntimeDefault`
-- [ ] `readOnlyRootFilesystem: true` with a writable `emptyDir` for `/tmp` (Ray writes
-      `/tmp/ray`). **If** Ray needs to write anywhere else, that path gets its own
-      `emptyDir` — or, if it cannot be made to work, the exception is written down
-      with the reason, never silently dropped
-- [ ] After: `just k8s-check` healthy, p99 under 50ms, dashboard still blocked from Docker
-
-*Everywhere*
-- [ ] LuBot before/after: same containers, all sites 200
-- [ ] `just check` green; committed; pushed; remotes match
-
-**Definition of Done:** every box ticked, nothing weakened to make it pass, rolls up to
-the Phase 5 gate (a live endpoint) without degrading it.
-
-**Tasks**
-1. Time the store reload on the current Redis *before* changing it (dry run into a
-   scratch DB number, so live keys are untouched)
-2. Generate the Redis password into `.secrets/redis.env`; create the k8s Secret
-3. Make `store.py`'s default URL read the password from env/`.secrets/` (test first:
-   URL with password parsed, no password still works for unit tests)
-4. Compose: password, `cap_drop`, `no-new-privileges`, `pids_limit`, logging, digests —
-   one container at a time, each verified before the next
-5. Restart Redis, reload, verify count and a warm score
-6. Pod `securityContext` + read-only root + `emptyDir`; roll out (KubeRay, zero
-   downtime); verify
-7. LuBot check; `just check`; commit; push
-
-**Estimate:** 5 story points, 1-2 sessions.
-
-**Dependencies:** S5.3 ✅. Nothing outside GraphGuard.
-
-**Out of scope:** k3s flags and kubeconfig permissions (S5b.4 — needs a k3s restart);
-the CI runner (S5b.2); backups (S5b.3); anything LuBot's.
-
-**Risks**
-- *A Redis restart empties the store* → reload proven and timed first (task 1); the
-  scorer is briefly "everything cold" during the reload — acceptable now, nothing
-  depends on it yet. Also ties to S5.5: an empty store must not look like a healthy one
-- *Postgres entrypoint needs capabilities `cap_drop: ALL` removes* → add back only the
-  ones it fails without, one at a time, from the error
-- *Ray refuses a read-only root* → `emptyDir` per path it needs; if it truly cannot,
-  record the exception in ADR 0001 rather than fake it
-- *MLflow restart loses nothing* (its data is in Postgres and a volume) — confirmed by
-  listing runs before and after
-
----
+Covers: patch releases for Redis and Postgres; one user per client with only the
+commands it needs; credentials kept out of process listings and rotated; the same
+container hardening for every GraphGuard service; a restricted scorer pod; a backup
+taken and restored once before anything restarts. The full story — criteria, rollbacks,
+order — is private until done, because it names what is being fixed (CLAUDE.md rule).
 
 *Noted on the way (S5.6e, 2026-11-18), for S5b.1:*
 - MLflow's database credential handling must be tightened (details: private audit, not in this public repo)
@@ -188,3 +123,10 @@ key re-decided, **so that** no long-lived credential exists that nobody is watch
 - The S5.6b key (`graphguard-lakehouse`) is active by Lubo's choice (accepted risk,
   S5.6d): it is the one key that still reaches `sealed` directly on S3
 - Dex client secrets, OpenFGA key, DB passwords: rotation steps tested once
+
+### S5b.7 — MLflow server 2 → 3 *(short until its turn)*
+**As an** ML engineer, **I want** the MLflow server on a current, supported 3.x release
+with the client on the same major, **so that** the experiment record stays maintained and
+every client call works. A database migration, so it comes after S5b.3 (backups with a
+tested restore): dump, upgrade, compare every experiment and run, roll back if any differ.
+
