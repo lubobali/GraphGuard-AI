@@ -75,6 +75,11 @@ This server runs **LuBot production**. ~15 `lubot-*` containers are live right n
 - **`aws-job-streamer`** and every AWS resource it owns. It is a live public resume
   artifact. No existing bucket, role, or policy gets edited.
 
+**Never publish the box's weak spots.** The GitHub repo is public. Audit findings, open
+ports, file permissions, exposed credentials, unpatched versions — for GraphGuard, LuBot
+or the box — go only in `private/` (gitignored, 700). Public docs say *that* something is
+being fixed, never *what is open* (Lubo, 2026-11-18, after a LuBot list was committed).
+
 **GraphGuard's own everything.** Own containers, own Docker network, own volumes, own
 ports, own Postgres and Redis (not LuBot's), own S3 bucket, own IAM user scoped to that
 bucket only. Everything lives in `/srv/graphguard`.

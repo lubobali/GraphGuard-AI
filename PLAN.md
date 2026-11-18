@@ -481,9 +481,8 @@ else on it, and the whole box should end up locked at least to LuBot's standard.
   the honest limit recorded in ADR 0003 (S5b.5)
 - **Keys and secrets**: rotation runbook; the retired S5.6b AWS key (kept active as an
   accepted risk) re-decided; nothing secret in any repo, checked by a scanner (S5b.6)
-- **LuBot's own findings** handed to the LuBot session, which fixes them: Docker socket
-  in the backend, runner host networking, file permissions, admin ports. GraphGuard's
-  session never touches LuBot
+- **LuBot's own findings** handed to the LuBot session, which fixes them (details: private audit, not in this public repo).
+  GraphGuard's session never touches LuBot
 
 **Done means:** every item above either done and verified by a test or a check that
 fails when it regresses, or explicitly handed over / accepted in writing; LuBot,

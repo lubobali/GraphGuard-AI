@@ -24,10 +24,9 @@ planned with the LuBot session and applied once, with a rollback. Never
 
 ## The backlog (moved from Phase 5's S5.8 epic)
 
-**Why:** the box was hacked once. A read-only inventory (2026-11-18) found it well
-guarded from the internet — the Hetzner firewall admits only TCP 80/443, SSH is key-only
-and reached over Tailscale — but soft inside: no host firewall, and several GraphGuard
-parts unhardened. GraphGuard must never be the weak door into LuBot or anything else.
+**Why:** the box was hacked once. Read-only audits (2026-11-18) found it well guarded
+from the internet but with work to do inside, for GraphGuard and for the box
+(details: private audit, not in this public repo). GraphGuard must never be the weak door into LuBot or anything else.
 
 **Split by risk, lowest first.** Each sub-story is expanded fully just before it starts.
 
@@ -125,9 +124,7 @@ the CI runner (S5b.2); backups (S5b.3); anything LuBot's.
 ---
 
 *Noted on the way (S5.6e, 2026-11-18), for S5b.1:*
-- The MLflow database password is in the MLflow container's **command line**
-  (`--backend-store-uri postgresql://user:password@…`), so anyone who can list Docker
-  containers can read it. Move it to an env file / `MLFLOW_BACKEND_STORE_URI`
+- MLflow's database credential handling must be tightened (details: private audit, not in this public repo)
 - MLflow could never store an artifact: its volume was root-owned while the server
   runs as uid 10001. Fixed in place (`chown`) and in `docker/mlflow.Dockerfile`; the
   image is rebuilt with the rest of S5b.1
@@ -139,8 +136,7 @@ the CI runner (S5b.2); backups (S5b.3); anything LuBot's.
 **As the** owner, **I want** CI jobs and commits unable to leak secrets or run tampered
 code, **so that** the build pipeline is not a way in.
 - Runner job containers: `--cap-drop=ALL`, `no-new-privileges`, a network per job
-  (pattern: `lubobali-runner`). Runner today: no Docker socket ✅, limits ✅, shared
-  `bridge` network ❌
+  (pattern: `lubobali-runner`)
 - `actions/checkout` pinned by commit SHA, not `@v4`
 - gitleaks in prek and CI (pattern: lubobali CI)
 
@@ -152,18 +148,15 @@ is actually tested, **so that** a dead disk does not erase every experiment.
 - The online store needs no backup — it is rebuilt from data (S5b.1 proves how fast)
 
 ### S5b.4 — k3s control plane and the box's second wall *(short until its turn)*
-**As the** owner, **I want** k3s's admin ports off the public interface and a host
+**As the** owner, **I want** k3s's admin ports reachable from the box only, and a host
 firewall behind the Hetzner one, **so that** one mistake in the Hetzner console does not
 expose the box.
-- Today: k3s API `*:6443`, kubelet `*:10250`, flannel `0.0.0.0:8472/udp` (all blocked
-  by Hetzner, but bound publicly); kubeconfig `644`
+- Current state (details: private audit, not in this public repo)
 - k3s flags (bind address, kubeconfig mode `600`) — needs a k3s **service restart**,
   never `k3s-killall.sh`
 - Host firewall: planned with a rollback, applied by ONE session together with the
   LuBot session, every app verified. Never by surprise
-- LuBot findings handed over (theirs to fix): Docker socket in the backend, runner host
-  networking and token perms, staging `.env` 644, admin ports on 0.0.0.0, open
-  credential rotations
+- LuBot's own findings handed to the LuBot session, which fixes them (details: private audit, not in this public repo)
 
 ---
 
