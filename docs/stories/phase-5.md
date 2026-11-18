@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a, S5.6b and S5.6c done; S5.6d (logins, grants, vended keys) done except Lubo deleting the retired S5.6b key; S5.6e next.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a, S5.6b and S5.6c done; S5.6d (logins, grants, vended keys) done — the retired S5.6b key left active by Lubo's choice (accepted risk); S5.6e next.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -614,7 +614,7 @@ Until S5.6d, Lakekeeper has no login — which is why it is bound to 127.0.0.1 o
 - *Another long-running service to keep healthy* → healthcheck; `just k8s-check`-style
   check added for it; runbook
 
-### S5.6d — Governance: logins, grants, and `sealed` as a denied permission *(approved 2026-11-18; done but for deleting the old key)*
+### S5.6d — Governance: logins, grants, and `sealed` as a denied permission *(done 2026-11-18; old key kept active as an accepted risk)*
 
 **In one line:** every job gets its own login (Dex), the catalog decides what each login
 may do (OpenFGA), and each job gets S3 keys that open only the tables it is allowed —
@@ -722,8 +722,12 @@ only when that evaluation happens — contract rule 4.)
       even builder's silver key cannot read a `sealed` file
 - [x] **Given** `reader`'s credentials, **when** it PUTs an object, **then** AccessDenied — trainer's too; the catalog's own
       403 is tested separately with a metadata-only commit
-- [ ] The old `graphguard-lakehouse` access key (the one pasted in chat) is **deleted in
-      IAM** after everything passes — this also closes the key-rotation item
+- [~] The old `graphguard-lakehouse` access key (the one pasted in chat) is **deleted in
+      IAM** after everything passes — this also closes the key-rotation item — **skipped by Lubo's decision
+      (2026-11-18), recorded as an accepted risk:** the S5.6b key stays active in IAM
+      (it was pasted in chat). No job uses it, but whoever holds it can read
+      `lakehouse/`, `sealed` included, straight from S3 — the one remaining back door.
+      Limited to that prefix; deleting it is one minute in IAM (`aws-vending.md` step 6)
 
 *Nothing else changes*
 - [x] `just lakehouse-build` (builder), `just build-artifacts` read path (trainer),
