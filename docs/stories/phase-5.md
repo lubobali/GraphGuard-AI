@@ -57,9 +57,16 @@ Acceptance criteria:
 - [x] The imported image is pinned (verified label for this k3s version, not assumed) —
       `io.cri-containerd.pinned=pinned`, CRI reports `"pinned": true` (k3s v1.36.3,
       containerd v2.3.2)
-- [ ] `just image-build` pins on every import, so the fix survives the next version
-- [ ] A check (`just k8s-status` or similar) says loudly when the pod is not Ready —
-      18 days of ImagePullBackOff must not be possible to miss again
+- [x] `just image-build` pins on every import, so the fix survives the next version —
+      via the new `just image-import` (also usable alone, no rebuild)
+- [x] A check (`just k8s-status` or similar) says loudly when the pod is not Ready —
+      `just k8s-check` (`graphguard.ops.k8s_health`): exit 1 and a
+      `GRAPHGUARD K8S UNHEALTHY:` line per problem for any pod not ready (with the
+      waiting reason, e.g. ImagePullBackOff), no live pods, or the image missing or
+      unpinned. 10 unit tests; run live, healthy → 0, missing image → 1.
+      `just k8s-status` calls it too
+- [ ] **Run on a schedule**, so nobody has to remember: a cron entry calling
+      `just k8s-check`. Waiting for Lubo's OK — `/etc/cron.d` is a box-wide change
 - [x] Old unused images (`serving:0.1.0`, `0.1.1`) removed from Docker, disk recorded
       before and after — removed 2026-11-18 in a box-wide cleanup run by the LuBot
       session (disk 77% → 58%, 51GB → 92GB free); GraphGuard re-verified after: pod,

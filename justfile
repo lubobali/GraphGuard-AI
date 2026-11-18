@@ -144,9 +144,18 @@ serve-smoke:
 # Build the serving image and import it straight into k3s containerd. No
 # registry: this is a single node, and pushing 2.3GB to a registry to pull it
 # back onto the same disk would be theatre.
+#
+# The import is PINNED. With no registry, an unpinned image is one disk-full
+# day from deletion by kubelet's image GC, after which IfNotPresent has nowhere
+# to pull from. That happened once and the scorer was down 18 days (S5.2).
 image-build:
     docker build -t graphguard/serving:{{IMAGE_TAG}} .
+    just image-import
+
+# Import the existing Docker image into k3s and pin it. No rebuild.
+image-import:
     docker save graphguard/serving:{{IMAGE_TAG}} | k3s ctr images import -
+    k3s ctr -n k8s.io images label docker.io/graphguard/serving:{{IMAGE_TAG}} io.cri-containerd.pinned=pinned
 
 k8s-deploy:
     k3s kubectl apply -f k8s/rayservice.yaml
@@ -154,6 +163,12 @@ k8s-deploy:
 k8s-status:
     @k3s kubectl get rayservice -n graphguard
     @k3s kubectl get pods -n graphguard
+    @just k8s-check
+
+# Exit 1, loudly, if any scorer pod is not ready or the image is missing or
+# unpinned. Safe to run from cron.
+k8s-check:
+    @{{UV}} run python -m graphguard.ops.k8s_health docker.io/graphguard/serving:{{IMAGE_TAG}}
 
 # Score a sample transaction through the cluster service.
 k8s-smoke:
