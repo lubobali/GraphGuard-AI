@@ -94,7 +94,8 @@ if [ "$("$BIN_DIR/betterleaks" version 2>/dev/null | tr -d v)" != "$BETTERLEAKS_
   verified_download \
     "https://github.com/betterleaks/betterleaks/releases/download/v$BETTERLEAKS_VERSION/betterleaks_${BETTERLEAKS_VERSION}_linux_x64.tar.gz" \
     "$BETTERLEAKS_SHA256" "$TOOLS_DIR/betterleaks.tar.gz"
-  tar -xzf "$TOOLS_DIR/betterleaks.tar.gz" -C "$BIN_DIR" betterleaks
+  # --no-same-owner: CI jobs run with no capabilities, so tar must not try to chown
+  tar --no-same-owner -xzf "$TOOLS_DIR/betterleaks.tar.gz" -C "$BIN_DIR" betterleaks
   rm -f "$TOOLS_DIR/betterleaks.tar.gz"
 fi
 

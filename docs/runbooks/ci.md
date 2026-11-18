@@ -11,11 +11,16 @@
 ## Everyday
 
 ```
+just ci-sandbox        # EVERY CI step on the committed HEAD, in the real job sandbox
 just ci-probe          # the isolation probe, locally, the way a CI job runs it
 just secrets-staged    # what the pre-commit hook runs
 just secrets-history   # what CI runs: every commit, every branch
 just deps-check        # locks current + no known vulnerability (OSV)
 ```
+
+**Before pushing a CI change, run `just ci-sandbox`.** A copy of the repo checked on the
+host runs with root's powers and hides failures; the first S5b.2 push went red because
+`tar` needed a capability the job no longer has, which only the sandbox shows.
 
 ## When a check fails
 

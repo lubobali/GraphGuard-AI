@@ -332,3 +332,25 @@ deps-check:
     {{UV}} lock --check
     cd featurestore && UV_PYTHON_INSTALL_DIR={{justfile_directory()}}/.tools/python {{UV}} lock --check
     {{justfile_directory()}}/.tools/bin/osv-scanner scan source --lockfile uv.lock --lockfile featurestore/uv.lock
+
+# Every CI step on the committed HEAD, inside the real job sandbox (graphguard/ci:1, own
+# network, no capabilities, no-new-privileges, 2 GB). Use this, not a host-side copy,
+# before pushing CI changes: a host copy runs with root powers and hides failures (S5b.2:
+# `tar` needing CAP_CHOWN passed on the host and failed in CI).
+ci-sandbox:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    d=$(mktemp -d); trap 'rm -rf "$d"; docker network rm gg-sandbox-net >/dev/null 2>&1 || true' EXIT
+    git clone -q {{justfile_directory()}} "$d/repo"
+    docker network create gg-sandbox-net >/dev/null
+    docker run --rm --network gg-sandbox-net --memory 2g --memory-swap 2g --cpus 2 --pids-limit 512 \
+      --cap-drop ALL --security-opt no-new-privileges \
+      -e GRAPHGUARD_SKIP_REDIS_TESTS=1 -e GRAPHGUARD_SKIP_LAKEKEEPER_TESTS=1 \
+      -v "$d/repo":/w -w /w graphguard/ci:1 bash -c '
+        git config --global --add safe.directory /w
+        set -e
+        bash scripts/ci/isolation-probe.sh
+        ./scripts/bootstrap.sh > /tmp/boot.log 2>&1 || { tail -20 /tmp/boot.log; exit 1; }
+        for r in toolchain lint format-check guards secrets-history deps-check test; do
+          echo "== $r"; ./.tools/bin/just $r
+        done'
