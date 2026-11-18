@@ -22,6 +22,20 @@ planned with the LuBot session and applied once, with a rollback. Never
 
 ---
 
+## S5b.0 — Urgent fixes and one coordinated maintenance window *(expanded 2026-11-18, awaiting approval)*
+
+**As the** owner of the box, **I want** the most urgent findings of the 2026-11-18 audit
+closed first — without downtime where possible, and in one announced maintenance window
+where a restart is unavoidable — **so that** every app is back within minutes, verified
+by a before/after check, with a rollback for every step.
+
+Three owners: Lubo (approvals, the window), the LuBot session (box-wide and LuBot
+steps), the GraphGuard session (GraphGuard steps, the check script). The full story —
+steps, criteria, rollbacks — is private (`private/security/`), because it names what is
+open until it is fixed (CLAUDE.md rule).
+
+---
+
 ## The backlog (moved from Phase 5's S5.8 epic)
 
 **Why:** the box was hacked once. Read-only audits (2026-11-18) found it well guarded
