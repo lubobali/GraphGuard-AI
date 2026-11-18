@@ -220,11 +220,45 @@ Acceptance criteria:
 
 Rolls up to: the plan's "model pulled from S3 at startup" requirement.
 
+## S5.8 — Lock down GraphGuard, and keep the whole box safe
+
+*Short form until its turn; expanded fully just before work starts. Comes right after
+S5.3. Source: read-only security inventory of the box, 2026-11-18.*
+
+**As the** owner of a production box that was hacked once before, **I want** GraphGuard
+hardened to the same standard as the best-locked parts of the box, **so that** this
+project never becomes the weak door into LuBot or anything else.
+
+Draft acceptance criteria (refined at expansion):
+- [ ] Ray dashboard / GCS reachable only by KubeRay and our own pods: default-deny
+      NetworkPolicy, ingress only to :8000 from allowed sources — tested from a Docker
+      container (must be blocked) *(may land in S5.3, since it is the scorer)*
+- [ ] k3s API (6443), kubelet (10250) and flannel (8472/udp) not listening on the public
+      interface; kubeconfig `600`
+- [ ] Scorer pod: non-root, read-only root filesystem, `capabilities: drop [ALL]`,
+      `allowPrivilegeEscalation: false` (pattern: `lubot-prod-backend`)
+- [ ] GraphGuard compose: Redis password from `.secrets/`, `cap_drop`, `no-new-privileges`,
+      `pids_limit`, log rotation, images pinned by digest, data network `internal: true`
+- [ ] graphguard-runner: `--cap-drop=ALL`, `no-new-privileges`, a network per job, actions
+      pinned by SHA (pattern: `lubobali-runner`)
+- [ ] MLflow database and artifacts backed up (restic → B2) with a tested restore
+      (pattern: MissionCopilot's backup + restore-check timers)
+- [ ] gitleaks in prek and CI (pattern: lubobali CI)
+- [ ] **Box-wide, with Lubo and the LuBot session:** a host firewall as a second wall
+      behind the Hetzner firewall — planned with a rollback, applied by ONE session,
+      verified for every app (Docker, k3s, Tailscale, nginx). Never by surprise
+- [ ] LuBot findings handed to the LuBot session (Docker socket in backend, runner
+      host networking and token perms, staging `.env` 644, 0.0.0.0 admin ports, open
+      credential rotations) — theirs to fix
+- [ ] Every change: LuBot before/after check, all sites 200
+
+**Estimate:** large — likely split into 2-3 stories at expansion.
+
 ---
 
 ## Order
 
-S5.1 → S5.2 → S5.3 → S5.4 → S5.5 → S5.6 → S5.7
+S5.1 → S5.2 → S5.3 → **S5.8** → S5.4 → S5.5 → S5.6 → S5.7
 
 S5.1-S5.2 first because nothing can be measured on a dead pod. S5.3 before S5.4 because
 if Ray goes, the latency must be measured on what replaces it. S5.7 last because it
