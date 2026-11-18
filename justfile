@@ -302,3 +302,15 @@ k8s-redis-secret:
 # change: `docker compose --env-file .secrets/mlflow.env restart mlflow-db`.
 pg-access:
     {{UV}} run python -m graphguard.ops.pg_access
+
+# --- S5b.2: CI ------------------------------------------------------------------
+# The CI job image (docker/ci.Dockerfile). After a rebuild with a new tag, update
+# runner/config.yml's label and tests/test_ci_supply_chain.py, then restart the runner.
+ci-image:
+    docker build -t graphguard/ci:1 -f docker/ci.Dockerfile docker/
+
+# The isolation probe, locally, exactly as a CI job runs it.
+ci-probe:
+    docker network create gg-probe-net >/dev/null
+    -docker run --rm --network gg-probe-net --memory 256m --pids-limit 512 --cap-drop ALL --security-opt no-new-privileges -v {{justfile_directory()}}/scripts/ci:/p:ro graphguard/ci:1 bash /p/isolation-probe.sh
+    docker network rm gg-probe-net >/dev/null

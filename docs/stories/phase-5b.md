@@ -96,7 +96,7 @@ tests. Runbook: `docs/runbooks/data-services.md`. The detailed record stays priv
   lacks (e.g. listing artifacts). Pin the client to the server's major, or upgrade the
   server, in one step with a tested restore (S5b.3)
 
-### S5b.2 — Supply chain and CI: isolated jobs, pinned code, scanned commits *(expanded 2026-11-18, awaiting approval)*
+### S5b.2 — Supply chain and CI: isolated jobs, pinned code, scanned commits *(approved 2026-11-18, in progress)*
 
 **As the** owner of a box that runs CI for several projects, **I want** GraphGuard's CI jobs
 isolated from every other container, stripped of privileges, built only from pinned code,

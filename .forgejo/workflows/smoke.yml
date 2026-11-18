@@ -1,11 +1,11 @@
-# Smoke test — proves the CI chain works end to end before anything depends on it.
-# Deliberately exercises the pieces the real Phase 0 pipeline needs:
-# container networking, git, and uv-managed Python from a pinned version.
+# Smoke test — proves the runner chain works end to end, for debugging the runner
+# itself without touching the pipeline that guards the code (ci.yml).
+#
+# S5b.2: same rules as ci.yml -- a pinned checkout, the isolation probe first, and the
+# project's own pinned toolchain (scripts/bootstrap.sh) instead of `curl | sh`, which
+# ran whatever the internet served that day.
 name: smoke
 
-# Manual only. Its job was to prove the runner chain works end to end, which it
-# did. Real checks live in ci.yml now; this stays for debugging the runner
-# itself without touching the pipeline that guards the code.
 on:
   workflow_dispatch:
 
@@ -14,43 +14,28 @@ jobs:
     # Must be `graphguard` — this repo's own isolated runner.
     # `ubuntu-latest` would queue forever, and must never land on LuBot's runner.
     runs-on: graphguard
+    timeout-minutes: 10
     steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+
+      - name: Isolation probe
+        run: bash scripts/ci/isolation-probe.sh
+
       - name: Container identity
         run: |
-          echo "os:   $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)"
+          echo "os:   $(grep PRETTY_NAME /etc/os-release | cut -d'"' -f2)"
           echo "node: $(node --version)"
+          echo "git:  $(git --version)"
           echo "user: $(whoami)"
-
-      - name: Install git and curl
-        # node:20-bookworm-slim ships with neither. curl is required by the
-        # uv installer; git is required by actions/checkout.
-        run: |
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends git curl ca-certificates
-          git --version
-          curl --version | head -1
-
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Repo arrived intact
-        run: |
-          test -f PLAN.md   || { echo "PLAN.md missing"; exit 1; }
-          test -f CLAUDE.md || { echo "CLAUDE.md missing"; exit 1; }
           echo "commit: $(git rev-parse --short HEAD)"
 
-      - name: Install uv
+      - name: Pinned toolchain
         run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
-
-      - name: uv provides pinned Python
-        run: |
-          uv --version
-          uv python install 3.12
-          uv run --python 3.12 python -c "import sys; print('python:', sys.version.split()[0])"
+          ./scripts/bootstrap.sh
+          ./.tools/bin/just toolchain
 
       - name: Resource caps are enforced
         run: |
           LIMIT=$(cat /sys/fs/cgroup/memory.max 2>/dev/null || echo unknown)
-          echo "cgroup memory.max: $LIMIT (expect ~2147483648 = 2G)"
+          echo "cgroup memory.max: $LIMIT (expect 2147483648 = 2G)"
+          test "$LIMIT" = 2147483648

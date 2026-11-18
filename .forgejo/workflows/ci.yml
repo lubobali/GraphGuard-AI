@@ -1,5 +1,8 @@
 # GraphGuard-AI CI.
 #
+# Jobs run in graphguard/ci (docker/ci.Dockerfile) on their own network with no
+# capabilities; the first step proves it (scripts/ci/isolation-probe.sh). S5b.2.
+#
 # CI runs the SAME bootstrap script as the local loop, so both get a pinned,
 # identical toolchain: the project's own uv, its own Python, its own just,
 # all under .tools/. Nothing is shared with LuBot or with root's environment.
@@ -19,13 +22,16 @@ concurrency:
 jobs:
   lint:
     runs-on: graphguard
+    timeout-minutes: 15
     steps:
-      - name: System deps
-        run: |
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends git curl ca-certificates
+      # Pinned to a commit, not a movable tag (S5b.2). Resolved from data.forgejo.org,
+      # where this Forgejo instance fetches actions. Tag v4.4.0 (2026-07-16).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: actions/checkout@v4
+      - name: Isolation probe
+        # No capabilities, own network, no other container reachable, PyPI reachable --
+        # or the build fails. git/curl come from the job image, so there is no apt step.
+        run: bash scripts/ci/isolation-probe.sh
 
       - name: Bootstrap pinned toolchain
         run: ./scripts/bootstrap.sh
@@ -44,13 +50,16 @@ jobs:
 
   test:
     runs-on: graphguard
+    timeout-minutes: 20
     steps:
-      - name: System deps
-        run: |
-          apt-get update -qq
-          apt-get install -y -qq --no-install-recommends git curl ca-certificates
+      # Pinned to a commit, not a movable tag (S5b.2). Resolved from data.forgejo.org,
+      # where this Forgejo instance fetches actions. Tag v4.4.0 (2026-07-16).
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: actions/checkout@v4
+      - name: Isolation probe
+        # No capabilities, own network, no other container reachable, PyPI reachable --
+        # or the build fails. git/curl come from the job image, so there is no apt step.
+        run: bash scripts/ci/isolation-probe.sh
 
       - name: Bootstrap pinned toolchain
         run: ./scripts/bootstrap.sh
