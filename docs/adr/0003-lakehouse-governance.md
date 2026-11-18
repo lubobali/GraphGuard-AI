@@ -64,6 +64,6 @@ OpenFGA is pinned to 1.14, not the newest 1.22, because it is the version Lakeke
   `governance.py`, so they are rebuilt by one command.
 - **Honest limit:** every job runs as root on one box, so a job could read another
   job's secret file. The boundary holds for a process that has only its own
-  credentials. Per-job Unix users or containers are S5.8 work.
+  credentials. Per-job Unix users or containers are Phase 5b work (S5b.5).
 - The final test-set evaluation will need an `evaluator` identity with a one-time
   grant on `sealed` — created only then (contract rule 4).

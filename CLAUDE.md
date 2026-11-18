@@ -5,8 +5,9 @@ dataset.
 
 **Full build plan:** `PLAN.md`. Read it before starting a phase — this file is the rules,
 that file is the work. **Read its "Plan revisions" section too**: the plan has been
-changed twice against evidence (R-1, the GNN losing Phase 4; R-2, a Nov 2026 re-check
-against the market, the research and the stack — see `docs/research/`), and revisions
+changed three times (R-1, the GNN losing Phase 4; R-2, a Nov 2026 re-check against
+the market, the research and the stack — see `docs/research/`; R-3, box security as
+its own Phase 5b), and revisions
 are recorded there with their cause rather than applied silently.
 
 **The production model is XGBoost, not the GNN** (R-1). Serving, explainability and
@@ -328,6 +329,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — k3s pod broken, see below |
+| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | not started (after S5.6e) |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
@@ -384,7 +386,7 @@ Multi-PNA rematch (R-2). SageMaker is cut by R-2; S3 moves to Phase 5.
 NetworkPolicy, ADR 0001; p99 7.6ms on k3s), S5.6a (the lakehouse; Redis now rebuilt
 from gold, 2,000/2,000 scores identical), S5.6b (S3 + DuckDB), S5.6c (Lakekeeper),
 S5.6d (Dex logins, OpenFGA grants, vended per-table S3 keys; ADR 0003). Next: S5.6e,
-then the S5.8 lockdown, S5.4, S5.5, S5.7.
+then **Phase 5b — box security** (R-3, `docs/stories/phase-5b.md`), then S5.4, S5.5, S5.7.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models

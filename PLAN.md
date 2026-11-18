@@ -113,6 +113,23 @@ time.
 **And a process change.** Every phase from here starts with written agile stories,
 approved before any code is read or written for it. See "How we work".
 
+### R-3 — Box security becomes its own phase (5b)
+
+*2026-11-18, during Phase 5. Decided by Lubo. Affects Phase 5's order and adds Phase 5b.*
+
+The lockdown was one story (S5.8, four sub-stories). The read-only audit of the box
+showed it is bigger than that: it covers the whole box, not only GraphGuard (host
+firewall, k3s's public ports, per-job users), and part of it is LuBot's to fix and
+must be planned with the LuBot session. It is now **Phase 5b — Box security**, with
+its own stories (`docs/stories/phase-5b.md`; S5.8a-d became S5b.1-4).
+
+**Where it goes:** after S5.6e, before S5.4. S5.6e is the last Phase 5 step that changes
+how services connect (Feast may fill Redis), so after it the inventory is final and is
+locked once. S5.4 must measure p99 on the **locked** system, since a Redis password, TLS
+or firewall rules can each add latency. Phase 6's Kafka is then born inside the rules.
+The "touch Redis once" reason for doing the lakehouse first (S5.6) is already met:
+`just store-load` rebuilds Redis from gold in 13 s.
+
 ---
 
 ## Why this project exists
@@ -426,12 +443,17 @@ The hard engineering. You cannot walk a graph in 30ms.
 - ✅ **A small lakehouse, step 1** (S5.6a): Iceberg bronze/silver/gold (+ `sealed` for the
   test window) on local disk, catalog in our own Postgres; Redis rebuilt from gold
   without retraining (2,000/2,000 scores identical); every training run logs the
-  snapshot ids it read. FINDING-009. Next steps S5.6b-e
-- **Measure Ray's real memory on k3s** and decide: keep Ray Serve (≥ 2.52, dashboard
-  internal only) or replace it with FastAPI on k3s. Record the decision as an ADR (R-2)
-- **Feast decision**: Feast as a library only (≥ 0.68, offline join plus materialise into
-  Redis, no Feast servers) or keep our own store and document why. Either is fine; the
-  plan saying Feast while the code does not use it is not (R-2)
+  snapshot ids it read. FINDING-009
+- ✅ **The lakehouse, steps 2-4** (S5.6b-d): our own S3 bucket and DuckDB SQL; Lakekeeper
+  as the Iceberg REST catalog (ADR 0002); Dex logins, OpenFGA grants and per-table
+  vended S3 keys, with `sealed` and bronze denied to training (ADR 0003,
+  FINDING-011). FINDING-010, FINDING-012
+- ✅ **Measure Ray's real memory on k3s** and decide: kept Ray Serve, right-sized,
+  dashboard locked by NetworkPolicy (S5.3, ADR 0001)
+- **Feast decision** (S5.6e): Feast as a library only (≥ 0.68, no Feast servers) or keep
+  our own store, decided by measured parity, latency and RAM and recorded as ADR 0004.
+  Either is fine; the plan saying Feast while the code does not use it is not (R-2)
+- **Then Phase 5b (box security)** before the remaining Phase 5 steps below (R-3)
 - **Cold-account path tested** as an explicit test, not only observed in a measurement
 - **Model pulled from S3 at startup**, so the running version is always traceable to a
   specific artifact. Needs the project's own bucket and IAM user (AWS was deferred)
@@ -440,6 +462,32 @@ The hard engineering. You cannot walk a graph in 30ms.
 
 **Done means:** a live endpoint **on k3s**, p99 measured under budget there, the
 cold-account path tested rather than assumed, and the Ray and Feast decisions recorded.
+
+### Phase 5b — Box security (added by R-3)
+
+The box was hacked once. GraphGuard must never be the weak door into LuBot or anything
+else on it, and the whole box should end up locked at least to LuBot's standard.
+
+- **GraphGuard's own containers and pod** hardened like `lubot-prod-backend`: Redis
+  password and persistence, every container non-root / read-only / no capabilities
+  (S5b.1)
+- **Supply chain**: CI runner job isolation, actions pinned by SHA, gitleaks in prek
+  and CI (S5b.2)
+- **Backups off the box** with a tested restore: MLflow, the catalog databases (S5b.3)
+- **k3s off the public interface** and a **host firewall** behind Hetzner's, planned
+  with the LuBot session, applied once, every app verified, with a rollback (S5b.4)
+- **One Unix user (or container) per job**, so a job cannot read another's secrets —
+  the honest limit recorded in ADR 0003 (S5b.5)
+- **Keys and secrets**: rotation runbook; the retired S5.6b AWS key (kept active as an
+  accepted risk) re-decided; nothing secret in any repo, checked by a scanner (S5b.6)
+- **LuBot's own findings** handed to the LuBot session, which fixes them: Docker socket
+  in the backend, runner host networking, file permissions, admin ports. GraphGuard's
+  session never touches LuBot
+
+**Done means:** every item above either done and verified by a test or a check that
+fails when it regresses, or explicitly handed over / accepted in writing; LuBot,
+staging, git.lubot.ai and lubobali.com up throughout; a one-page "how this box is
+protected" document a reviewer can read.
 
 ### Phase 6 — The stream
 

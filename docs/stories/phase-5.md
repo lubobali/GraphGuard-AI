@@ -219,7 +219,7 @@ a REST catalog, object storage, engines as jobs.
 | L2 | S5.6b — Warehouse on our own S3; DuckDB for SQL | 0 | AWS bucket + IAM user |
 | L3 | S5.6c — Lakekeeper REST catalog; late labels via MERGE | 30-100MB | start a container |
 | L4 | S5.6d — Governance: Dex logins, OpenFGA grants, vended credentials, the sealed test set as a denied permission | 50-150MB | start two containers + one AWS step |
-| L5 | S5.6e — Feast over Iceberg → Redis, lineage, marimo worksheets | 0 | no |
+| L5 | S5.6e — Feast decided by measurement (ADR 0004), OpenLineage on every job, marimo worksheets | 0 | no |
 
 Maintenance with Dagster is Phase 8 (L6); Spark on the same tables is Phase 10 (L7).
 **Every step has a measurement gate:** it stays only if its measured RAM fits.
@@ -251,7 +251,7 @@ truth.
         `test`). Docker: Redis 45 MiB, MLflow 99 MiB, MLflow DB 23 MiB. Disk 92 GB free
 - [x] Integration tests use their **own Redis database** (not db 0), clean up after
       themselves, and **fail rather than silently skip** when Redis is unreachable or
-      needs a password (`_redis_available()` skips today — with S5.8a's password it
+      needs a password (`_redis_available()` skips today — with S5b.1's password it
       would quietly stop testing Redis at all)
 - [x] Key-count checks count `gg:acct:*` only — the 3 stray `test:acct:*` keys removed;
       live Redis holds exactly 512,705. Tests use db 15 and clean up (db 15 empty after);
@@ -352,7 +352,7 @@ how data flows.
 container.
 
 **Out of scope:** S3 and DuckDB (S5.6b), Lakekeeper (S5.6c), permissions (S5.6d), Feast
-(S5.6e), Redis persistence settings (S5.8a), retraining the production model.
+(S5.6e), Redis persistence settings (S5b.1), retraining the production model.
 
 **Risks**
 - *Polars 1.43.2's Iceberg writer is marked unstable* → write through PyIceberg with
@@ -360,7 +360,7 @@ container.
   (that is its own step, behind the determinism test)
 - *Features from the new path differ slightly* → the parity test catches it before the
   scorer ever sees it; differences get investigated, never tolerated
-- *The catalog lives in MLflow's Postgres* → one database to back up (S5.8c), and a
+- *The catalog lives in MLflow's Postgres* → one database to back up (S5b.3), and a
   separate DB user so neither can touch the other's tables
 - *Disk*: compressed Parquet for 5M rows is expected in the low hundreds of MB, measured
   in task 8
@@ -474,7 +474,7 @@ separate **read-only** user for the scorer on a `models/` prefix of the same buc
 
 **Out of scope:** Lakekeeper and credential vending (S5.6c), DuckDB writes / MERGE
 (they need a REST catalog — S5.6c), the scorer reading from S3 (S5.7), backups of
-the catalog database (S5.8c).
+the catalog database (S5b.3).
 
 **Risks**
 - *Keys leak* → only in `.secrets/` (600, gitignored); least-privilege policy limits
@@ -788,15 +788,15 @@ the old key at the end. (Feast moves to ADR 0004.)
 
 **Out of scope:** human login to the Lakekeeper web UI (browser redirects through an
 SSH tunnel — a later nice-to-have); row or column masking (neither authorizer does it);
-the `evaluator` identity (final evaluation only); separate Unix users per job (S5.8 —
-see risks); Redis and MLflow auth (S5.8).
+the `evaluator` identity (final evaluation only); separate Unix users per job (S5b.5 —
+see risks); Redis and MLflow auth (Phase 5b).
 
 **Risks**
 - *Honest limit — one box, one Unix user:* every job runs as root, so a job could read
   another job's secret file. The platform enforces the boundary for every engine
   that goes through it, and the denial is real for any process holding only its own
   credentials. Process isolation (own Unix user or container per job) is written down
-  as S5.8 work, not claimed here
+  as Phase 5b work, not claimed here
 - *Switching `allowall` → OpenFGA on a running catalog* may need a fresh bootstrap → the
   Lakekeeper DB is recreated and the tables **re-registered** (no data move, done once
   in S5.6c); snapshot ids compared before and after
@@ -813,9 +813,130 @@ see risks); Redis and MLflow auth (S5.8).
 - *Locking ourselves out* → `admin` secret kept in `.secrets/`; runbook has the
   recovery path (back to `allowall` on 127.0.0.1, as S5.6c ran)
 
-### S5.6e — Feast, lineage, worksheets *(short until its turn)*
-Feast (library) over Iceberg → Redis, asserted equal to the Polars output (ADR 0004 on
-Feast). OpenLineage audit records. marimo worksheets, started only when needed.
+### S5.6e — Feast decided by measurement, lineage on every job, worksheets *(expanded 2026-11-18, awaiting approval)*
+
+**In one line:** try the standard feature store (Feast) on our real data, keep it only
+where it matches our numbers exactly, record which data every job read and wrote, and
+add notebook pages for exploring the lakehouse.
+
+**User story**
+**As an** ML engineer, **I want** the feature-store decision made on measured evidence
+— Feast against our own loader, value for value — and every lakehouse job to leave a
+lineage record of what it read and wrote, **so that** the platform uses the industry
+tool where it is right, explains where it is not, and can answer "which data trained
+this model?" from a log instead of from memory.
+
+**Why now:** Phase 5's "Done means" requires the Feast decision recorded (R-2). The plan
+has said "Feast" since August while the code uses its own store. This is the last Phase
+5 step that may change how Redis is filled, so it goes before the Phase 5b lockdown (R-3).
+
+**Facts checked before writing (2026-11-18)**
+- Feast **0.68** reads Iceberg natively (`IcebergSource`, ≥ 0.64) through PyIceberg, any
+  REST catalog, with vended credentials on by default; DuckDB offline store, no Spark.
+  Read-only over Iceberg: it never writes back or creates tables. Library only — its
+  servers had critical CVEs in 2026, so no feature server, no UI (research, R-2)
+- **Point-in-time joins use the event timestamp only**; ties are broken by a "created"
+  timestamp, not by source order. Our training features need (timestamp, source_row)
+  — 9.4% of transactions tie on the minute (FINDING-010). So Feast for *training*
+  features must be tested on ties, not assumed
+- Feast's Redis format is its own (hashed entity key, murmur3-hashed field names,
+  encoded values): our scorer cannot read it without Feast, and Feast cannot fill our
+  `gg:acct:*` keys
+- **A dry-run lock adds Feast cleanly but changes our stack:** it downgrades the Redis
+  client the scorer uses (8.1 → 7.4), `tenacity` and `prometheus-client`, and pulls in
+  pandas, dask, gunicorn and mypy
+- The live Redis is at **~80% of its 200 MB cap with `noeviction`**: a second copy of
+  512,705 accounts written into it could make the live store's writes fail
+
+**Acceptance criteria**
+
+*A — Feast, isolated and measured*
+- [ ] Feast lives in **its own uv project** (`featurestore/`, own `pyproject.toml` and lock);
+      the main lockfile and the serving image are **unchanged** (diff shown)
+- [ ] One entity (`account`) and one feature view over `gold.account_features_asof`,
+      read through Lakekeeper **as `reader`** with vended keys; no Feast server, no UI
+- [ ] **Trial runs never touch the live Redis.** Materialisation goes to Feast's SQLite
+      online store (a local file); nothing is written to `graphguard-redis`
+- [ ] **Given** the same gold snapshot, **when** Feast materialises it, **then** for all
+      512,705 accounts its online values equal our store's **exactly** (counts as
+      integers, money bit for bit) — or every difference is counted and explained
+- [ ] **Given** two transactions in the same minute, **when** Feast's historical retrieval
+      builds training features, **then** the test records whether it matches training's
+      (timestamp, source_row) rule — a pass or a documented finding, not an assumption
+- [ ] **Measured** and compared with `just store-load`: wall time, peak RAM, and
+      `get_online_features` latency for 2 accounts (p50/p99, 1,000 calls) against our
+      store's lookup, plus the install size Feast would add to the serving image
+- [ ] **ADR 0004** chooses one, with the numbers: (a) Feast fills Redis and the scorer
+      reads through Feast; (b) Feast as the feature registry and offline retrieval, our
+      loader keeps filling Redis; (c) keep our own store. Moving the live Redis to
+      Feast's format, if chosen, is a separate, approved step with a capacity check
+
+*B — Lineage on every job*
+- [ ] `lakehouse-build`, `store-load`, `build-artifacts` and (if kept) Feast
+      materialisation each emit **OpenLineage** START and COMPLETE/FAIL events: job
+      name, run id, input and output tables **with their Iceberg snapshot ids**
+- [ ] Events go to an append-only JSON-lines file under `lakehouse/lineage/` (no new
+      service); a training run also logs its events to its MLflow run
+- [ ] `just lineage` prints the graph: table → job → table, newest run per job
+- [ ] **Given** a training run, **then** its lineage names the silver snapshot it read —
+      the same id MLflow already records — and never `sealed`
+- [ ] Events hold no secret (tested), and a failed job emits FAIL, not nothing
+
+*C — Worksheets, on demand*
+- [ ] One **marimo** notebook (`notebooks/lakehouse.py`, plain Python in git): row counts
+      per layer, the laundering rate per day in silver, one labelled ring from gold, and
+      the tie-aware "history before" query (FINDING-010)
+- [ ] `just notebook` starts it as **`reader`** on **127.0.0.1** only, with marimo's
+      token, inside a hard memory cap (systemd scope, 768 MB); it is not a service and
+      stops with Ctrl-C. Reached through the SSH tunnel, like MLflow
+- [ ] The notebook runs headless as a test (live, skipped in CI by the existing flag);
+      the `sealed` guard also scans `notebooks/`
+
+*Nothing else changes*
+- [ ] The scorer, the live Redis and the main lockfile untouched unless ADR 0004 picks
+      (a) and Lubo approves that step; **2,000/2,000 scores identical**
+- [ ] `just check` green; CI green **checked on the real run**; committed; pushed; remotes
+      match; LuBot before/after unchanged
+
+**Definition of Done:** every box ticked; ADR 0004 written with measured parity,
+latency and RAM; the Feast-vs-training tie behaviour known and written down; lineage
+from every job; a notebook that opens as `reader` and cannot see the test window.
+
+**Tasks**
+1. Tests first: online-value parity, the tie test, lineage event shape/no secrets,
+   notebook headless run
+2. `featurestore/` project (Feast ≥ 0.68, pinned), entity + feature view, IcebergSource
+   via Lakekeeper as `reader`, SQLite online store
+3. Materialise; parity over all 512,705 accounts; measure time, RAM, latency, size
+4. Historical retrieval on the tie fixture; record the result
+5. ADR 0004 — decide with the numbers
+6. OpenLineage: one small helper, wired into the four jobs; `just lineage`
+7. marimo notebook, `just notebook` (127.0.0.1, token, memory cap); guard extended
+8. Runbook notes, CLAUDE.md, commit, push, **watch CI**
+
+**Estimate:** 5 story points, ~2 sessions.
+
+**Dependencies:** S5.6d ✅ (identities, vended keys). **No new container, no AWS, no
+change to the live Redis.** Lubo approves this story; a later move of the live store to
+Feast's format, if ADR 0004 chooses it, is its own approval.
+
+**Out of scope:** Feast's feature server and UI (CVEs, and a service we do not need);
+Marquez (its OpenSearch OOMs on this box — at most a one-off screenshot later); streaming
+features from Kafka (Phase 6); Spark (Phase 10); the security lockdown (Phase 5b).
+
+**Risks**
+- *Feast's dependencies fight ours* (seen in the dry run) → its own uv project, so the
+  serving stack never changes by accident
+- *Feast's OAuth to Lakekeeper* — the documented path is a static token in an env var;
+  ours are 1-hour Dex tokens → fetch one per run, or pass PyIceberg's OAuth settings
+  through `catalog_properties`; proven first on one table
+- *A second copy of the store overfills Redis* → trial runs use SQLite; Redis only after
+  a capacity check, in its own approved step
+- *Feast cannot express our training features* (ties) → expected and fine: the ADR says
+  where Feast fits (account snapshots) and where our Polars code stays (per-transaction
+  history), instead of forcing it
+- *marimo exposes a code-running web page* → 127.0.0.1 and a token only; memory-capped;
+  runs as `reader`, which cannot see the test window
 
 ## S5.7 — The running model is traceable to one artifact
 
@@ -836,144 +957,18 @@ Acceptance criteria:
 
 Rolls up to: the plan's "model pulled from S3 at startup" requirement.
 
-## S5.8 — Lock down GraphGuard, and keep the whole box safe (epic)
+## S5.8 — moved to Phase 5b
 
-**Why:** the box was hacked once. A read-only inventory (2026-11-18) found it well
-guarded from the internet — the Hetzner firewall admits only TCP 80/443, SSH is key-only
-and reached over Tailscale — but soft inside: no host firewall, and several GraphGuard
-parts unhardened. GraphGuard must never be the weak door into LuBot or anything else.
-
-**Split by risk, lowest first.** Each sub-story is expanded fully just before it starts.
-
-| | Sub-story | Touches | Risk |
-|---|---|---|---|
-| **S5.8a** | Harden GraphGuard's own containers and pod | only GraphGuard | low |
-| S5.8b | Supply chain: CI runner, pinned actions, secret scanning | only GraphGuard | low |
-| S5.8c | Backups: MLflow off the box, with a tested restore | GraphGuard + a new B2 bucket | low, needs Lubo |
-| S5.8d | k3s control plane off the public interface; second wall for the box | box-wide | **high**, with the LuBot session |
-
-Facts already established: Hetzner firewall = TCP 80/443 inbound only (Lubo's console,
-2026-11-18). Ray dashboard locked by NetworkPolicy (S5.3). Scorer runs as uid 10001.
-
----
-
-### S5.8a — Harden GraphGuard's own containers and pod
-
-**User story**
-**As the** owner of a box that was hacked once, **I want** every GraphGuard container
-and pod locked down to the standard of `lubot-prod-backend`, **so that** if any one of
-them is ever broken into, the attacker gets as little as possible and cannot reach
-further.
-
-**Acceptance criteria**
-
-*Redis — the online store*
-- [ ] **Given** a client with no password, **when** it runs any command, **then** Redis
-      answers `NOAUTH`. The password lives in `.secrets/redis.env` (600, gitignored)
-- [ ] The scorer gets the password from a **Kubernetes Secret**, never from the YAML,
-      the image or git; host tools get it from `.secrets/`
-- [ ] **Before any Redis restart**, the reload is proven: `just build-artifacts` (or a
-      new `just store-load`) refills all accounts, timed and written down — Redis keeps
-      nothing on disk by design, so a restart empties it
-- [ ] **Given** Redis was restarted, **when** the store is reloaded, **then** the key
-      count matches before (512,707) and a stored account scores `cold: false`
-
-*Compose containers (Redis, MLflow, MLflow Postgres)*
-- [ ] `cap_drop: [ALL]`, adding back only what each image's entrypoint is shown to need
-- [ ] `security_opt: [no-new-privileges:true]`
-- [ ] `pids_limit` and log rotation (`max-size`, `max-file`) on each
-- [ ] Images pinned by **digest**, not just tag
-- [ ] Each container healthy after the change; MLflow UI 200; runs and experiments still
-      listed; Postgres data intact
-
-*The scorer pod*
-- [ ] `securityContext`: `runAsNonRoot: true`, `runAsUser: 10001`,
-      `allowPrivilegeEscalation: false`, `capabilities: drop [ALL]`,
-      `seccompProfile: RuntimeDefault`
-- [ ] `readOnlyRootFilesystem: true` with a writable `emptyDir` for `/tmp` (Ray writes
-      `/tmp/ray`). **If** Ray needs to write anywhere else, that path gets its own
-      `emptyDir` — or, if it cannot be made to work, the exception is written down
-      with the reason, never silently dropped
-- [ ] After: `just k8s-check` healthy, p99 under 50ms, dashboard still blocked from Docker
-
-*Everywhere*
-- [ ] LuBot before/after: same containers, all sites 200
-- [ ] `just check` green; committed; pushed; remotes match
-
-**Definition of Done:** every box ticked, nothing weakened to make it pass, rolls up to
-the Phase 5 gate (a live endpoint) without degrading it.
-
-**Tasks**
-1. Time the store reload on the current Redis *before* changing it (dry run into a
-   scratch DB number, so live keys are untouched)
-2. Generate the Redis password into `.secrets/redis.env`; create the k8s Secret
-3. Make `store.py`'s default URL read the password from env/`.secrets/` (test first:
-   URL with password parsed, no password still works for unit tests)
-4. Compose: password, `cap_drop`, `no-new-privileges`, `pids_limit`, logging, digests —
-   one container at a time, each verified before the next
-5. Restart Redis, reload, verify count and a warm score
-6. Pod `securityContext` + read-only root + `emptyDir`; roll out (KubeRay, zero
-   downtime); verify
-7. LuBot check; `just check`; commit; push
-
-**Estimate:** 5 story points, 1-2 sessions.
-
-**Dependencies:** S5.3 ✅. Nothing outside GraphGuard.
-
-**Out of scope:** k3s flags and kubeconfig permissions (S5.8d — needs a k3s restart);
-the CI runner (S5.8b); backups (S5.8c); anything LuBot's.
-
-**Risks**
-- *A Redis restart empties the store* → reload proven and timed first (task 1); the
-  scorer is briefly "everything cold" during the reload — acceptable now, nothing
-  depends on it yet. Also ties to S5.5: an empty store must not look like a healthy one
-- *Postgres entrypoint needs capabilities `cap_drop: ALL` removes* → add back only the
-  ones it fails without, one at a time, from the error
-- *Ray refuses a read-only root* → `emptyDir` per path it needs; if it truly cannot,
-  record the exception in ADR 0001 rather than fake it
-- *MLflow restart loses nothing* (its data is in Postgres and a volume) — confirmed by
-  listing runs before and after
-
----
-
-### S5.8b — Supply chain *(short until its turn)*
-**As the** owner, **I want** CI jobs and commits unable to leak secrets or run tampered
-code, **so that** the build pipeline is not a way in.
-- Runner job containers: `--cap-drop=ALL`, `no-new-privileges`, a network per job
-  (pattern: `lubobali-runner`). Runner today: no Docker socket ✅, limits ✅, shared
-  `bridge` network ❌
-- `actions/checkout` pinned by commit SHA, not `@v4`
-- gitleaks in prek and CI (pattern: lubobali CI)
-
-### S5.8c — Backups *(short until its turn)*
-**As the** owner, **I want** MLflow's history backed up off the box with a restore that
-is actually tested, **so that** a dead disk does not erase every experiment.
-- Own restic repo in an own B2 bucket (Lubo creates bucket + key; nothing of LuBot's
-  backup reused). Daily; restore-check timer (pattern: MissionCopilot)
-- The online store needs no backup — it is rebuilt from data (S5.8a proves how fast)
-
-### S5.8d — k3s control plane and the box's second wall *(short until its turn)*
-**As the** owner, **I want** k3s's admin ports off the public interface and a host
-firewall behind the Hetzner one, **so that** one mistake in the Hetzner console does not
-expose the box.
-- Today: k3s API `*:6443`, kubelet `*:10250`, flannel `0.0.0.0:8472/udp` (all blocked
-  by Hetzner, but bound publicly); kubeconfig `644`
-- k3s flags (bind address, kubeconfig mode `600`) — needs a k3s **service restart**,
-  never `k3s-killall.sh`
-- Host firewall: planned with a rollback, applied by ONE session together with the
-  LuBot session, every app verified. Never by surprise
-- LuBot findings handed over (theirs to fix): Docker socket in the backend, runner host
-  networking and token perms, staging `.env` 644, admin ports on 0.0.0.0, open
-  credential rotations
-
----
+The lockdown epic (S5b.1-d) is now its own phase, **Phase 5b — Box security** (R-3,
+2026-11-18): `docs/stories/phase-5b.md`, as S5b.1-4 plus two new stories.
 
 ## Order
 
-S5.1 → S5.2 → S5.3 → **S5.6a** → S5.6b-e → S5.8a-d → S5.4 → S5.5 → S5.7
+S5.1 → S5.2 → S5.3 → **S5.6a** → S5.6b-e → **Phase 5b** (box security) → S5.4 → S5.5 → S5.7
 
 Lakehouse before lockdown (Lubo, 2026-11-18): build the Redis reload once, the right
-way, then harden. The box stays as it is meanwhile — internet blocked by Hetzner, Ray
+way, then harden. The lockdown became its own phase, 5b, after S5.6e (R-3): the service
+inventory is final after S5.6e, and S5.4 must measure latency on the locked system. The box stays as it is meanwhile — internet blocked by Hetzner, Ray
 dashboard locked (S5.3).
 
 S5.1-S5.2 first because nothing can be measured on a dead pod. S5.3 before S5.4 because

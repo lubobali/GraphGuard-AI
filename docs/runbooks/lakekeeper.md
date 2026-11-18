@@ -100,4 +100,4 @@ staler still.
 - Remote signing stays off (DuckDB cannot use it; vended keys already scope tables).
 - All jobs run as root on one box, so a job could read another's secret file. The
   boundary holds for a process that has only its own credentials; per-job users are
-  S5.8 work.
+  Phase 5b work (S5b.5).
