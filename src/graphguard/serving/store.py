@@ -29,11 +29,20 @@ from graphguard.serving.online_features import AccountState
 REDIS_BASE = os.environ.get("GRAPHGUARD_REDIS_BASE", "redis://127.0.0.1:6380")
 
 
-def redis_url(db: int = 0) -> str:
-    return f"{REDIS_BASE}/{db}"
+def redis_url(db: int = 0, user: str | None = None) -> str:
+    """The store's URL. With `user`, it carries that Redis user's credentials (S5b.1:
+    the default user is off, so a URL without them gets NOAUTH). The password comes
+    from `.secrets/redis.env`; if it is missing this raises -- it never falls back to
+    connecting without auth."""
+    if user is None:
+        return f"{REDIS_BASE}/{db}"
+    from urllib.parse import quote, urlsplit
 
+    from graphguard.serving.redis_acl import password
 
-DEFAULT_URL = redis_url(0)
+    base = urlsplit(REDIS_BASE)
+    return f"{base.scheme}://{quote(user)}:{quote(password(user), safe='')}@{base.netloc}/{db}"
+
 
 # Sentinel for "no timestamp". Redis has no null, and an empty string would be
 # ambiguous with a corrupted write.
@@ -117,7 +126,10 @@ class InMemoryFeatureStore:
 class RedisFeatureStore:
     """Serving. One hash per account, one pipeline per multi-account read."""
 
-    def __init__(self, url: str = DEFAULT_URL, namespace: str = "gg") -> None:
+    def __init__(self, url: str | None = None, namespace: str = "gg", user: str = "loader") -> None:
+        # GRAPHGUARD_REDIS_URL (the scorer pod: its URL comes from a Kubernetes
+        # Secret) beats the default, which logs in as `user` with its own password.
+        url = url or os.environ.get("GRAPHGUARD_REDIS_URL") or redis_url(0, user)
         self._client = redis.Redis.from_url(url, decode_responses=True)
         self._ns = namespace
 

@@ -67,3 +67,52 @@ spec:
     - ports:
         - protocol: TCP
           port: 8000
+---
+# Egress (S5b.1): the scorer reaches only what it needs -- DNS, the online store
+# (Redis on the host's pod bridge), and other Ray nodes. Everything else (the
+# internet, the Kubernetes API, the kubelet, other host ports) times out.
+# S5.7 will add S3 here when the model is loaded from it.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-egress
+  namespace: graphguard
+spec:
+  podSelector: {}
+  policyTypes: ["Egress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-scorer-egress
+  namespace: graphguard
+spec:
+  podSelector:
+    matchLabels:
+      ray.io/is-ray-node: "yes"
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    # The pod dials 10.42.0.1:6380, but Docker rewrites that (DNAT) to the Redis
+    # container's own address on graphguard-net, port 6379, BEFORE this policy is
+    # checked -- so the allowed destination is that one. On graphguard-net only
+    # Redis listens on 6379. (Found by the egress test: 10.42.0.1/32:6380 alone
+    # blocked Redis.)
+    - to:
+        - ipBlock:
+            cidr: 172.25.0.0/16
+      ports:
+        - {protocol: TCP, port: 6379}
+    - to:
+        - podSelector:
+            matchLabels:
+              ray.io/is-ray-node: "yes"

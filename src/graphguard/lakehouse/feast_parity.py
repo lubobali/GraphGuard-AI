@@ -78,7 +78,7 @@ def main() -> int:
     from graphguard.serving.store import RedisFeatureStore
 
     feast_rows = pl.read_parquet(EXPORT).to_dicts()
-    store = RedisFeatureStore()
+    store = RedisFeatureStore(user="scorer")  # read-only
     ours: dict[str, AccountState | None] = {}
     accounts = [r["account"] for r in feast_rows]
     for i in range(0, len(accounts), 20_000):

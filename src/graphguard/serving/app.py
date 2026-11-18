@@ -19,10 +19,11 @@ from starlette.requests import Request
 from graphguard.config import REPO_ROOT
 from graphguard.serving.model_bundle import ModelBundle
 from graphguard.serving.service import ScoringRequest, ScoringService
-from graphguard.serving.store import DEFAULT_URL, RedisFeatureStore
+from graphguard.serving.store import RedisFeatureStore
 
 BUNDLE_DIR = os.environ.get("GRAPHGUARD_BUNDLE", str(REPO_ROOT / "models" / "production"))
-REDIS_URL = os.environ.get("GRAPHGUARD_REDIS_URL", DEFAULT_URL)
+# In the pod the URL (with the scorer's credentials) comes from a Kubernetes Secret.
+REDIS_URL = os.environ.get("GRAPHGUARD_REDIS_URL")
 
 REQUIRED_FIELDS = (
     "from_account",
@@ -42,12 +43,14 @@ REQUIRED_FIELDS = (
     max_ongoing_requests=32,
 )
 class Scorer:
-    def __init__(self, bundle_dir: str = BUNDLE_DIR, redis_url: str = REDIS_URL) -> None:
+    def __init__(self, bundle_dir: str = BUNDLE_DIR, redis_url: str | None = REDIS_URL) -> None:
         # Loaded once per replica at startup, not per request. The bundle
         # carries the feature order and encodings, so a replica cannot drift
         # from the model it is serving.
         self._bundle = ModelBundle.load(bundle_dir)
-        self._service = ScoringService(bundle=self._bundle, store=RedisFeatureStore(url=redis_url))
+        self._service = ScoringService(
+            bundle=self._bundle, store=RedisFeatureStore(url=redis_url, user="scorer")
+        )
 
     def _score(self, payload: dict) -> dict:
         missing = [f for f in REQUIRED_FIELDS if f not in payload]

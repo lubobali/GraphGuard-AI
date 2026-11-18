@@ -36,7 +36,11 @@ def _state(account="A", **over):
 
 # Integration tests use their OWN Redis database, never db 0 where the live
 # store lives. Before S5.6a they wrote test:acct:* keys into the live store.
-TEST_DB_URL = os.environ.get("GRAPHGUARD_TEST_REDIS_URL", redis_url(db=15))
+# Logs in as the `tests` Redis user (S5b.1), whose keys must match `test-*`. Built
+# only when a Redis test runs, so CI (no Redis, no secrets) never needs a password.
+def _test_db_url() -> str:
+    return os.environ.get("GRAPHGUARD_TEST_REDIS_URL") or redis_url(db=15, user="tests")
+
 
 # Redis tests are skipped only when this is set -- CI, which has no Redis, sets
 # it explicitly, so the skip is a stated decision with a reason. Anywhere else
@@ -54,7 +58,7 @@ def store(request):
         pytest.skip("GRAPHGUARD_SKIP_REDIS_TESTS=1 (no Redis in this environment)")
     # A namespace per test: xdist runs four workers against the same database,
     # and a shared namespace let one test's cleanup delete another's keys.
-    s = RedisFeatureStore(url=TEST_DB_URL, namespace=f"test-{uuid.uuid4().hex}")
+    s = RedisFeatureStore(url=_test_db_url(), namespace=f"test-{uuid.uuid4().hex}")
     s.ping()  # raises -> the test fails, loudly
     s.clear()
     yield s
@@ -63,7 +67,7 @@ def store(request):
 
 @pytest.mark.unit
 def test_test_db_is_not_the_live_db():
-    assert not TEST_DB_URL.rstrip("/").endswith("/0")
+    assert redis_url(db=15).endswith("/15") and not redis_url(db=15).endswith("/0")
 
 
 @pytest.mark.integration

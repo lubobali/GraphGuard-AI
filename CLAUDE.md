@@ -140,17 +140,31 @@ before inspecting anything.
 | Compose project | `graphguard` |
 | Network | `graphguard-net` |
 | Volumes | `graphguard-mlflow-db-data`, `graphguard-mlflow-artifacts` |
-| Memory caps | MLflow 1200M, Postgres 512M |
+| Memory caps | MLflow 640M (2 workers), Postgres 256M — sized from measured peaks (S5b.1) |
 
 Ports 5000, 5432 and 5433 were already taken on this host, which is why these
 are 5010 and 5434. **Credentials live in `.secrets/`** - gitignored, `chmod 600`,
 generated locally and never committed. `.secrets/kaggle.json` holds the Kaggle
-token, `.secrets/mlflow.env` the database password, `.secrets/lakehouse.env` the
-lakehouse catalog's own database user.
+token, `.secrets/mlflow.env` the Postgres **superuser** password (admin only — no
+service uses it), `.secrets/mlflow-app.env` + `mlflow-pgpass` MLflow's own role
+(`mlflow_app`, read through `PGPASSFILE`, never in a command line),
+`.secrets/lakehouse.env` the stale SQL catalog's role, `.secrets/redis.env` the Redis
+users' passwords.
 
-MLflow's cap is 1200M rather than the 768M first tried: in August it idled at
-~695MB, 91% of a 768M limit. Measured 2026-11-18 it idles at ~96MB and reaches
-~700MB when busy, so the cap is about the busy peak, not the idle.
+**Data services (S5b.1, runbook `docs/runbooks/data-services.md`).** Redis: users
+`scorer` / `loader` / `tests` with only the commands each uses, default user off, rules
+in `src/graphguard/serving/redis_acl.py` (`just redis-secrets`); the scorer's URL is
+the Kubernetes Secret `graphguard-redis` (`just k8s-redis-secret`) — never put it in
+the manifest. A Redis restart empties the store: `just store-load`. Postgres: each
+service its own role and database, SCRAM only, everything else rejected, superuser
+only on the local socket — `src/graphguard/ops/pg_access.py` (`just pg-access`). Admin
+`psql` now needs `PGPASSWORD=$POSTGRES_PASSWORD` even inside the container.
+**Every compose service** must pass `tests/test_compose_hardening.py` (cap, no
+capabilities, no-new-privileges, pids limit, read-only root, non-root, digest, log
+rotation, private ports) — a new service that skips it fails the build.
+
+MLflow runs 2 web workers: with the default 4 it idled at 730 MiB of private memory;
+with 2 it idles at ~426 MiB and peaks at ~486 MiB (2026-11-18).
 
 ---
 
@@ -268,6 +282,13 @@ it load after the `10-*` platform defaults.
 install, 13 networks unchanged, Docker's 94 iptables rules intact, lubot.ai and
 git.lubot.ai still answering. iptables grew from 188 to 320 rules, all of it k3s's own
 `KUBE-*` chains.
+
+**The scorer pod is restricted (S5b.1).** Namespace `graphguard` enforces Pod Security
+`restricted` (`k8s/namespace.yaml`): non-root uid 10001, read-only root with `/tmp` as
+an `emptyDir`, no capabilities, seccomp, no service-account token. Egress is denied
+except DNS, Redis and Ray-internal (`k8s/networkpolicy.yaml`; note Redis is allowed at
+its post-DNAT address `172.25.0.0/16:6379` — Docker rewrites `10.42.0.1:6380` before
+the policy is checked). `just k8s-check` fails if an ingress or egress policy is missing.
 
 **Do not run `k3s-killall.sh` casually.** It rewrites the whole iptables table via
 `iptables-restore`, and Docker's rules live there. Stop the service and clear stale

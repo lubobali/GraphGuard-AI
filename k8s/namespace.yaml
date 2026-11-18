@@ -1,0 +1,14 @@
+# The graphguard namespace, with Pod Security "restricted" enforced (S5b.1): a pod
+# that runs as root, keeps capabilities, can escalate privileges or has no seccomp
+# profile is refused by the API server. Tested: an ordinary busybox pod is rejected.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: graphguard
+  labels:
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest

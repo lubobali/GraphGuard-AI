@@ -14,7 +14,7 @@ depend on any of the three being up.
 | Secrets | `.secrets/` (600, gitignored): `lakekeeper.env`, `lakekeeper-authz.env`, `lakekeeper-aws.env` (its AWS key), `dex.env`, `openfga.env`, `governance.env`, `identity-<name>.env` |
 | S3 access | **vended**: each job gets a 1-hour STS key per table, read-only unless it may write (setup: `aws-vending.md`) |
 | Warehouse | `graphguard` → `s3://graphguard-lakehouse-0dcd18/lakehouse/` |
-| Memory | caps 256 / 64 / 128 MB; measured idle ~39 / 11 / 44 MB, ~42 / 11 / 45 MB during a full build |
+| Memory | caps 192 / 64 / 128 MB (S5b.1, from measured peaks); private memory ~32 / 8 / 29 MB, the rest reclaimable cache |
 
 ## Identities and the policy (`src/graphguard/lakehouse/governance.py`)
 

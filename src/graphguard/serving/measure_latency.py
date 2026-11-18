@@ -55,7 +55,9 @@ def main() -> int:
     service = (
         None
         if args.http
-        else ScoringService(bundle=ModelBundle.load(BUNDLE_DIR), store=RedisFeatureStore())
+        else ScoringService(
+            bundle=ModelBundle.load(BUNDLE_DIR), store=RedisFeatureStore(user="scorer")
+        )
     )
 
     requests = [

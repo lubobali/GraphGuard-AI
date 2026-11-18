@@ -23,7 +23,14 @@ DEFAULT_IMAGE = "docker.io/graphguard/serving:0.1.2"
 
 # Without these the Ray dashboard -- unauthenticated job submission, i.e. code
 # execution -- is reachable from every Docker container on the box (S5.3).
-REQUIRED_POLICIES = ("default-deny-ingress", "allow-scoring-port")
+# Ingress (S5.3) and egress (S5b.1): if any is missing the scorer is reachable from, or
+# can reach, more than it should.
+REQUIRED_POLICIES = (
+    "default-deny-ingress",
+    "allow-scoring-port",
+    "default-deny-egress",
+    "allow-scorer-egress",
+)
 
 # Pods in these phases have finished; they are leftovers, not the service.
 _FINISHED = {"Succeeded", "Failed"}
@@ -75,7 +82,7 @@ def assess_network_policies(policies: dict, required: tuple[str, ...]) -> list[s
     """Problems with ``kubectl get networkpolicy -o json`` output: any required one missing."""
     present = {p.get("metadata", {}).get("name") for p in policies.get("items", [])}
     return [
-        f"network policy {name!r} missing: Ray dashboard may be open to every container"
+        f"network policy {name!r} missing: the scorer may be reachable or reach out too widely"
         for name in required
         if name not in present
     ]

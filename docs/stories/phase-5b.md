@@ -60,18 +60,32 @@ Facts already established: Hetzner firewall = TCP 80/443 inbound only (Lubo's co
 
 ---
 
-### S5b.1 — Harden GraphGuard's own runtime: Redis, Postgres, MLflow, the scorer pod *(expanded 2026-11-18, awaiting approval)*
+### S5b.1 — Harden GraphGuard's own runtime: Redis, Postgres, MLflow, the scorer pod ✅ done 2026-11-18
 
 **As the** owner of a box that was hacked once, **I want** GraphGuard's data services and
 scorer pod patched, protected by least-privilege users, and locked down to the standard
 Dex, OpenFGA and Lakekeeper already meet, **so that** an attacker who lands anywhere on
 the box can neither use GraphGuard's data nor use a GraphGuard service as a step further.
 
-Covers: patch releases for Redis and Postgres; one user per client with only the
-commands it needs; credentials kept out of process listings and rotated; the same
-container hardening for every GraphGuard service; a restricted scorer pod; a backup
-taken and restored once before anything restarts. The full story — criteria, rollbacks,
-order — is private until done, because it names what is being fixed (CLAUDE.md rule).
+What it delivered, each part proven by a test that fails if it regresses:
+- **A backup first**: every GraphGuard database dumped and restored once into a throwaway
+  container, row counts compared, before anything restarted
+- **Redis**: current patch release; one user per client with only the commands it uses
+  (`src/graphguard/serving/redis_acl.py`), no anonymous access, no scripting or admin for
+  anyone; the scorer's credentials from a Kubernetes Secret
+- **Postgres**: current patch release; each service its own role and only its own
+  database, SCRAM only, everything else rejected (`src/graphguard/ops/pg_access.py`);
+  MLflow on its own role instead of the superuser, credentials read from a protected file
+  and rotated
+- **Every container** to one standard, enforced for any future service by
+  `tests/test_compose_hardening.py`
+- **The scorer pod**: Pod Security `restricted` enforced on the namespace, read-only and
+  non-root, no API token, outbound traffic denied except DNS, Redis and Ray
+- **Memory**: caps re-sized from measured peaks to fit the 4 GB budget (MLflow on 2
+  workers instead of 4)
+
+Verified: 2,000/2,000 scores identical after every step, p99 still far inside 50 ms, 465
+tests. Runbook: `docs/runbooks/data-services.md`. The detailed record stays private.
 
 *Noted on the way (S5.6e, 2026-11-18), for S5b.1:*
 - MLflow's database credential handling must be tightened (details: private audit, not in this public repo)

@@ -208,6 +208,7 @@ image-import:
     k3s ctr -n k8s.io images label docker.io/graphguard/serving:{{IMAGE_TAG}} io.cri-containerd.pinned=pinned
 
 k8s-deploy:
+    k3s kubectl apply -f k8s/namespace.yaml
     k3s kubectl apply -f k8s/networkpolicy.yaml
     k3s kubectl apply -f k8s/rayservice.yaml
 
@@ -285,3 +286,19 @@ feast-test: feast-sync
 # service: Ctrl-C stops it. From a laptop: ssh -L 2718:127.0.0.1:2718 <box>.
 notebook:
     systemd-run --scope -q -p MemoryMax=1G -p MemorySwapMax=0 {{UV}} run marimo edit notebooks/lakehouse.py --host 127.0.0.1 --port 2718 --headless
+
+# --- S5b.1: Redis users ---------------------------------------------------------
+# Passwords (once, never rotated by accident) + the ACL file Redis loads at start.
+# After changing users: run this, then `docker compose ... restart redis` and
+# `just store-load` (Redis keeps nothing on disk).
+redis-secrets:
+    {{UV}} run python -m graphguard.serving.redis_acl
+
+# The scorer's Redis URL as a Kubernetes Secret, piped on stdin (never on a command line).
+k8s-redis-secret:
+    {{UV}} run python -m graphguard.serving.redis_acl k8s-secret | k3s kubectl apply -f -
+
+# Postgres access rules -> docker/postgres/pg_hba.conf (no secrets; committed). After a
+# change: `docker compose --env-file .secrets/mlflow.env restart mlflow-db`.
+pg-access:
+    {{UV}} run python -m graphguard.ops.pg_access

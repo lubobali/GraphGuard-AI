@@ -36,10 +36,35 @@ spec:
         dashboard-host: "0.0.0.0"
       template:
         spec:
+          # S5b.1: the scorer never talks to the Kubernetes API, so it gets no token.
+          automountServiceAccountToken: false
+          # Pod Security "restricted": the image's own non-root user (Dockerfile
+          # USER serve, uid 10001), the runtime's default seccomp profile.
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            runAsGroup: 10001
+            fsGroup: 10001
+            seccompProfile:
+              type: RuntimeDefault
+          volumes:
+            # Ray writes its session, logs and sockets under /tmp/ray; everything
+            # else in the image is read-only.
+            - name: tmp
+              emptyDir:
+                sizeLimit: 1Gi
           containers:
             - name: ray-head
               image: graphguard/serving:0.1.2
               imagePullPolicy: IfNotPresent
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities:
+                  drop: ["ALL"]
+              volumeMounts:
+                - name: tmp
+                  mountPath: /tmp
               env:
                 # KubeRay launches the head through a login shell, which resets
                 # PATH and loses the venv the image put on it. Set explicitly
@@ -49,8 +74,13 @@ spec:
                 # The online store lives in Docker, not in k3s. Stateful
                 # services stay in Docker with their own volumes; stateless
                 # ones run here. 10.42.0.1 is the pod bridge on the host.
+                # The URL carries the `scorer` Redis user's password (S5b.1), so it
+                # comes from a Secret, never from this file: `just k8s-redis-secret`.
                 - name: GRAPHGUARD_REDIS_URL
-                  value: "redis://10.42.0.1:6380/0"
+                  valueFrom:
+                    secretKeyRef:
+                      name: graphguard-redis
+                      key: url
                 - name: GRAPHGUARD_BUNDLE
                   value: "/app/models/production"
               # Sized from measurement, not habit (S5.3, 2026-11-18): 1,920 MiB
