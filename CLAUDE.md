@@ -5,8 +5,9 @@ dataset.
 
 **Full build plan:** `PLAN.md`. Read it before starting a phase — this file is the rules,
 that file is the work. **Read its "Plan revisions" section too**: the plan has been
-changed once against evidence (R-1, the GNN losing Phase 4), and revisions are recorded
-there with their cause rather than applied silently.
+changed twice against evidence (R-1, the GNN losing Phase 4; R-2, a Nov 2026 re-check
+against the market, the research and the stack — see `docs/research/`), and revisions
+are recorded there with their cause rather than applied silently.
 
 **The production model is XGBoost, not the GNN** (R-1). Serving, explainability and
 monitoring all follow the tree. The GNN is kept as a documented negative result and as
@@ -184,6 +185,13 @@ processes surgically instead.
 **One step at a time.** Do a step, stop, say what was done and what is next. Do not run
 ahead through a whole phase.
 
+**Every phase starts with agile stories (R-2).** Before reading or writing any code for
+a phase: restate the main goal, write the phase's stories in `docs/stories/phase-N.md`
+(As a / I want / so that, checkable acceptance criteria, linked to the phase's "Done
+means"), and **get Lubo's approval**. Only then read the code and start the RECR loop.
+The acceptance criteria become the first tests. Big choices get a one-page ADR in
+`docs/adr/`.
+
 **RECR loop:**
 1. Write the test first
 2. Implement one task
@@ -244,13 +252,14 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 1 | Understand the data before touching a model | **done** (2026-08-19) |
 | 2 | Evaluation harness + frozen split + dumb baselines | **done** (2026-08-19) |
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
-| 4 | The graph model (GraphSAGE, inductive) | **comparison done** (2026-08-20) |
-| 5 | Serving — Feast, Ray Serve on k3s, p99 < 50ms | not started |
-| 6 | The stream — Redpanda, replayed in true time order | not started |
-| 7 | The interface — alert queue, the ring drawn, capacity slider | not started |
-| 8 | Monitoring, Airflow retraining, champion/challenger, write-up | not started |
+| 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
+| 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — k3s pod broken, see below |
+| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
+| 7 | The interface — queue, ring, slider, measured investigator agent | not started |
+| 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |
-| 9 | Scale to 180M, optional and honest | not started |
+| 9 | Second dataset — TransXion robustness check (R-2) | not started |
+| 10 | Scale to 180M, optional and honest | not started |
 
 **Phase 0 gate — met 2026-08-19.** `./scripts/bootstrap.sh` takes a clean clone to
 working, `just check` runs 32 tests + lint + the three guards clean, and
@@ -292,7 +301,15 @@ was `pos_weight`: the exact class ratio of 1326 is correct for a tree and
 destabilises gradient descent, and Optuna's 6.34 improved the GNN 8x. Full table
 and caveats in `docs/model_comparison.md`, recorded as FINDING-007.
 
-Still open in Phase 4: GNNExplainer, and S3/SageMaker which remain deferred.
+Still open in Phase 4: GNNExplainer, minority-class F1 in `evaluate()`, and the
+Multi-PNA rematch (R-2). SageMaker is cut by R-2; S3 moves to Phase 5.
+
+**Phase 5 status — 2026-11-18.** Built: online store with train/serve parity,
+staleness measured (FINDING-008), bundle, scoring service, Ray Serve (p99 7.71ms over
+HTTP outside k3s), KubeRay deploy. **Broken:** the scorer pod has been in
+ImagePullBackOff since ~Oct 30 — k3s image GC deleted `graphguard/serving:0.1.2`
+during a disk-full period; Docker still has it. Open: re-import and pin the image,
+measure Ray memory and p99 on k3s, Feast decision, cold-path test, S3 model load.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models

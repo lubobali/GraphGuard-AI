@@ -8,7 +8,8 @@ the research arm. See "Plan revisions" below.*
 
 **Owner:** Lubo Bali
 **Started:** Aug 18, 2026
-**Status:** Phases 0-3 complete. Phase 4 next. Last updated 2026-08-20.
+**Status:** Phases 0-3 complete, Phase 4 comparison done, Phase 5 half built.
+Revised by R-2 on 2026-11-18. Last updated 2026-11-18.
 **Progress:** see the checkmarks below, `CLAUDE.md` for the phase table, and
 `docs/findings.md` for what the data turned out to actually contain.
 
@@ -50,9 +51,66 @@ not from the model.
 
 **What is deliberately kept.** The GNN is not deleted. Graph structure was worth
 3.3x over identical features without it (FINDING-007), the gap to the tree is a
-model-class gap on tabular features, and Phase 9 exists partly to ask whether
+model-class gap on tabular features, and Phase 10 exists partly to ask whether
 more data changes that answer. It is a documented negative result, which is the
 rarer and more defensible thing to have.
+
+### R-2 — Re-checked against the world after three months
+
+*2026-11-18, before resuming Phase 5. Affects Phases 4-9, the stack table and the
+pitch. Evidence: `docs/research/AML portfolio plan research 2026.md` (five research
+tracks, notes beside it). Several sources there are preprints or vendor claims and
+are labelled as such.*
+
+The plan was written in August. Before building Phases 5-9 on it, it was checked
+against four things: what banks pay for now, what 58 live fraud/AML ML job postings
+ask for, recent research on this exact benchmark, and the 2026 state of every tool
+in the stack.
+
+**What the evidence said.**
+
+- **The core holds.** XGBoost in production, the leakage contract, precision@k,
+  AMLworld. An independent Nov 2026 preprint (arXiv 2611.18914) reached the same
+  result we did: a strict point-in-time tree matches the published GNNs, and the
+  standard Multi-GNN test graph includes later transactions. Our split already
+  excluded the post-Sep-10 simulator tail (FINDING-001) before that paper appeared.
+- **Our GNN opponent is too weak.** Published work uses Multi-PNA / MEGA-PNA, not
+  vanilla GraphSAGE, and reports minority-class F1, not PR-AUC. As it stands, a
+  reviewer can wave the result away and cannot place our numbers.
+- **The business problem got sharper.** UK receiving banks pay half of every APP
+  scam refund (since Oct 2024), and the FCA's Sep 2026 mule review told firms to look
+  past the first receiving account. A ranked queue of rings is exactly that.
+- **Postings ask for capabilities, not brands.** 93% production, 59% monitoring,
+  50% real-time; Feast, Ray Serve and SHAP each named 0 times out of 58. The open
+  door for a switcher is serving/platform roles.
+- **Two stack facts changed.** Redpanda stops being source-available from 26.3.1
+  (20 Nov 2026). Ray and Feast both had serious 2026 CVEs.
+
+**What changes.**
+
+| # | Change | Where |
+|---|---|---|
+| 1 | Redpanda → **Apache Kafka 4.x** (KRaft, single node, hard memory cap) | Phase 6, stack |
+| 2 | Add **minority-class F1** (threshold picked on validation) next to precision@k and PR-AUC | metric, `evaluate()` |
+| 3 | **GNN rematch with Multi-PNA** (or MEGA-PNA), strict point-in-time, same 20-trial budget. GraphSAGE stays as history | Phase 4 |
+| 4 | **Measure Ray Serve's real memory on k3s**, then keep it (patched, dashboard internal only) or replace it with FastAPI on k3s | Phase 5 |
+| 5 | Feast **as a library only**, or keep our own store and say why. No Feast servers | Phase 5 |
+| 6 | Investigator **agent with a measured error rate**: tools over MCP, a transaction ID behind every claim, a deterministic checker, traced and evaluated in MLflow | Phase 7 |
+| 7 | **Rules layer** as baseline and safety net; **label delay** in the replay | Phases 6, 8 |
+| 8 | Model card written as a **model-risk package**; Airflow only if a capped setup fits, else Dagster; champion/challenger kept small | Phase 8 |
+| 9 | Pitch: **receiving-bank mule-network detection**, with the honesty caveats | pitch, Phase 8b |
+| 10 | **Second dataset (TransXion, KDD '26)** as a robustness check, new Phase 9. Scale moves to Phase 10 | Phases 9, 10 |
+| 11 | Cut **SageMaker** (the tree needs no GPU). Alert-volume forecast becomes optional | Phase 4, 8 |
+| 12 | Short **architecture decision records** (`docs/adr/`) for every big choice | all phases |
+
+**What does not change.** XGBoost serves. The leakage contract, the frozen split and
+the sealed test set. Precision@k and the capacity slider as the headline. AMLworld
+HI-Small with "synthetic" said first. SHAP and the drawn ring. MLflow and the k3s
+work already done. The GraphSAGE result, kept as documented history. One step at a
+time.
+
+**And a process change.** Every phase from here starts with written agile stories,
+approved before any code is read or written for it. See "How we work".
 
 ---
 
@@ -86,6 +144,14 @@ to each one.
 **What it does not do:** decide anything by itself. A human investigator works the
 queue. The model decides the *order*.
 
+**Who has this problem in 2026 (R-2):** the bank that *receives* scam and laundering
+money. In the UK the receiving bank pays half of every APP scam refund, and the FCA's
+Sep 2026 mule review says cash-out happens at the 2nd to 5th account and firms must
+look beyond the first one. Finding **mule networks** — the rings money passes
+through — is that job. Three caveats, said every time: the data is synthetic, it does
+not model APP scams specifically, and a real bank only sees its own part of the
+network.
+
 ---
 
 ## The metric, decided before any model exists
@@ -98,6 +164,10 @@ told a human to look at, how many were really laundering?
 
 **Secondary:** PR-AUC (honest under imbalance), and recall of *whole patterns* rather
 than individual edges — catching 1 transaction in a 12-hop ring is not catching the ring.
+
+**Comparability (R-2):** minority-class F1, with the threshold picked on validation.
+Not a headline — it is the metric the AMLworld literature reports (0.63-0.76 on
+HI-Small), and without it nobody can place our numbers next to theirs.
 
 **Money view:** k is investigator capacity, and the tradeoff is cost of an investigator
 hour against the cost of laundering that slipped through. That is the slider in the UI.
@@ -166,18 +236,18 @@ alternatives.
 | Orchestration | **Airflow** | the retraining pipeline as a real DAG. He has shipped Airflow before, so this is existing ground, not new learning |
 | Data quality | **Pandera** | schema and expectation checks on every pipeline stage; bad data fails loudly instead of quietly training a worse model |
 | Explainability | **SHAP** (production) + **GNNExplainer** (GNN arm) | which features and which hops drove the score. Non-optional in a regulated domain. SHAP explains the model that actually serves; GNNExplainer explains the research one (R-1) |
-| Narratives | **NVIDIA NIM (LLM)** | writes the plain-English case summary an investigator reads. Uses the stack he already runs |
-| Feature store | **Feast** | solves train/serve skew structurally instead of testing for it |
-| Serving | **Ray Serve on k3s** | real model serving on real Kubernetes. k3s is a full k8s distribution light enough for one box, so "deployed ML services on Kubernetes" is true and not a stretch |
+| Narratives | **LLM investigator agent** (NVIDIA NIM) | drafts the case report an investigator reads. Tools exposed over **MCP**, a transaction ID behind every claim, a deterministic checker, traced and evaluated in **MLflow GenAI** (R-2) |
+| Feature store | **Feast, library only** — or our own store, decided in Phase 5 | solves train/serve skew structurally. Feast is still pre-1.0 and its servers had critical 2026 CVEs, so no feature or registry server runs (R-2) |
+| Serving | **Ray Serve on k3s**, kept only if its measured memory fits; else FastAPI on k3s | real model serving on real Kubernetes. Ray ≥ 2.52 and dashboard internal only, because of CVE-2025-62593 (R-2) |
 | Artifacts | **AWS S3** | trained models, feature snapshots, and evaluation outputs versioned in S3 rather than on a disk that could die |
-| GPU training | **AWS SageMaker** | Phase 4 training jobs when CPU gets too slow. Rented by the hour, not a standing cost |
-| Stream | **Redpanda** | Kafka-compatible, one binary, fits next to LuBot |
+| ~~GPU training~~ | ~~AWS SageMaker~~ | cut by R-2: the production model is a tree and needs no GPU |
+| Stream | **Apache Kafka 4.x** (KRaft) | was Redpanda; Redpanda stops being source-available from 26.3.1. Kafka 4 needs no ZooKeeper, so it is now one process too, and it is the only stream tool named in the 58 postings (R-2) |
 | Online store | **Redis** | account feature + counter lookups inside the latency budget |
 | Records | **Postgres** | every decision and the features behind it |
 | Drift | **Evidently** | standard, and stops us hand-rolling charts |
 | Frontend | **Vite + React + Tailwind** | same stack as LuBot, nothing new to learn |
 
-**Not using Databricks in v1.** 5M rows fits in RAM. Spark enters in Phase 9, when
+**Not using Databricks in v1.** 5M rows fits in RAM. Spark enters in Phase 10, when
 HI-Large genuinely does not fit on one machine. "I added Spark when the data outgrew
 the box" is a better sentence than "I used Spark."
 
@@ -313,13 +383,20 @@ written down with each top feature justified. Test set still unopened.
   alert" comes from SHAP. Still worth having: in a regulated domain a model that cannot
   explain itself cannot be deployed, and this is what would be needed if the GNN ever
   became the production model
-- **Train on CPU first.** When iteration gets painful, move the training job to
-  **SageMaker** on a GPU instance and push the trained model to **S3**. Rented by the
-  run, shut down after. Roughly $1.50/hr on a small GPU instance, so a handful of runs
-  is $20-50, not a subscription
+- ~~Train on SageMaker when CPU gets slow~~ — cut by R-2. The tree serves and needs no
+  GPU; the rematch below runs on CPU or, if it truly must, a GPU rented for hours
+- **Minority-class F1 in `evaluate()`** (threshold picked on validation), reported for
+  every model so far, on validation (R-2)
+- **The rematch: Multi-PNA (or MEGA-PNA) under our strict point-in-time protocol**, same
+  frozen split, same `evaluate()`, same 20-trial Optuna budget. GraphSAGE was too weak an
+  opponent for the result to be taken seriously; IBM's code is public. GraphSAGE stays
+  as documented history (R-2)
+- **Protocol finding written up**: cite arXiv 2611.18914 as independent support and
+  answer arXiv 2609.37155 as the counter-claim. If budget allows, show the effect: one
+  GNN run with a full-history graph and one point-in-time, both on validation (R-2)
 
-**Done means:** a fair comparison table against Phase 3 on precision@k and
-pattern-level recall.
+**Done means:** a fair comparison table against Phase 3 on precision@k, pattern-level
+recall **and minority-class F1**, including the strong GNN, not only GraphSAGE.
 
 **And if the GNN loses:** that is a finding, and it gets written up as one. "The graph
 model did not beat a well-built tabular baseline at this scale, and here is why" is a
@@ -330,35 +407,47 @@ avoid this outcome.
 
 The hard engineering. You cannot walk a graph in 30ms.
 
-- Precompute **point-in-time account features** in batch — counterparties so far,
-  velocity, in/out ratio, the columns XGBoost consumes — and write them to the **Feast**
-  online store (Redis underneath). Originally written as embeddings; the production model
-  is the tree, so the payload is features (R-1). Feast is here for one reason: the offline
-  features used in training and the online features used in serving come from the same
-  definition, so train/serve skew is prevented by construction rather than caught by a test
-- At scoring time: fetch both accounts' features, combine with the fresh transaction
+- ✅ Precompute **point-in-time account features** in batch — counterparties so far,
+  velocity, in/out ratio, the columns XGBoost consumes — into an online store (Redis
+  underneath), with train/serve parity asserted. Originally written as embeddings; the
+  production model is the tree, so the payload is features (R-1). Built as our own store,
+  not Feast — see the decision bullet below
+- ✅ At scoring time: fetch both accounts' features, combine with the fresh transaction
   features, score
-- Latency budget: **p99 under 50ms**, measured, not assumed
-- Staleness policy: how old can a stored feature be before it is wrong, how often
-  refreshed, what happens on a cold account never seen before. The cold path is not
-  hypothetical — 515,080 accounts appear across 18 days and a new one arrives constantly
-- **Ray Serve deployed on k3s**, model pulled from S3 at startup so the running version
-  is always traceable to a specific artifact
-- Stateless services on Kubernetes, stateful ones (Postgres, Redis, Redpanda) stay in
+- ✅ Staleness measured (FINDING-008) and the cold flag returned by the service
+- ✅ Latency budget: **p99 under 50ms** measured on Ray Serve outside k3s — 7.71ms over
+  HTTP, 22.08ms in-process. **Still to measure on k3s**
+- ✅ Ray Serve deployed on k3s via KubeRay. **Currently broken**: the image was deleted
+  by k3s's image GC during a disk-full period (pod in ImagePullBackOff since ~Oct 30)
+- **Get the k3s endpoint healthy again**, and stop image GC from deleting it again
+- **Measure Ray's real memory on k3s** and decide: keep Ray Serve (≥ 2.52, dashboard
+  internal only) or replace it with FastAPI on k3s. Record the decision as an ADR (R-2)
+- **Feast decision**: Feast as a library only (≥ 0.68, offline join plus materialise into
+  Redis, no Feast servers) or keep our own store and document why. Either is fine; the
+  plan saying Feast while the code does not use it is not (R-2)
+- **Cold-account path tested** as an explicit test, not only observed in a measurement
+- **Model pulled from S3 at startup**, so the running version is always traceable to a
+  specific artifact. Needs the project's own bucket and IAM user (AWS was deferred)
+- Stateless services on Kubernetes, stateful ones (Postgres, Redis, Kafka) stay in
   Docker with their own volumes. That split is deliberate and worth being able to explain
 
-**Done means:** a live endpoint, p99 measured under budget, and the cold-account path
-tested rather than assumed.
+**Done means:** a live endpoint **on k3s**, p99 measured under budget there, the
+cold-account path tested rather than assumed, and the Ray and Feast decisions recorded.
 
 ### Phase 6 — The stream
 
-- Redpanda, one topic, transactions replayed **in true time order**, accelerated
+- **Kafka 4.x** (KRaft, single node, hard memory cap — measured before committing), one
+  topic, transactions replayed **in true time order**, accelerated. Was Redpanda (R-2)
 - Consumer scores each one and writes the decision plus its features to Postgres
+- **A simple rules layer** next to the model — the baseline it must beat and a safety net
+  if it fails. Production systems are hybrids of rules, ML and investigators (R-2)
+- **Label delay** in the replay: an investigator's verdict arrives days after the alert,
+  not instantly. Anything downstream that learns from labels must see them late (R-2)
 - Say "replayed stream" plainly. It is what payment companies do to test models, and
   replaying in true order is what gives point-in-time correctness for free
 
-**Done means:** transactions flowing continuously, decisions landing in Postgres, and
-the system surviving being left running overnight.
+**Done means:** transactions flowing continuously, decisions landing in Postgres, rules
+and model both scoring, and the system surviving being left running overnight.
 
 ### Phase 7 — The interface
 
@@ -372,36 +461,46 @@ Same stack as LuBot's frontend. Written for a person who does not know what a mo
 - **Why this alert** — the features that drove the score, from **SHAP** over the
   production model, alongside the accounts and hops from the subgraph. Written as
   GNNExplainer; the tree serves, so SHAP explains the thing that actually decided (R-1)
-- **Case summary in plain English** — an LLM turns the flagged subgraph and its
-  explanation into the paragraph an investigator actually reads. This is real AML
-  practice, since investigators write narrative reports on every case, and it is
-  grounded in the model output and the subgraph rather than invented. Runs on NVIDIA NIM, the stack he
-  already uses
+- **Investigator agent, with a measured error rate** (was "case summary", R-2). It
+  calls our own tools — score, ring, SHAP, account history — exposed over **MCP**, and
+  drafts the case report an investigator reads. Every sentence cites a transaction ID; a
+  deterministic checker rejects any ID, amount or date not in the data. Measured on a
+  small hand-checked set: **unsupported-claim rate** (gate: zero) and typology recall
+  against AMLworld's pattern labels, traced and logged in MLflow. The agent drafts, the
+  human decides — it never files or closes anything. Published SAR-drafting research
+  reports no such metrics, so measuring it is the point. Runs on NVIDIA NIM
+- **Pages: three, no more.** Queue (with the slider) → Case (ring, why, agent report) →
+  About (diagram, the result, links)
 
 **Done means:** someone non-technical looks at it and can say what the system does and
-what they would do next. Test it on a real person, not on yourself.
+what they would do next — tested on a real person, not on yourself — and the agent's
+unsupported-claim rate is measured and at zero on the eval set.
 
 ### Phase 8 — Monitoring, and the honest write-up
 
 - Feature staleness, score distribution, alert volume, drift via Evidently
 - Train/serve parity check — same transactions through both paths, compared
-- **Retraining as an Airflow DAG**, not a cron job: pull new labelled data → rebuild
-  features → retrain → evaluate against the frozen split → register in MLflow → promote
-  or reject. A rejected model must not be able to reach production by accident
-- **Champion / challenger.** The new model runs in **shadow** against the live one on
-  real traffic, scoring everything but deciding nothing. It is promoted only if it beats
-  the champion on precision@k. This is how fraud models are actually rolled out, and it
-  is the honest version of "A/B testing" — no invented experiment, just the real
-  production pattern
-- **Alert volume forecast** — a small time-series model predicting tomorrow's alert
-  count, so investigator staffing can be planned. Cheap to build, and it puts a second,
-  very different kind of model in the project
+- **Retraining as a DAG**, not a cron job: pull new labelled data (arriving late, per
+  Phase 6) → rebuild features → retrain → evaluate against the frozen split → register in
+  MLflow → promote or reject. A rejected model must not be able to reach production by
+  accident. **Airflow only if a minimal, memory-capped setup fits beside k3s and MLflow;
+  otherwise Dagster** — measured, not assumed (R-2)
+- **Champion / challenger, kept small.** MLflow aliases plus a shadow-scoring comparison:
+  the new model scores everything but decides nothing, and is promoted only if it beats
+  the champion on precision@k. The honest version of "A/B testing" (R-2: only 2 of 58
+  postings name it, so it stays lean)
+- *Optional:* **alert volume forecast** — a small time-series model predicting tomorrow's
+  alert count for staffing. Demoted by R-2 to keep the project finishable
 - README: the architecture, the leakage contract, the fair-baseline argument, the
   metric choice, **and what did not work**
-- **Model card**: what the model is for, what it is not for, who it can hurt when it is
-  wrong. An AML system accuses people. A false positive freezes someone's account.
-  Naming that is not paperwork, it is the difference between someone who has thought
-  about deploying a model and someone who has only trained one
+- **Model card as a short model-risk package** (R-2): purpose, data, limits, validation,
+  monitoring, kill switch — the shape a bank's model-risk team expects. What it is for,
+  what it is not for, who it can hurt when it is wrong. An AML system accuses people. A
+  false positive freezes someone's account. Naming that is not paperwork, it is the
+  difference between someone who has thought about deploying a model and someone who has
+  only trained one
+- One paragraph on why **transaction foundation models** are out of scope: their wins
+  come at tens of billions of events, not 5M (R-2)
 
 **Done means:** the README could be handed to a skeptical ML engineer and survive.
 
@@ -419,15 +518,38 @@ The project only helps if people see it. Built deliberately, not as an afterthou
 - **LinkedIn post** in his own voice, no polish, one honest finding as the hook
 - **Resume bullet** with the real number in it
 - One diagram someone can understand in ten seconds
+- **Lead with the evaluation story and the serving numbers, not the tool list** (R-2):
+  the protocol finding, p99 under load, train/serve parity, a drift alert followed by a
+  retrain, the agent's measured error rate. Aimed at ML platform / serving roles and
+  LLM-compliance roles — the clearest openings for a switcher in a senior-heavy market
+- Pitch as **receiving-bank mule-network detection**, with the three caveats (R-2)
 
 **Done means:** a stranger can reach the live demo, understand what it does, and find
 the repo, without you explaining anything.
 
 *Rough time: 2 sessions.*
 
-### Phase 9 — Scale, optional and honest
+### Phase 9 — A second dataset, honestly (added by R-2)
 
-Only when everything above works end to end.
+Does the result survive a different generator, or is it a fact about IBM's simulator?
+
+- **TransXion** (KDD '26) — same 11-column CSV header as AMLworld, a different generator
+  family, ~3M transactions over 2025, 245MB. The existing loader reads it
+- Update payment-format and currency vocabularies and the Pandera schemas; leave the
+  person/merchant profile tables out at first, to keep the comparison fair
+- **Freeze a new temporal split** before any model touches it; tune on its validation
+  window only; its test window opened once
+- Re-audit for generator artifacts, the way FINDING-005/006 did for AMLworld
+- No ring labels there, so drop pattern recall; keep precision@k, PR-AUC, minority F1
+- The data files carry no licence: use, do not re-host
+
+**Done means:** the same pipeline and the same models on TransXion, with a table that
+says plainly whether the tree-vs-GNN result held. If done before 8b, it goes in the
+write-up.
+
+### Phase 10 — Scale, optional and honest
+
+Only when everything above works end to end, and after Phase 9.
 
 - HI-Large, 180M transactions. One box stops being enough
 - Spark on Databricks for graph construction and feature building
@@ -452,6 +574,25 @@ moving forward — no "pre-existing failures" excuse.
 
 **One phase at a time.** He asks questions, we go slow, nothing gets skipped or half
 shipped. If a phase turns out to be wrong, we redo it rather than build on it.
+
+### Every phase starts with agile stories (added by R-2)
+
+Before any code is read or written for a phase, its stories are written down and
+approved by Lubo. Order: **main goal → stories → approval → read the code → RECR loop.**
+
+- Each story in the standard form: **As a** *[investigator / bank / hiring manager /
+  operator]*, **I want** *[capability]*, **so that** *[business value]*
+- Each has **acceptance criteria** written as checkable statements (Given / When / Then
+  where it helps). They become the first tests in the RECR loop
+- Each names the **Definition of Done** it rolls up to — the phase's "Done means"
+- Small enough for one or two sessions; anything bigger gets split
+- Stories live in `docs/stories/phase-N.md`, and are ticked off there as they pass
+
+A phase's "Done means" is the epic. The stories are how it gets there.
+
+**Architecture decisions** (R-2): every significant choice — Ray vs FastAPI, Feast vs
+our own store, Kafka vs Redpanda, Airflow vs Dagster — gets a one-page record in
+`docs/adr/NNNN-title.md`: context, options, decision, consequences.
 
 ---
 
@@ -539,7 +680,7 @@ hardest to see. Mitigation: rule 2 is checked in Phase 4 with an explicit test, 
 eye.
 
 **The GNN does not beat the baseline.** Genuinely possible at 5M rows. Mitigation: it
-gets written up honestly, and Phase 9 tests whether more data changes the answer.
+gets written up honestly, and Phase 9 tests whether it holds on a second dataset and Phase 10 whether more data changes it.
 
 **The synthetic data turns out to be too easy.** If everything scores 0.99, the project
 is boring and proves nothing. Check for this early, in Phase 2, when the dumb baselines
