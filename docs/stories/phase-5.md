@@ -201,20 +201,29 @@ Acceptance criteria:
 
 Rolls up to: "the cold-account path tested rather than assumed".
 
-## S5.6 — Feast: in or out, decided and written down
+## S5.6 — A small lakehouse: Iceberg offline store, Redis online copy
 
-**As an** ML engineer reviewing the design, **I want** a clear, reasoned decision on
-Feast, **so that** the plan and the code say the same thing.
+*Short until its turn. Rewritten 2026-11-18 (was "Feast: in or out").*
 
-Acceptance criteria:
-- [ ] `docs/adr/0002-feature-store.md`: Feast as a library (≥ 0.68, offline join +
-      materialise into Redis, no Feast servers) vs our own store — with the 2026 CVE
-      facts and the effort, and a decision
-- [ ] If Feast: the train/serve parity test passes through the Feast path, the S5.4
-      latency still passes, and no Feast server process runs
-- [ ] If our own store: PLAN.md and README say so plainly, with the reason
+**As an** ML engineer, **I want** the features kept in versioned Iceberg tables with Redis
+loaded from them, **so that** a model is traceable to the exact feature snapshot it was
+trained on, the online store can be rebuilt fast, and the same tables serve Polars now
+and Spark later.
 
-Rolls up to: "the Feast decision recorded".
+Draft acceptance criteria (refined at expansion):
+- [ ] Iceberg tables via PyIceberg + SQLite catalog (no Spark, no servers): at least
+      `transactions` (typed, partitioned by day) and `account_features` (profile as of a
+      timestamp). `labels` with the time each label became known, for Phase 6
+- [ ] Written by Polars from the same feature code that training uses — train/serve
+      parity test still passes, now against the Iceberg path
+- [ ] Redis loaded *from* `account_features`; reload timed; key count matches
+- [ ] Snapshot id recorded with every model in MLflow (ties to S5.7)
+- [ ] Time travel shown: read an older snapshot, get the older features
+- [ ] Leakage guards still pass; nothing in the tables uses information after its
+      `as_of`
+- [ ] Feast decided inside this story and written as ADR 0002 (library over the
+      Iceberg/Parquet offline store, or not at all)
+- [ ] RAM and disk measured against the budget
 
 ## S5.7 — The running model is traceable to one artifact
 
@@ -235,45 +244,141 @@ Acceptance criteria:
 
 Rolls up to: the plan's "model pulled from S3 at startup" requirement.
 
-## S5.8 — Lock down GraphGuard, and keep the whole box safe
+## S5.8 — Lock down GraphGuard, and keep the whole box safe (epic)
 
-*Short form until its turn; expanded fully just before work starts. Comes right after
-S5.3. Source: read-only security inventory of the box, 2026-11-18.*
+**Why:** the box was hacked once. A read-only inventory (2026-11-18) found it well
+guarded from the internet — the Hetzner firewall admits only TCP 80/443, SSH is key-only
+and reached over Tailscale — but soft inside: no host firewall, and several GraphGuard
+parts unhardened. GraphGuard must never be the weak door into LuBot or anything else.
 
-**As the** owner of a production box that was hacked once before, **I want** GraphGuard
-hardened to the same standard as the best-locked parts of the box, **so that** this
-project never becomes the weak door into LuBot or anything else.
+**Split by risk, lowest first.** Each sub-story is expanded fully just before it starts.
 
-Draft acceptance criteria (refined at expansion):
-- [ ] Ray dashboard / GCS reachable only by KubeRay and our own pods: default-deny
-      NetworkPolicy, ingress only to :8000 from allowed sources — tested from a Docker
-      container (must be blocked) *(may land in S5.3, since it is the scorer)*
-- [ ] k3s API (6443), kubelet (10250) and flannel (8472/udp) not listening on the public
-      interface; kubeconfig `600`
-- [ ] Scorer pod: non-root, read-only root filesystem, `capabilities: drop [ALL]`,
-      `allowPrivilegeEscalation: false` (pattern: `lubot-prod-backend`)
-- [ ] GraphGuard compose: Redis password from `.secrets/`, `cap_drop`, `no-new-privileges`,
-      `pids_limit`, log rotation, images pinned by digest, data network `internal: true`
-- [ ] graphguard-runner: `--cap-drop=ALL`, `no-new-privileges`, a network per job, actions
-      pinned by SHA (pattern: `lubobali-runner`)
-- [ ] MLflow database and artifacts backed up (restic → B2) with a tested restore
-      (pattern: MissionCopilot's backup + restore-check timers)
-- [ ] gitleaks in prek and CI (pattern: lubobali CI)
-- [ ] **Box-wide, with Lubo and the LuBot session:** a host firewall as a second wall
-      behind the Hetzner firewall — planned with a rollback, applied by ONE session,
-      verified for every app (Docker, k3s, Tailscale, nginx). Never by surprise
-- [ ] LuBot findings handed to the LuBot session (Docker socket in backend, runner
-      host networking and token perms, staging `.env` 644, 0.0.0.0 admin ports, open
-      credential rotations) — theirs to fix
-- [ ] Every change: LuBot before/after check, all sites 200
+| | Sub-story | Touches | Risk |
+|---|---|---|---|
+| **S5.8a** | Harden GraphGuard's own containers and pod | only GraphGuard | low |
+| S5.8b | Supply chain: CI runner, pinned actions, secret scanning | only GraphGuard | low |
+| S5.8c | Backups: MLflow off the box, with a tested restore | GraphGuard + a new B2 bucket | low, needs Lubo |
+| S5.8d | k3s control plane off the public interface; second wall for the box | box-wide | **high**, with the LuBot session |
 
-**Estimate:** large — likely split into 2-3 stories at expansion.
+Facts already established: Hetzner firewall = TCP 80/443 inbound only (Lubo's console,
+2026-11-18). Ray dashboard locked by NetworkPolicy (S5.3). Scorer runs as uid 10001.
+
+---
+
+### S5.8a — Harden GraphGuard's own containers and pod
+
+**User story**
+**As the** owner of a box that was hacked once, **I want** every GraphGuard container
+and pod locked down to the standard of `lubot-prod-backend`, **so that** if any one of
+them is ever broken into, the attacker gets as little as possible and cannot reach
+further.
+
+**Acceptance criteria**
+
+*Redis — the online store*
+- [ ] **Given** a client with no password, **when** it runs any command, **then** Redis
+      answers `NOAUTH`. The password lives in `.secrets/redis.env` (600, gitignored)
+- [ ] The scorer gets the password from a **Kubernetes Secret**, never from the YAML,
+      the image or git; host tools get it from `.secrets/`
+- [ ] **Before any Redis restart**, the reload is proven: `just build-artifacts` (or a
+      new `just store-load`) refills all accounts, timed and written down — Redis keeps
+      nothing on disk by design, so a restart empties it
+- [ ] **Given** Redis was restarted, **when** the store is reloaded, **then** the key
+      count matches before (512,707) and a stored account scores `cold: false`
+
+*Compose containers (Redis, MLflow, MLflow Postgres)*
+- [ ] `cap_drop: [ALL]`, adding back only what each image's entrypoint is shown to need
+- [ ] `security_opt: [no-new-privileges:true]`
+- [ ] `pids_limit` and log rotation (`max-size`, `max-file`) on each
+- [ ] Images pinned by **digest**, not just tag
+- [ ] Each container healthy after the change; MLflow UI 200; runs and experiments still
+      listed; Postgres data intact
+
+*The scorer pod*
+- [ ] `securityContext`: `runAsNonRoot: true`, `runAsUser: 10001`,
+      `allowPrivilegeEscalation: false`, `capabilities: drop [ALL]`,
+      `seccompProfile: RuntimeDefault`
+- [ ] `readOnlyRootFilesystem: true` with a writable `emptyDir` for `/tmp` (Ray writes
+      `/tmp/ray`). **If** Ray needs to write anywhere else, that path gets its own
+      `emptyDir` — or, if it cannot be made to work, the exception is written down
+      with the reason, never silently dropped
+- [ ] After: `just k8s-check` healthy, p99 under 50ms, dashboard still blocked from Docker
+
+*Everywhere*
+- [ ] LuBot before/after: same containers, all sites 200
+- [ ] `just check` green; committed; pushed; remotes match
+
+**Definition of Done:** every box ticked, nothing weakened to make it pass, rolls up to
+the Phase 5 gate (a live endpoint) without degrading it.
+
+**Tasks**
+1. Time the store reload on the current Redis *before* changing it (dry run into a
+   scratch DB number, so live keys are untouched)
+2. Generate the Redis password into `.secrets/redis.env`; create the k8s Secret
+3. Make `store.py`'s default URL read the password from env/`.secrets/` (test first:
+   URL with password parsed, no password still works for unit tests)
+4. Compose: password, `cap_drop`, `no-new-privileges`, `pids_limit`, logging, digests —
+   one container at a time, each verified before the next
+5. Restart Redis, reload, verify count and a warm score
+6. Pod `securityContext` + read-only root + `emptyDir`; roll out (KubeRay, zero
+   downtime); verify
+7. LuBot check; `just check`; commit; push
+
+**Estimate:** 5 story points, 1-2 sessions.
+
+**Dependencies:** S5.3 ✅. Nothing outside GraphGuard.
+
+**Out of scope:** k3s flags and kubeconfig permissions (S5.8d — needs a k3s restart);
+the CI runner (S5.8b); backups (S5.8c); anything LuBot's.
+
+**Risks**
+- *A Redis restart empties the store* → reload proven and timed first (task 1); the
+  scorer is briefly "everything cold" during the reload — acceptable now, nothing
+  depends on it yet. Also ties to S5.5: an empty store must not look like a healthy one
+- *Postgres entrypoint needs capabilities `cap_drop: ALL` removes* → add back only the
+  ones it fails without, one at a time, from the error
+- *Ray refuses a read-only root* → `emptyDir` per path it needs; if it truly cannot,
+  record the exception in ADR 0001 rather than fake it
+- *MLflow restart loses nothing* (its data is in Postgres and a volume) — confirmed by
+  listing runs before and after
+
+---
+
+### S5.8b — Supply chain *(short until its turn)*
+**As the** owner, **I want** CI jobs and commits unable to leak secrets or run tampered
+code, **so that** the build pipeline is not a way in.
+- Runner job containers: `--cap-drop=ALL`, `no-new-privileges`, a network per job
+  (pattern: `lubobali-runner`). Runner today: no Docker socket ✅, limits ✅, shared
+  `bridge` network ❌
+- `actions/checkout` pinned by commit SHA, not `@v4`
+- gitleaks in prek and CI (pattern: lubobali CI)
+
+### S5.8c — Backups *(short until its turn)*
+**As the** owner, **I want** MLflow's history backed up off the box with a restore that
+is actually tested, **so that** a dead disk does not erase every experiment.
+- Own restic repo in an own B2 bucket (Lubo creates bucket + key; nothing of LuBot's
+  backup reused). Daily; restore-check timer (pattern: MissionCopilot)
+- The online store needs no backup — it is rebuilt from data (S5.8a proves how fast)
+
+### S5.8d — k3s control plane and the box's second wall *(short until its turn)*
+**As the** owner, **I want** k3s's admin ports off the public interface and a host
+firewall behind the Hetzner one, **so that** one mistake in the Hetzner console does not
+expose the box.
+- Today: k3s API `*:6443`, kubelet `*:10250`, flannel `0.0.0.0:8472/udp` (all blocked
+  by Hetzner, but bound publicly); kubeconfig `644`
+- k3s flags (bind address, kubeconfig mode `600`) — needs a k3s **service restart**,
+  never `k3s-killall.sh`
+- Host firewall: planned with a rollback, applied by ONE session together with the
+  LuBot session, every app verified. Never by surprise
+- LuBot findings handed over (theirs to fix): Docker socket in the backend, runner host
+  networking and token perms, staging `.env` 644, admin ports on 0.0.0.0, open
+  credential rotations
 
 ---
 
 ## Order
 
-S5.1 → S5.2 → S5.3 → **S5.8** → S5.4 → S5.5 → S5.6 → S5.7
+S5.1 → S5.2 → S5.3 → **S5.8a → S5.8b → S5.8c → S5.8d** → S5.4 → S5.5 → S5.6 → S5.7
 
 S5.1-S5.2 first because nothing can be measured on a dead pod. S5.3 before S5.4 because
 if Ray goes, the latency must be measured on what replaces it. S5.7 last because it

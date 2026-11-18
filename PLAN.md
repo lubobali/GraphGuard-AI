@@ -102,6 +102,7 @@ in the stack.
 | 10 | **Second dataset (TransXion, KDD '26)** as a robustness check, new Phase 9. Scale moves to Phase 10 | Phases 9, 10 |
 | 11 | Cut **SageMaker** (the tree needs no GPU). Alert-volume forecast becomes optional | Phase 4, 8 |
 | 12 | Short **architecture decision records** (`docs/adr/`) for every big choice | all phases |
+| 13 | **A small lakehouse**: Iceberg tables (Parquet underneath, PyIceberg + SQLite catalog, local disk then our own S3 bucket) as the offline store; Redis loaded *from* it as the online copy. Polars reads them now, Spark reads the same tables in Phase 10. Added 2026-11-18 after Redis was found to keep nothing on disk | Phase 5 (S5.6), 10 |
 
 **What does not change.** XGBoost serves. The leakage contract, the frozen split and
 the sealed test set. Precision@k and the capacity slider as the headline. AMLworld
@@ -228,7 +229,8 @@ alternatives.
 | Layer | Choice | Why this and not the obvious thing |
 |---|---|---|
 | Packaging | **uv** | already what LuBot runs, including in CI. `uv.lock` pins exact versions, which is what makes the Phase 0 reproducibility gate real. Used in local, CI, **and** the Docker image, or it recreates the drift the CI-mirrors-prod rule exists to prevent |
-| Dataframes | **Polars** | pandas would work at 5M and stop working at 32M |
+| Dataframes | **Polars** | pandas would work at 5M and stop working at 32M. Spark at 5M would be slower and waste ~2GB on a JVM; it enters in Phase 10 on the same Iceberg tables |
+| Offline store / table format | **Apache Iceberg** (PyIceberg, SQLite catalog, Parquet files) | versioned snapshots and time travel: a model is traceable to the exact feature snapshot it trained on, and the online store can be rebuilt from it. No Spark or servers needed on this box (R-2) |
 | **Graph neural network (GNN)** | **PyTorch Geometric** | the standard GNN library; GraphSAGE, inductive, neighbor sampling. Written as the centerpiece; Phase 4 measured it losing to the baseline, so it is the research arm and XGBoost serves (R-1) |
 | Baseline → **production model** | **XGBoost** | still the right answer for tabular, and the honest opponent. It won Phase 4 by 6x and is what gets served (R-1) |
 | Tracking | **MLflow** | every run recorded, or the comparison is anecdote. Model Registry handles promotion |
@@ -556,7 +558,9 @@ write-up.
 Only when everything above works end to end, and after Phase 9.
 
 - HI-Large, 180M transactions. One box stops being enough
-- Spark on Databricks for graph construction and feature building
+- **Spark reads and writes the same Iceberg tables** Polars uses — "the same tables, two
+  engines". Spark on Databricks (or a rented cluster) for graph construction and
+  feature building
 - Rent a GPU for a few hours for training
 - Report what actually broke at 36x the data, because something will
 
