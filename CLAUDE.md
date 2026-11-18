@@ -151,9 +151,19 @@ MLflow's cap is 1200M rather than the 768M first tried: in August it idled at
 ## The lakehouse (S5.6a, 2026-11-18)
 
 Iceberg v2 tables served by **Lakekeeper** (S5.6c), an Iceberg REST catalog —
-container `graphguard-lakekeeper`, **127.0.0.1:8181 only**, no login until S5.6d (Dex),
-~30 MB, state in its own `lakekeeper` database in the MLflow Postgres. Runbook
-`docs/runbooks/lakekeeper.md`, decision ADR 0002. The S5.6a SQL catalog (`lakehouse`
+container `graphguard-lakekeeper`, **127.0.0.1:8181 only**, ~40 MB, state in its own
+`lakekeeper` database in the MLflow Postgres. Runbook `docs/runbooks/lakekeeper.md`,
+decision ADR 0002.
+
+**Logins and grants (S5.6d):** every catalog call carries a **Dex** token
+(`graphguard-dex`, 127.0.0.1:5556, ~11 MB) and **OpenFGA** holds the grants
+(`graphguard-openfga`, no host port, ~45 MB). One identity per job: `builder`
+(writes all), `trainer` and `reader` (read silver + gold; bronze metadata only, because
+bronze holds the test window — FINDING-011; `sealed` invisible), `admin` (setup).
+The policy is `src/graphguard/lakehouse/governance.py` — change access only there,
+then `just lakekeeper-init`. `open_catalog("<identity>")`: the REST catalog has no
+anonymous access. Until S5.6d part 2 (vended credentials) every job still shares the
+S3 key, which the catalog's rules do not bind. The S5.6a SQL catalog (`lakehouse`
 database) is a stale rollback: `GRAPHGUARD_CATALOG=sql`. Research and roadmap:
 `docs/research/Open source lakehouse on one box.md`; later steps S5.6b-e (S3 + DuckDB,
 Lakekeeper REST catalog, governance, Feast).
@@ -180,14 +190,20 @@ old versions expire after 7 days. The local warehouse is gone; force local with
 `GRAPHGUARD_LAKEHOUSE_WAREHOUSE=file:///...` if S3 is ever unreachable. Every lakehouse
 test also runs on a fake S3 (moto). Setup steps: `docs/runbooks/aws-setup.md`.
 
-**SQL:** `just sql "select ..."` — DuckDB 2.0, views `bronze_transactions_raw`,
-`silver_transactions`, `gold_account_features_asof`, `gold_labels` (never `sealed`),
-capped at 512MB. History in SQL must order by **(timestamp, source_row)**, never time
+**SQL:** `just sql "select ..."` — DuckDB 2.0 as `reader`, views `silver_transactions`,
+`gold_account_features_asof`, `gold_labels` (never `sealed`, never bronze: both hold the
+test window), capped at 512MB. History in SQL must order by **(timestamp, source_row)**, never time
 alone: 9.4% of transactions tie on the minute (FINDING-010).
 
-**Lakekeeper:** `just lakekeeper-status | lakekeeper-up | lakekeeper-down | lakekeeper-init`.
-DuckDB writes (MERGE) go through `attach_catalog_for_writes`, which exposes every
-namespace — never use it in `just sql` before S5.6d.
+**Lakekeeper:** `just lakekeeper-status | lakekeeper-up | lakekeeper-down | lakekeeper-init
+| lakekeeper-export | identity-secrets` (status/up/down cover Dex and OpenFGA too).
+DuckDB writes (MERGE) go through `attach_catalog_for_writes`, logged in as the
+catalog's identity — but with the shared S3 key, so not in `just sql` until part 2.
+
+**Gitignore trap (FINDING-012):** a bare folder name in `.gitignore` or ruff's
+excludes matches at any depth. `lakehouse/` and `models/` both hid real source code.
+Anchor root folders (`/models/`); `tests/test_repo_hygiene.py` fails the build if any
+`.py` under src/, tests/ or scripts/ is gitignored or skipped by lint.
 
 **Do not run lakehouse jobs while MLflow is busy with heavy training** — Ray at peak +
 busy MLflow + a ~1.1GB job would reach the 4GB budget. Aggregations read silver **in
@@ -359,8 +375,9 @@ Multi-PNA rematch (R-2). SageMaker is cut by R-2; S3 moves to Phase 5.
 (scorer back on k3s after 18 days of ImagePullBackOff), S5.2 (image pinned,
 `just k8s-check`, runbook), S5.3 (Ray kept and right-sized, dashboard locked by
 NetworkPolicy, ADR 0001; p99 7.6ms on k3s), S5.6a (the lakehouse; Redis now rebuilt
-from gold, 2,000/2,000 scores identical). Next: S5.6b-e, then the S5.8 lockdown, S5.4,
-S5.5, S5.7.
+from gold, 2,000/2,000 scores identical), S5.6b (S3 + DuckDB), S5.6c (Lakekeeper),
+S5.6d part 1 (Dex logins + OpenFGA grants). Next: S5.6d part 2 (vended credentials,
+needs Lubo's AWS step), S5.6e, then the S5.8 lockdown, S5.4, S5.5, S5.7.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models

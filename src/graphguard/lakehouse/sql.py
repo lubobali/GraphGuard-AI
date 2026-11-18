@@ -2,8 +2,9 @@
 
     just sql "select count(*) from silver_transactions"
 
-Each tracked table is a view named after it (`silver.transactions` ->
-`silver_transactions`). The sealed test window is never exposed. Memory is
+Each SQL table is a view named after it (`silver.transactions` ->
+`silver_transactions`). The test window is never exposed: not `sealed`, and not
+bronze either, whose raw rows include the test window (FINDING-011, S5.6d). Memory is
 capped at 512 MB with a spill directory, because this box's budget is shared
 with Ray, MLflow and LuBot production.
 
@@ -24,12 +25,15 @@ import polars as pl
 from pyiceberg.catalog import Catalog
 
 from graphguard.config import REPO_ROOT
-from graphguard.lakehouse.tables import TRACKED_TABLES
+from graphguard.lakehouse.tables import GOLD_FEATURES, GOLD_LABELS, SILVER_TX
 
 MEMORY_LIMIT = "512MB"
 THREADS = 2
 EXTENSION_DIR = REPO_ROOT / ".tools" / "duckdb_extensions"
 SPILL_DIR = REPO_ROOT / "lakehouse" / "tmp" / "duckdb"
+# What `just sql` shows. Bronze is left out on purpose: it is the raw CSV, test
+# window included, and the `reader` identity may not read it (governance.py).
+SQL_TABLES = (SILVER_TX, GOLD_FEATURES, GOLD_LABELS)
 
 
 def view_name(table: str) -> str:
@@ -60,7 +64,7 @@ def connect(catalog: Catalog) -> duckdb.DuckDBPyConnection:
             opts += [f"ENDPOINT '{u.netloc}'", "URL_STYLE 'path'", f"USE_SSL {u.scheme == 'https'}"]
         con.execute(f"CREATE SECRET lakehouse ({', '.join(opts)})")
 
-    for name in TRACKED_TABLES:
+    for name in SQL_TABLES:
         location = catalog.load_table(name).metadata_location
         con.execute(f"CREATE VIEW {view_name(name)} AS SELECT * FROM iceberg_scan('{location}')")
     return con
@@ -71,18 +75,28 @@ def attach_catalog_for_writes(
 ) -> str:
     """ATTACH the Lakekeeper REST catalog so DuckDB can write (INSERT, MERGE).
 
-    Only code that must write uses this: an attached catalog exposes every
-    namespace, `sealed` included, so `just sql` keeps to the tracked-table views
-    until S5.6d makes `sealed` a denied permission. DuckDB uses its own S3 secret
-    (ACCESS_DELEGATION_MODE 'none'): Lakekeeper vends nothing until S5.6d, and
-    DuckDB does not support remote signing.
+    DuckDB logs in as the same identity as `catalog` (OAuth2 client credentials
+    against Dex), so Lakekeeper applies that identity's permissions to DuckDB too.
+    It still uses its own S3 secret (ACCESS_DELEGATION_MODE 'none') until
+    credential vending is on, and that key opens every table's files -- so only
+    code that must write uses this, and `just sql` keeps to its views.
     """
     uri = catalog.properties.get("uri")
     if not uri:
         raise ValueError("not a REST catalog: DuckDB writes need Lakekeeper")
+    credential = catalog.properties.get("credential")
+    if not credential:
+        raise ValueError("the catalog has no identity: open it with open_catalog(<identity>)")
+    client_id, client_secret = credential.split(":", 1)
+    con.execute(
+        f"CREATE OR REPLACE SECRET {alias}_login (TYPE iceberg, "
+        f"CLIENT_ID '{client_id}', CLIENT_SECRET '{client_secret}', "
+        f"OAUTH2_SERVER_URI '{catalog.properties['oauth2-server-uri']}', "
+        f"OAUTH2_SCOPE '{catalog.properties.get('scope', 'openid')}')"
+    )
     con.execute(
         f"ATTACH '{catalog.properties['warehouse']}' AS {alias} "
-        f"(TYPE iceberg, ENDPOINT '{uri}', AUTHORIZATION_TYPE 'none', "
+        f"(TYPE iceberg, ENDPOINT '{uri}', SECRET {alias}_login, "
         "ACCESS_DELEGATION_MODE 'none')"
     )
     return alias
@@ -132,11 +146,10 @@ def main() -> int:
 
     if len(sys.argv) < 2:
         print(
-            'usage: just sql "select ..."   views: '
-            + ", ".join(view_name(t) for t in TRACKED_TABLES)
+            'usage: just sql "select ..."   views: ' + ", ".join(view_name(t) for t in SQL_TABLES)
         )
         return 2
-    print(connect(open_catalog()).sql(sys.argv[1]).pl())
+    print(connect(open_catalog("reader")).sql(sys.argv[1]).pl())
     return 0
 
 

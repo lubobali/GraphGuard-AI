@@ -39,6 +39,9 @@ SEALED_NAMESPACE = "sealed"
 SEALED_ALLOWLIST: dict[str, str] = {
     "src/graphguard/lakehouse/catalog.py": "creates the namespace",
     "src/graphguard/lakehouse/tables.py": "writes the test window into it; never reads it",
+    "src/graphguard/lakehouse/governance.py": (
+        "the access policy: names it only to deny it to trainer and reader (S5.6d)"
+    ),
 }
 
 

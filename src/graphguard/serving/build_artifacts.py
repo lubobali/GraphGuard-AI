@@ -52,7 +52,7 @@ def main() -> int:
     t0 = time.time()
     train_end, val_end = frozen_boundaries()
 
-    catalog = open_catalog()
+    catalog = open_catalog("trainer")
     lineage = training_lineage(catalog)  # recorded BEFORE reading, so it names what is read
     # Silver holds train + validation with the tail already removed; the test
     # window is in `sealed`, which training never opens.

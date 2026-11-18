@@ -113,9 +113,9 @@ services:
   # --- the lakehouse catalog (S5.6c) ------------------------------------------
   # Lakekeeper: an Iceberg REST catalog, the open-source counterpart of
   # Databricks' Unity Catalog. Its state lives in its own `lakekeeper` database
-  # in mlflow-db (own user, refused on mlflow and lakehouse). It has NO login
-  # until S5.6d (Dex), which is why it is bound to 127.0.0.1 only and lives on
-  # graphguard-net alone. Credentials (DB URL, encryption key) come from
+  # in mlflow-db (own user, refused on mlflow and lakehouse). Since S5.6d every
+  # request needs a Dex token and OpenFGA decides what it may do; it still binds
+  # 127.0.0.1 only and lives on graphguard-net alone (defence in depth). Credentials (DB URL, encryption key) come from
   # .secrets/lakekeeper.env, never from this file. Hardened like
   # lubot-prod-backend: non-root, read-only root, no capabilities.
   lakekeeper-migrate:
@@ -123,7 +123,13 @@ services:
     container_name: graphguard-lakekeeper-migrate
     command: ["migrate"]
     restart: "no"
-    env_file: .secrets/lakekeeper.env
+    env_file:
+      - .secrets/lakekeeper.env
+      - .secrets/lakekeeper-authz.env
+    environment:
+      # migrate also installs Lakekeeper's authorization model in OpenFGA
+      LAKEKEEPER__AUTHZ_BACKEND: openfga
+      LAKEKEEPER__OPENFGA__ENDPOINT: http://graphguard-openfga:8081
     user: "65532:65532"
     read_only: true
     cap_drop: [ALL]
@@ -135,16 +141,26 @@ services:
     depends_on:
       mlflow-db:
         condition: service_healthy
+      openfga:
+        condition: service_healthy
 
   lakekeeper:
     image: quay.io/lakekeeper/catalog:v0.15.1@sha256:22dcb6044c106a962c242b70051bd226bd50c9134c763121d8713c37fe9a70ec
     container_name: graphguard-lakekeeper
     command: ["serve"]
     restart: unless-stopped
-    env_file: .secrets/lakekeeper.env
+    env_file:
+      - .secrets/lakekeeper.env
+      - .secrets/lakekeeper-authz.env
     environment:
-      LAKEKEEPER__AUTHZ_BACKEND: allowall  # until S5.6d; see the note above
+      # S5.6d: every request needs a Dex token; OpenFGA decides what it may do.
       LAKEKEEPER__BASE_URI: http://127.0.0.1:8181
+      LAKEKEEPER__AUTHZ_BACKEND: openfga
+      LAKEKEEPER__OPENFGA__ENDPOINT: http://graphguard-openfga:8081
+      LAKEKEEPER__OPENID_PROVIDER_URI: http://graphguard-dex:5556/dex
+      LAKEKEEPER__OPENID_AUDIENCE: gg-admin,gg-builder,gg-trainer,gg-reader
+      LAKEKEEPER__OPENID_SUBJECT_CLAIM: sub
+      LAKEKEEPER__UI__ENABLED: "false"
     user: "65532:65532"
     read_only: true
     tmpfs:
@@ -171,6 +187,104 @@ services:
     depends_on:
       lakekeeper-migrate:
         condition: service_completed_successfully
+      openfga:
+        condition: service_healthy
+      dex:
+        condition: service_healthy
+
+  # ---- S5.6d: identities (Dex) and permissions (OpenFGA) -------------------
+  # OpenFGA stores Lakekeeper's grants. It has NO host port: only Lakekeeper
+  # reaches it, on graphguard-net, with a preshared key. v1.14 is the version
+  # Lakekeeper 0.15.1 is tested against.
+  openfga-migrate:
+    image: openfga/openfga:v1.14.2@sha256:38857bdc425316ebe6dabd1cde52e05c48e6e8bff781713b7c36da8d5ed68205
+    container_name: graphguard-openfga-migrate
+    command: ["migrate"]
+    restart: "no"
+    env_file: .secrets/openfga.env
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 128m
+    networks:
+      - graphguard
+    depends_on:
+      mlflow-db:
+        condition: service_healthy
+
+  openfga:
+    image: openfga/openfga:v1.14.2@sha256:38857bdc425316ebe6dabd1cde52e05c48e6e8bff781713b7c36da8d5ed68205
+    container_name: graphguard-openfga
+    command: ["run"]
+    restart: unless-stopped
+    env_file: .secrets/openfga.env
+    environment:
+      OPENFGA_PLAYGROUND_ENABLED: "false"
+      OPENFGA_METRICS_ENABLED: "false"
+      OPENFGA_DATASTORE_MAX_OPEN_CONNS: "10"
+      OPENFGA_DATASTORE_MAX_IDLE_CONNS: "2"
+      OPENFGA_LOG_FORMAT: json
+    user: "65532:65532"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 128
+    mem_limit: 128m
+    networks:
+      - graphguard
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/grpc_health_probe", "-addr=127.0.0.1:8081"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      openfga-migrate:
+        condition: service_completed_successfully
+
+  # Dex issues the jobs' identities (OAuth2 client credentials). 127.0.0.1 only:
+  # jobs on the host fetch tokens from it; Lakekeeper reaches it by name.
+  dex:
+    image: ghcr.io/dexidp/dex:v2.46.1@sha256:65b72ca0f4b0bf6d4ada84ec21da8851782563404ac7b8f926923d27ceced9ab
+    container_name: graphguard-dex
+    command: ["dex", "serve", "/etc/dex/graphguard.yaml"]
+    restart: unless-stopped
+    env_file: .secrets/dex.env
+    user: "1001:1001"
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    volumes:
+      - ./docker/dex/config.yaml:/etc/dex/graphguard.yaml:ro
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    mem_limit: 64m
+    ports:
+      - "127.0.0.1:5556:5556"
+    networks:
+      - graphguard
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:5558/healthz/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      mlflow-db:
+        condition: service_healthy
 
 networks:
   graphguard:

@@ -1,54 +1,93 @@
-# Runbook — Lakekeeper, the lakehouse catalog (S5.6c)
+# Runbook — Lakekeeper, the lakehouse catalog (S5.6c), with logins and grants (S5.6d)
 
 Lakekeeper is the Iceberg REST catalog: the list of tables, where their files are, and
-every snapshot. The data itself is on S3 and does not depend on Lakekeeper being up.
+every snapshot. Since S5.6d every request carries a **Dex** token (who you are) and
+**OpenFGA** holds the grants (what you may do). The data itself is on S3 and does not
+depend on any of the three being up.
 
 | | |
 |---|---|
-| Container | `graphguard-lakekeeper` (compose project `graphguard`, network `graphguard-net`) |
-| Address | `http://127.0.0.1:8181` — the box only; blocked from the internet, k3s pods and other Docker networks |
-| Version | `quay.io/lakekeeper/catalog:v0.15.1`, pinned by digest |
-| State | database `lakekeeper` (own user) in `graphguard-mlflow-db` |
-| Secrets | `.secrets/lakekeeper.env` (DB URL, encryption key) — 600, gitignored |
+| Containers | `graphguard-lakekeeper`, `graphguard-dex`, `graphguard-openfga` (compose project `graphguard`, network `graphguard-net`) |
+| Addresses | Lakekeeper `127.0.0.1:8181`, Dex `127.0.0.1:5556` (token endpoint `/dex/token`); OpenFGA has **no host port** |
+| Versions | Lakekeeper v0.15.1, Dex v2.46.1, OpenFGA v1.14.2 (the version Lakekeeper 0.15 is tested with) — all digest-pinned |
+| State | databases `lakekeeper`, `dex`, `openfga` (each its own user, refused on the others) in `graphguard-mlflow-db` |
+| Secrets | `.secrets/` (600, gitignored): `lakekeeper.env`, `lakekeeper-authz.env`, `dex.env`, `openfga.env`, `governance.env`, `identity-<name>.env` |
 | Warehouse | `graphguard` → `s3://graphguard-lakehouse-0dcd18/lakehouse/` |
-| Memory | cap 256 MB; measured ~24 MB idle, 30-32 MB during a full build |
-| Login | **none until S5.6d (Dex)** — that is why it listens on 127.0.0.1 only |
+| Memory | caps 256 / 64 / 128 MB; measured idle ~39 / 11 / 44 MB, ~42 / 11 / 45 MB during a full build |
+
+## Identities and the policy (`src/graphguard/lakehouse/governance.py`)
+
+| Identity | Used by | bronze | silver | gold | sealed |
+|---|---|---|---|---|---|
+| `builder` | `just lakehouse-build` | write | write | write | write |
+| `trainer` | `just build-artifacts` | describe only | read | read | **invisible** |
+| `reader` | `just sql`, `just store-load` | describe only | read | read | **invisible** |
+| `admin` | `just lakekeeper-init` | operator | | | |
+
+Bronze is metadata-only for trainer and reader because it is the raw CSV, **test window
+included** (FINDING-011). To trainer and reader `sealed` does not exist: it is not
+listed, and loading it answers "no such table", not "forbidden".
 
 ## Everyday
 
 ```
-just lakekeeper-status   # exit 1 unless healthy
-just lakekeeper-up       # start (runs the DB migration first); never restarts MLflow/Redis
-just lakekeeper-down     # stop
-just lakekeeper-init     # bootstrap + warehouse; safe to re-run
-just sql "select ..."    # DuckDB over the tracked tables, through the catalog
+just lakekeeper-status   # all three healthy, with memory; exit 1 otherwise
+just lakekeeper-up       # OpenFGA, Dex, then Lakekeeper; never restarts MLflow/Redis
+just lakekeeper-down     # stop all three
+just lakekeeper-init     # bootstrap, warehouse, namespaces, missing tables, grants; safe to re-run
+just lakekeeper-export   # save each table's metadata location + snapshot id
+just identity-secrets    # create any missing secret file; never overwrites
+just sql "select ..."    # DuckDB as `reader`: silver and gold views only
 ```
+
+Change who may do what **only in `governance.py`**, then `just lakekeeper-init`.
+`check_plan()` refuses a policy that would let trainer or reader reach the test window.
 
 ## If it is down
 
-1. `just lakekeeper-status`, then `docker logs graphguard-lakekeeper --tail 50`.
-2. Postgres down? `docker ps | grep graphguard-mlflow-db` — Lakekeeper needs it.
+1. `just lakekeeper-status`, then `docker logs graphguard-<name> --tail 50`.
+2. Postgres down? `docker ps | grep graphguard-mlflow-db` — all three need it.
 3. `just lakekeeper-up`. The scorer keeps working meanwhile: Redis already holds the
    features; only builds, reloads and SQL need the catalog.
+4. A job says `401`: Dex is down or its secret changed — `docker logs graphguard-dex`.
+   A job says `403` or "no such table": the policy says no; check `governance.py`.
 
-## Rollback to the old SQL catalog
+## Rotating a job's secret
 
-The PyIceberg SQL catalog (database `lakehouse`) was the catalog before S5.6c. It is
-**stale**: it stopped seeing commits when Lakekeeper took over. To roll back:
+Delete its `.secrets/identity-<name>.env` **and** `.secrets/dex.env`, run
+`just identity-secrets`, then recreate Dex:
+`docker compose --env-file .secrets/mlflow.env up -d --no-deps --force-recreate dex`.
 
-1. `export GRAPHGUARD_CATALOG=sql`
-2. Point each table in it at Lakekeeper's latest metadata, or simply rebuild:
-   `just lakehouse-build` (~35 s), then `just store-load`.
+## Moving or rebuilding the catalog (no data moves)
 
-Because the tables are plain Iceberg on S3, moving to any other catalog (the SQL one,
-Polaris, Unity) means **re-registering** metadata files, never copying data.
+Iceberg tables are files on S3; a catalog only points at each table's current metadata.
+S5.6d rebuilt Lakekeeper this way:
+
+1. `just lakekeeper-export` (writes `lakehouse/catalog-export.json`).
+2. Fresh catalog database, then `just lakekeeper-up` and `just lakekeeper-init`:
+   it **registers** every exported table that is missing. Snapshot ids are unchanged.
+
+## Locked out, or rolling back to S5.6c
+
+The S5.6c catalog database is kept as `lakekeeper_s56c` (no logins, `allowall`). To use
+it: stop Lakekeeper, point `LAKEKEEPER__PG_DATABASE_URL_*` at `lakekeeper_s56c`, set
+`LAKEKEEPER__AUTHZ_BACKEND=allowall` and drop the `OPENID_*` settings in compose, start
+it, and open catalogs with `open_rest_catalog(None)`. Its tables point at the metadata
+of 2026-11-18 18:10; re-register from a fresh export if newer builds happened. It is
+safe only because Lakekeeper is bound to 127.0.0.1 — but it has no permissions at all,
+so treat it as an emergency path. The older SQL catalog (`GRAPHGUARD_CATALOG=sql`) is
+staler still.
 
 ## Safety notes
 
-- Never publish port 8181 beyond 127.0.0.1 and never attach Lakekeeper to another
-  Docker network until S5.6d adds authentication.
-- Credential vending and remote signing are **off** in the warehouse profile; a unit
-  test keeps them off. Clients use the S3 key in `.secrets/aws.env`, which IAM limits
-  to `lakehouse/`.
-- DuckDB's full `ATTACH` (used for writes) exposes every namespace including `sealed`,
-  so only code that must write uses it; `just sql` uses tracked-table views.
+- Never publish 8181 or 5556 beyond 127.0.0.1, and never give OpenFGA a host port.
+- Never add Dex's `mockCallback` connector: it lets anyone log in. The password DB is
+  enabled only because Dex will not start without a connector; it has **zero** users,
+  and only the client-credentials grant is allowed.
+- **Until credential vending (S5.6d part 2)** every job still holds the same S3 key,
+  which opens all of `lakehouse/`. The catalog denies trainer and reader the test
+  window; the S3 key would not. Part 2 gives each job temporary keys scoped to the
+  tables it may read.
+- All jobs run as root on one box, so a job could read another's secret file. The
+  boundary holds for a process that has only its own credentials; per-job users are
+  S5.8 work.

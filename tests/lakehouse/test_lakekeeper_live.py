@@ -1,4 +1,4 @@
-"""The real Lakekeeper catalog, end to end (S5.6c).
+"""The real Lakekeeper catalog, end to end (S5.6c), logged in as `builder` (S5.6d).
 
 Needs the Lakekeeper container (127.0.0.1:8181) and the S3 key. CI has neither and
 skips by an explicit flag, reason printed. Anywhere else an unreachable Lakekeeper
@@ -26,7 +26,7 @@ pytestmark = [
 def rest():
     from graphguard.lakehouse.catalog import open_rest_catalog
 
-    return open_rest_catalog()
+    return open_rest_catalog("builder")
 
 
 @pytest.fixture
@@ -87,7 +87,7 @@ def test_duckdb_merge_through_the_catalog_is_visible_to_pyiceberg(rest, scratch)
     assert got.height == 2
 
 
-def test_just_sql_views_never_expose_sealed_even_through_lakekeeper(rest):
+def test_just_sql_views_never_expose_the_test_window_even_through_lakekeeper(rest):
     from graphguard.lakehouse.sql import connect
 
     views = {
@@ -96,7 +96,7 @@ def test_just_sql_views_never_expose_sealed_even_through_lakekeeper(rest):
         .execute("select view_name from duckdb_views() where not internal")
         .fetchall()
     }
-    assert views and not any("seal" in v for v in views)
+    assert views and not any("seal" in v or "bronze" in v for v in views)
     assert not {
         r[0]
         for r in connect(rest).execute("select database_name from duckdb_databases()").fetchall()

@@ -909,9 +909,11 @@ dependencies = [
 
 [package.optional-dependencies]
 dev = [
+    { name = "cryptography" },
     { name = "moto", extra = ["s3", "server"] },
     { name = "pytest" },
     { name = "pytest-xdist" },
+    { name = "pyyaml" },
     { name = "ruff" },
 ]
 gnn = [
@@ -927,6 +929,7 @@ lakehouse = [
 
 [package.metadata]
 requires-dist = [
+    { name = "cryptography", marker = "extra == 'dev'", specifier = ">=42" },
     { name = "duckdb", marker = "extra == 'lakehouse'", specifier = ">=1.4" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "mlflow-skinny", specifier = ">=2.19" },
@@ -939,6 +942,7 @@ requires-dist = [
     { name = "pyiceberg", extras = ["pyarrow", "pyiceberg-core", "sql-postgres"], marker = "extra == 'lakehouse'", specifier = ">=0.12" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3" },
     { name = "pytest-xdist", marker = "extra == 'dev'", specifier = ">=3.6" },
+    { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "ray", extras = ["serve"], specifier = ">=2.40" },
     { name = "redis", specifier = ">=5.2" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.8" },

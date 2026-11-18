@@ -35,7 +35,7 @@ KEEP_SNAPSHOTS = 5
 def main() -> int:
     t0 = time.time()
     boundaries = frozen_boundaries()
-    catalog = open_catalog()
+    catalog = open_catalog("builder")
 
     write_bronze(catalog, load_transactions(TRANSACTIONS_FILE))
     print(f"bronze written ({time.time() - t0:.1f}s)", flush=True)

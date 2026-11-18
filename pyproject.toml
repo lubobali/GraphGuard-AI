@@ -35,6 +35,8 @@ dev = [
   "moto[s3,server]>=5.0",
   "pytest>=8.3",
   "pytest-xdist>=3.6",
+  "pyyaml>=6.0",  # config tests read docker-compose.yml and the Dex config
+  "cryptography>=42",  # the forged-token test signs a JWT with its own key
   "ruff>=0.8",
 ]
 lakehouse = [
@@ -101,6 +103,11 @@ markers = [
 [tool.ruff]
 line-length = 100
 src = ["src", "tests"]
+# Explicit, so lint does not depend on .gitignore (a copy without .git would lint
+# the whole pinned toolchain under .tools/).
+# Only these two: a bare name matches a folder at ANY depth, and "lakehouse" would
+# silently skip src/graphguard/lakehouse (the same trap as the S5.6a .gitignore line).
+extend-exclude = [".tools", ".venv"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "B", "PLR0912", "PLR0915", "C901"]

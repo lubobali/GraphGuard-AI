@@ -6,11 +6,14 @@ import polars as pl
 import pytest
 
 from graphguard.features.graph import build_account_history_features
-from graphguard.lakehouse.sql import connect, history_before, strict_time_history_before
+from graphguard.lakehouse.sql import (
+    SQL_TABLES,
+    connect,
+    history_before,
+    strict_time_history_before,
+)
 from graphguard.lakehouse.tables import (
     BRONZE_TX,
-    GOLD_FEATURES,
-    GOLD_LABELS,
     SILVER_TX,
     scan_in_source_order,
     write_bronze,
@@ -61,7 +64,7 @@ def built(cat):
 
 def test_sql_row_counts_match_pyiceberg(built):
     con = connect(built)
-    for name in (BRONZE_TX, SILVER_TX, GOLD_FEATURES, GOLD_LABELS):
+    for name in SQL_TABLES:
         view = name.replace(".", "_")
         sql = con.execute(f"select count(*) from {view}").fetchone()[0]
         assert sql == built.load_table(name).scan().to_arrow().num_rows, name
@@ -75,6 +78,30 @@ def test_the_sealed_table_is_never_exposed_to_sql(built):
         .fetchall()
     }
     assert views and not any("seal" in v for v in views)
+
+
+def test_bronze_is_not_exposed_because_it_holds_the_test_window(built):
+    # FINDING-011: bronze is the raw CSV, test window included. A bronze view made
+    # the sealed namespace pointless for anyone running SQL.
+    con = connect(built)
+    views = {
+        r[0]
+        for r in con.execute("select view_name from duckdb_views() where not internal").fetchall()
+    }
+    assert "bronze_transactions_raw" not in views
+    assert built.load_table(BRONZE_TX).scan().to_arrow().num_rows > 0  # it exists; just not here
+
+
+def test_no_sql_view_returns_a_row_from_the_test_window(built):
+    con = connect(built)
+    for name in SQL_TABLES:
+        view = name.replace(".", "_")
+        cols = {r[0] for r in con.execute(f"describe {view}").fetchall()}
+        if "timestamp" in cols:
+            n = con.execute(
+                f"select count(*) from {view} where timestamp >= ?", [VAL_END]
+            ).fetchone()[0]
+            assert n == 0, view
 
 
 def test_memory_is_capped(built):

@@ -17,7 +17,7 @@ kaggle.json
 credentials
 
 # Model artifacts live in S3, not here
-models/
+/models/
 *.pt
 *.pkl
 *.joblib

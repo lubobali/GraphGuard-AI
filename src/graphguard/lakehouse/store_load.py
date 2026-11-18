@@ -43,7 +43,7 @@ def main() -> int:
 
     train_end, _ = frozen_boundaries()
     t0 = time.time()
-    n = load_store_from_gold(open_catalog(), RedisFeatureStore(), as_of=train_end)
+    n = load_store_from_gold(open_catalog("reader"), RedisFeatureStore(), as_of=train_end)
     print(
         f"online store loaded from gold: {n:,} accounts as of {train_end} ({time.time() - t0:.1f}s)"
     )

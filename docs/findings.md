@@ -437,3 +437,62 @@ me"). When `amount_paid` is huge, subtracting it back loses the low digits of th
 remainder. DuckDB sums only the earlier rows, so it is the more precise of the two.
 The model is unaffected at this scale; changing training's formula would mean
 retraining, which is its own decision.
+
+---
+
+## FINDING-011 — Bronze holds the test window, so locking `sealed` alone is a hollow lock
+
+*Found: 2026-11-18, Phase 5 (S5.6d, writing the access policy). Acts on: every grant,
+view or export over the lakehouse.*
+
+S5.6a put the test window in its own namespace, `sealed`, and a guard fails the build
+if code outside two files names it. S5.6c added "`sealed` is never exposed to SQL" as
+an acceptance criterion, and it held: no view named `sealed` existed.
+
+But `bronze.transactions_raw` is the **raw CSV — all 5,078,345 rows, test window
+included** — and `just sql` exposed it as the view `bronze_transactions_raw`. Anyone
+running SQL could read every test-window transaction with one `WHERE timestamp >= …`.
+The guard could not see it, because the code never names `sealed`; the test checked
+view *names*, not the rows behind them.
+
+**No result is affected.** Training reads silver (train + validation only, verified
+as the `trainer` identity: same 4,061,486 rows, same hash), and the test set has never
+been scored. This was an open door, not a leak that happened.
+
+**Fix (S5.6d):** `trainer` and `reader` get only `describe` on bronze — its snapshot
+id for lineage, no data; `governance.check_plan()` refuses any policy that gives them
+more, and refuses any warehouse-level grant (it would inherit down into `sealed`).
+`just sql` no longer creates a bronze view, and a test asserts **no SQL view returns a
+row at or after the validation end** — checking the rows, not the names.
+
+**Lesson:** protect the *data*, not the *name*. The test window lives in two places
+(bronze and sealed), and every access rule has to cover both.
+
+---
+
+## FINDING-012 — `.gitignore`'s `models/` hid the XGBoost training code from git since Phase 3
+
+*Found: 2026-11-18, Phase 5 (S5.6d, a new repo-hygiene test). Acts on: reproducibility
+("one command from a clean clone") and every CI result since 2026-08-20.*
+
+The line `models/` (meant for the model-artifact folder at the repo root) matches a
+folder named `models` **at any depth**, so it also ignored `src/graphguard/models/`
+and `tests/models/`: the tabular pipeline, the Optuna search space, `train_tabular`,
+`tune_tabular` and their 19 tests. **None of the 9 files was ever committed.** Lint
+skipped them too (ruff honours `.gitignore`), and CI never ran their tests.
+
+CI stayed green because no CI-collected test imported them, although tracked code
+does (`build_artifacts.py`, `measure_staleness.py`, `run_gnn.py`). So a fresh clone
+could not run `just build-artifacts`, `just train-tabular` or `just tune-tabular`.
+
+It is the same trap as S5.6a's `lakehouse/` line (fixed in S5.6c), found the same way
+the second time only because a test now looks for it.
+
+**Fix:** the rule is anchored to `/models/`; the 9 files are committed after a secret
+scan, with 5 cosmetic lint fixes (unused imports, long lines; no logic touched); their
+19 tests pass. `tests/test_repo_hygiene.py` now fails the build if any `.py` file
+under `src/`, `tests/` or `scripts/` is gitignored or skipped by ruff — and was shown
+to fail when the bad pattern is put back.
+
+**Results stand.** The Phase 3 numbers came from this code running on the box, logged
+to MLflow; what was missing was the published copy, not the experiment.

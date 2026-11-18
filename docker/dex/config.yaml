@@ -1,0 +1,64 @@
+{{- /* Dex for GraphGuard's lakehouse identities (S5.6d). Rendered by the image's
+       entrypoint (gomplate) at start; every secret comes from the environment
+       (.secrets/dex.env), none is in this file. */ -}}
+# Lakekeeper (on graphguard-net) checks tokens against this issuer. Jobs on the host
+# reach the token endpoint at 127.0.0.1:5556; the token's issuer is still this name.
+issuer: http://graphguard-dex:5556/dex
+
+storage:
+  type: postgres
+  config:
+    host: graphguard-mlflow-db
+    port: 5432
+    database: dex
+    user: dex
+    password: {{ getenv "DEX_DB_PASSWORD" | required "DEX_DB_PASSWORD" }}
+    ssl:
+      mode: disable
+    maxOpenConns: 5
+    maxIdleConns: 2
+
+web:
+  http: 0.0.0.0:5556
+
+telemetry:
+  http: 0.0.0.0:5558
+
+expiry:
+  idTokens: 1h
+
+signer:
+  type: local
+  config:
+    keysRotationPeriod: 24h
+    algorithm: RS256
+
+logger:
+  level: info
+  format: json
+
+oauth2:
+  # Machine logins only (client credentials, Dex >= 2.46). No browser flows.
+  grantTypes: [client_credentials]
+  skipApprovalScreen: true
+
+# Dex refuses to start without a connector. Its built-in password DB with ZERO
+# users is the inert choice: no one can log in by password, and grantTypes above
+# allows no flow that would use it anyway. (The `mockCallback` connector would
+# let anyone in -- never use it.)
+enablePasswordDB: true
+staticPasswords: []
+
+staticClients:
+  - id: gg-admin
+    name: GraphGuard admin
+    secret: {{ getenv "GG_ADMIN_SECRET" | required "GG_ADMIN_SECRET" }}
+  - id: gg-builder
+    name: GraphGuard builder
+    secret: {{ getenv "GG_BUILDER_SECRET" | required "GG_BUILDER_SECRET" }}
+  - id: gg-trainer
+    name: GraphGuard trainer
+    secret: {{ getenv "GG_TRAINER_SECRET" | required "GG_TRAINER_SECRET" }}
+  - id: gg-reader
+    name: GraphGuard reader
+    secret: {{ getenv "GG_READER_SECRET" | required "GG_READER_SECRET" }}

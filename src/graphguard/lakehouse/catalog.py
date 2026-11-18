@@ -1,8 +1,11 @@
 """Open the Iceberg catalog.
 
 Since S5.6c the catalog is **Lakekeeper**, an Iceberg REST catalog on 127.0.0.1:8181
-(`graphguard` warehouse on our S3 bucket). Clients bring their own S3 key -- vending
-and remote signing are off until S5.6d adds identities.
+(`graphguard` warehouse on our S3 bucket). Since S5.6d it is opened **as an
+identity** (`identity.py`): the job logs in to Dex, and Lakekeeper allows only what
+`governance.py` grants it. Only `admin` and `builder` create namespaces; `trainer`
+and `reader` cannot even see `sealed`. Clients still bring the S3 key until
+credential vending is on (S5.6d, part 2).
 
 The PyIceberg SQL catalog (its `lakehouse` Postgres database) was S5.6a's catalog.
 It still opens with `GRAPHGUARD_CATALOG=sql` as the rollback, but it no longer sees
@@ -66,17 +69,32 @@ def default_warehouse() -> tuple[str, dict[str, str]]:
     return f"s3://{env.bucket}/lakehouse", s3_properties(env)
 
 
-def open_catalog(
-    uri: str | None = None, warehouse: str | None = None, s3: dict[str, str] | None = None
-) -> Catalog:
-    """Open the catalog and make sure the four namespaces exist.
+CREATES_NAMESPACES = ("admin", "builder")
 
-    No arguments: Lakekeeper (or the SQL catalog with GRAPHGUARD_CATALOG=sql).
-    A `uri`: a SQL catalog there -- what tests use. `s3` carries PyIceberg `s3.*`
-    properties when the warehouse is on S3.
+
+def open_catalog(
+    identity: str | None = None,
+    *,
+    uri: str | None = None,
+    warehouse: str | None = None,
+    s3: dict[str, str] | None = None,
+) -> Catalog:
+    """Open the catalog.
+
+    `identity`: Lakekeeper, logged in as that job (`builder`, `trainer`, `reader`,
+    `admin`). Required for the REST catalog: there is no anonymous access.
+    `uri`: a SQL catalog there instead -- what tests use; `s3` carries PyIceberg
+    `s3.*` properties when its warehouse is on S3. `GRAPHGUARD_CATALOG=sql` opens
+    the stale S5.6a SQL catalog (rollback only).
+
+    SQL catalogs, and Lakekeeper opened as admin or builder, make sure the four
+    namespaces exist. Readers never create anything.
     """
     if uri is None and os.environ.get("GRAPHGUARD_CATALOG", "rest") == "rest":
-        catalog: Catalog = open_rest_catalog()
+        if identity is None:
+            raise ValueError("Lakekeeper needs an identity: builder, trainer, reader or admin")
+        catalog: Catalog = open_rest_catalog(identity)
+        create = identity in CREATES_NAMESPACES
     else:
         if warehouse is None:
             warehouse, s3 = default_warehouse()
@@ -85,20 +103,28 @@ def open_catalog(
         catalog = SqlCatalog(
             CATALOG_NAME, uri=uri or default_uri(), warehouse=warehouse, **(s3 or {})
         )
-    for ns in NAMESPACES:
-        catalog.create_namespace_if_not_exists(ns)
+        create = True
+    if create:
+        for ns in NAMESPACES:
+            catalog.create_namespace_if_not_exists(ns)
     return catalog
 
 
-def open_rest_catalog() -> RestCatalog:
-    """The Lakekeeper catalog, with our own S3 key (client-managed access)."""
+def open_rest_catalog(identity: str | None) -> RestCatalog:
+    """Lakekeeper as `identity` (OAuth2 client credentials against Dex, refreshed
+    by PyIceberg). `None` sends no token -- it only works while Lakekeeper runs
+    with `allowall`, i.e. for the S5.6c rollback and the one-time export."""
+    from graphguard.lakehouse.identity import pyiceberg_auth, read_identity
+
     env = read_aws_env()
     if env is None:
         raise RuntimeError("Lakekeeper's warehouse is on S3: fill .secrets/aws.env first")
+    auth = pyiceberg_auth(read_identity(identity)) if identity is not None else {}
     return RestCatalog(
         CATALOG_NAME,
         uri=LAKEKEEPER_CATALOG_URI,
         warehouse=LAKEKEEPER_WAREHOUSE,
         **{"header.X-Iceberg-Access-Delegation": "client-managed"},
+        **auth,
         **s3_properties(env),
     )

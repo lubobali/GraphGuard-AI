@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a, S5.6b and S5.6c done; S5.6d next.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a, S5.6b and S5.6c done; S5.6d part 1 (logins + grants) done, part 2 (vended credentials) waits for Lubo's AWS step.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -614,7 +614,7 @@ Until S5.6d, Lakekeeper has no login — which is why it is bound to 127.0.0.1 o
 - *Another long-running service to keep healthy* → healthcheck; `just k8s-check`-style
   check added for it; runbook
 
-### S5.6d — Governance: logins, grants, and `sealed` as a denied permission *(expanded 2026-11-18, awaiting approval)*
+### S5.6d — Governance: logins, grants, and `sealed` as a denied permission *(approved 2026-11-18; part 1 done, part 2 waits for the AWS step)*
 
 **In one line:** every job gets its own login (Dex), the catalog decides what each login
 may do (OpenFGA), and each job gets S3 keys that open only the tables it is allowed —
@@ -657,41 +657,57 @@ only when that evaluation happens — contract rule 4.)
 **Acceptance criteria**
 
 *Before anything starts*
-- [ ] **Lubo approves starting two containers** (box rule): Dex and OpenFGA, compose
-      and caps shown first. Lakekeeper is restarted with auth on
+- [x] **Lubo approves starting two containers** (box rule): Dex and OpenFGA, compose
+      and caps shown first. Lakekeeper is restarted with auth on — approved 2026-11-18
+      ("approve s5.6d do it senior")
 - [ ] **Lubo does one AWS console step** (~10 min, runbook with copy-paste JSON): an
       IAM role `graphguard-lakekeeper-vending` (S3 `lakehouse/` only) and a new IAM
       user `graphguard-lakekeeper` that may only assume that role. Same account,
       nothing of `aws-job-streamer` touched. STS is free
 
 *The services*
-- [ ] **Dex v2.46.x** and **OpenFGA** (latest stable), both pinned by digest, in
+- [x] **Dex v2.46.x** and **OpenFGA** (latest stable), both pinned by digest, in
       compose project `graphguard` on `graphguard-net`, hardened like Lakekeeper
       (non-root, `read_only`, `cap_drop: ALL`, `no-new-privileges`, `pids_limit`, log
-      rotation, healthcheck), hard caps (start: Dex 64 MB, OpenFGA 128 MB)
-- [ ] Dex on **127.0.0.1:5556 only** (jobs on the host need it for tokens). OpenFGA has
+      rotation, healthcheck), hard caps (start: Dex 64 MB, OpenFGA 128 MB) — *refined:*
+      OpenFGA **v1.14.2**, not the newest v1.22: it is the version Lakekeeper 0.15.1 is
+      tested with. Dex needs a connector to start, so its password DB is on with **zero**
+      users (never `mockCallback`, which lets anyone in); only client credentials allowed
+- [x] Dex on **127.0.0.1:5556 only** (jobs on the host need it for tokens). OpenFGA has
       **no host port at all** — only Lakekeeper reaches it, on `graphguard-net`, with a
-      preshared key. Both verified unreachable from the public IP and a k3s pod
-- [ ] State in **own databases and users** in GraphGuard's Postgres (`dex`, `openfga`),
-      each refused on the others; no new database server
-- [ ] **Measured:** idle RAM and RAM during a full build for all three services; kept
-      only if they fit (story budget 50-150 MB for the two new ones)
+      preshared key. Both verified unreachable from the public IP and a k3s pod — public
+      5556/8081/8181 blocked; from the scorer pod, both containers' own IPs (5556, 5558,
+      8080, 8081), the host bridges and the public IP all blocked
+- [x] State in **own databases and users** in GraphGuard's Postgres (`dex`, `openfga`),
+      each refused on the others; no new database server — tried: each user reaches only
+      its own of `dex`, `openfga`, `lakekeeper`, `mlflow`, `lakehouse`
+- [x] **Measured:** idle RAM and RAM during a full build for all three services; kept
+      only if they fit (story budget 50-150 MB for the two new ones) — **Dex 11 MB,
+      OpenFGA 44-45 MB (56 MB together)**; Lakekeeper 31 → 39 idle, 42 MB peak with authz
 
 *Who you are (authentication)*
-- [ ] Lakekeeper trusts Dex (`OPENID_PROVIDER_URI`, audience set); `AUTHZ_BACKEND`
-      changes from `allowall` to `openfga`
-- [ ] **Given** no token, **when** any catalog call is made, **then** 401
-- [ ] **Given** a token signed by a different key, or expired, **then** 401
-- [ ] `open_catalog()` takes an identity and logs in with client credentials; the
-      secret never appears in logs, reprs or MLflow (tested)
+- [x] Lakekeeper trusts Dex (`OPENID_PROVIDER_URI`, audience set); `AUTHZ_BACKEND`
+      changes from `allowall` to `openfga` — fresh bootstrap with OpenFGA (switching keeps
+      no grants); S5.6c database kept as `lakekeeper_s56c`; all 5 tables **re-registered**
+      from an export, metadata and snapshot ids identical
+- [x] **Given** no token, **when** any catalog call is made, **then** 401
+- [x] **Given** a token signed by a different key, or expired, **then** 401 — forged
+      RS256 token with the right issuer and audience, and a garbage token: both 401
+- [x] `open_catalog()` takes an identity and logs in with client credentials; the
+      secret never appears in logs, reprs or MLflow (tested) — REST without an identity
+      is refused; `Identity` repr, Dex errors and the lineage dict are tested secret-free
 
 *What you may do (authorization)*
-- [ ] Grants applied **from code** (one file listing the table above), idempotent —
-      re-running changes nothing; the grants are the documentation
-- [ ] **Given** `trainer`, **when** it loads `sealed.transactions`, **then** 403; when it
-      lists namespaces, `sealed` is not there
-- [ ] **Given** `trainer` or `reader`, **when** it writes any table, **then** 403
-- [ ] **Given** `builder`, **then** build, re-build and orphan cleanup all succeed
+- [x] Grants applied **from code** (one file listing the table above), idempotent —
+      re-running changes nothing; the grants are the documentation — `governance.py`;
+      8 grants on 4 targets, `lakekeeper-init` run twice with the same result
+- [x] **Given** `trainer`, **when** it loads `sealed.transactions`, **then** 403; when it
+      lists namespaces, `sealed` is not there — *stronger than 403:* "no such table", so
+      the catalog does not even confirm it exists; same for `reader`
+- [x] **Given** `trainer` or `reader`, **when** it writes any table, **then** 403 —
+      append, create table and create namespace all `ForbiddenError`
+- [x] **Given** `builder`, **then** build, re-build and orphan cleanup all succeed —
+      full `just lakehouse-build` 36 s, peak 1.26 GB, snapshots kept and orphans cleaned
 
 *Which files your key opens (vended credentials)*
 - [ ] Warehouse switched to `sts-enabled: true` with the vending role; Lakekeeper holds
@@ -705,18 +721,37 @@ only when that evaluation happens — contract rule 4.)
       IAM** after everything passes — this also closes the key-rotation item
 
 *Nothing else changes*
-- [ ] `just lakehouse-build` (builder), `just build-artifacts` read path (trainer),
-      `just store-load` (reader) all work; **2,000/2,000 scores identical**
+- [x] `just lakehouse-build` (builder), `just build-artifacts` read path (trainer),
+      `just store-load` (reader) all work; **2,000/2,000 scores identical** — max
+      difference 0.0; trainer reads the same 4,061,486 silver rows with the same hash as
+      builder; store-load 512,705 accounts in 13.4 s
 - [ ] `just sql` switches to full DuckDB `ATTACH` as `reader` — `sealed` is now hidden
-      by permission, not by our view list (the S5.6c deferral, closed)
-- [ ] `test_set_touch_check` stays exactly as strict (defence in depth, not replaced)
+      by permission, not by our view list (the S5.6c deferral, closed) — *waits for part
+      2:* until vending, DuckDB's own S3 key could read bronze's files through ATTACH.
+      Meanwhile `just sql` dropped its bronze view (FINDING-011) and a test checks that
+      **no view returns a test-window row**
+- [x] `test_set_touch_check` stays exactly as strict (defence in depth, not replaced) —
+      one file added to its allowlist with a reason: `governance.py`, which names `sealed`
+      only to deny it
 
 *Tests and guards*
-- [ ] Config builders (Dex clients, grants plan, warehouse profile) unit-tested;
+- [x] Config builders (Dex clients, grants plan, warehouse profile) unit-tested;
       every negative case above is a **live test**, skipped in CI only by the existing
-      `GRAPHGUARD_SKIP_LAKEKEEPER_TESTS=1` with the reason printed
+      `GRAPHGUARD_SKIP_LAKEKEEPER_TESTS=1` with the reason printed — 26 unit tests
+      (policy, secrets, Dex/compose agreement), 16 live governance tests
 - [ ] A clean-clone run passes (as in S5.6c); `just check` green; CI green; committed;
       pushed; remotes match; LuBot before/after unchanged
+
+*Found on the way (part 1)*
+- **FINDING-011:** bronze is the raw CSV, test window included, and `just sql` exposed
+  it. Locking `sealed` alone was a hollow lock. Trainer and reader now get only
+  `describe` on bronze, `check_plan()` refuses more, and the SQL bronze view is gone
+- **FINDING-012:** `.gitignore`'s `models/` had kept the XGBoost training code (9 files,
+  19 tests) out of git since Phase 3 — the S5.6a `lakehouse/` trap again. Anchored to
+  `/models/`, committed after a secret scan; `tests/test_repo_hygiene.py` now fails the
+  build if any source file is gitignored or skipped by lint
+- **CI memory:** the first CI run with the lakehouse tests was OOM-killed (4 xdist
+  workers, 2.25 GB against a 2 GB cap) — fixed with `-n 2` before this story started
 
 **Definition of Done:** every box ticked; training is denied `sealed` at the catalog
 **and** at S3, shown by tests; one long-lived S3 key left, held only by Lakekeeper; the

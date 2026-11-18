@@ -121,22 +121,35 @@ lakehouse-build:
 
 # --- the lakehouse catalog: Lakekeeper (S5.6c) --------------------------------
 # Start only Lakekeeper (migrate first). --no-deps: never restarts MLflow or Redis.
+# The catalog and what it needs (S5.6c-d): OpenFGA (grants), Dex (logins), Lakekeeper.
+# --no-deps everywhere: never restarts MLflow, its Postgres or Redis.
 lakekeeper-up:
+    docker compose --env-file {{ENVFILE}} up --no-deps openfga-migrate
+    docker compose --env-file {{ENVFILE}} up -d --no-deps --wait openfga dex
     docker compose --env-file {{ENVFILE}} up --no-deps lakekeeper-migrate
-    docker compose --env-file {{ENVFILE}} up -d --no-deps lakekeeper
+    docker compose --env-file {{ENVFILE}} up -d --no-deps --wait lakekeeper
 
 lakekeeper-down:
-    docker compose --env-file {{ENVFILE}} stop lakekeeper
+    docker compose --env-file {{ENVFILE}} stop lakekeeper dex openfga
 
-# Bootstrap + create the `graphguard` warehouse on S3. Idempotent.
+# Generate any missing identity/service secrets in .secrets/ (600). Never overwrites.
+identity-secrets:
+    {{UV}} run python -m graphguard.lakehouse.lakekeeper secrets
+
+# Bootstrap (as admin), warehouse, namespaces, register missing tables, apply the
+# access policy (governance.py). Idempotent.
 lakekeeper-init:
     {{UV}} run python -m graphguard.lakehouse.lakekeeper
 
-# Exit 1 unless Lakekeeper is healthy.
+# Save every table's metadata location + snapshot id (the catalog's rollback point).
+lakekeeper-export:
+    {{UV}} run python -m graphguard.lakehouse.lakekeeper export
+
+# Exit 1 unless Lakekeeper, Dex and OpenFGA are all healthy.
 lakekeeper-status:
-    @docker inspect graphguard-lakekeeper --format 'container: {{{{.State.Status}}, health: {{{{.State.Health.Status}}'
-    @docker stats --no-stream --format 'memory: {{{{.MemUsage}}' graphguard-lakekeeper
-    @curl -sf http://127.0.0.1:8181/health > /dev/null && echo "health endpoint: ok" || (echo "LAKEKEEPER UNHEALTHY" >&2; exit 1)
+    @docker stats --no-stream --format '{{{{.Name}}: {{{{.MemUsage}}' graphguard-lakekeeper graphguard-dex graphguard-openfga
+    @for c in graphguard-lakekeeper graphguard-dex graphguard-openfga; do h=$(docker inspect -f '{{{{.State.Health.Status}}' $c 2>/dev/null); echo "$c: ${h:-missing}"; [ "$h" = healthy ] || { echo "UNHEALTHY: $c" >&2; exit 1; }; done
+    @curl -sf http://127.0.0.1:8181/health > /dev/null && echo "lakekeeper health endpoint: ok" || (echo "LAKEKEEPER UNHEALTHY" >&2; exit 1)
 
 # Ad-hoc SQL over the lakehouse with DuckDB (read-only views, capped at 512MB).
 #   just sql "select count(*) from silver_transactions"
