@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a, S5.6b and S5.6c done; S5.6d (logins, grants, vended keys) done — the retired S5.6b key left active by Lubo's choice (accepted risk); S5.6e next.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a, S5.6b and S5.6c done; S5.6d done (old S5.6b key active by Lubo's choice, accepted risk); S5.6e done; Phase 5b next.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -813,7 +813,7 @@ see risks); Redis and MLflow auth (Phase 5b).
 - *Locking ourselves out* → `admin` secret kept in `.secrets/`; runbook has the
   recovery path (back to `allowall` on 127.0.0.1, as S5.6c ran)
 
-### S5.6e — Feast decided by measurement, lineage on every job, worksheets *(approved 2026-11-18; done but for CI)*
+### S5.6e — Feast decided by measurement, lineage on every job, worksheets *(done 2026-11-18)*
 
 **In one line:** try the standard feature store (Feast) on our real data, keep it only
 where it matches our numbers exactly, record which data every job read and wrote, and
@@ -915,8 +915,8 @@ has said "Feast" since August while the code uses its own store. This is the las
 - [x] The scorer, the live Redis and the main lockfile untouched unless ADR 0004 picks
       (a) and Lubo approves that step; **2,000/2,000 scores identical** — **2,000/2,000 identical**;
       production model retrained twice under a 3 GB cap, **byte-identical** to August's
-- [ ] `just check` green; CI green **checked on the real run**; committed; pushed; remotes
-      match; LuBot before/after unchanged
+- [x] `just check` green; CI green **checked on the real run**; committed; pushed; remotes
+      match; LuBot before/after unchanged — CI green on `ab76fbd` (task 4830, Lubo confirmed); 398 tests; LuBot 60/60, all sites 200
 
 **Definition of Done:** every box ticked; ADR 0004 written with measured parity,
 latency and RAM; the Feast-vs-training tie behaviour known and written down; lineage
