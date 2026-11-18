@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a and S5.6b done; S5.6c next.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a and S5.6b done; S5.6c approved, in progress.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -490,12 +490,120 @@ the catalog database (S5.8c).
 - *Build slower over the network* → measured; S3 is in the same region (3.7 ms)
 - *Memory*: no new resident process; DuckDB is capped at 512 MB and runs only on demand
 
-### S5.6c — Lakekeeper REST catalog *(short until its turn)*
-Lakekeeper as the catalog, capped, internal only; existing tables registered. Late labels
-updated with DuckDB `MERGE INTO`. Stays only if its measured RAM fits; otherwise the SQL
-catalog remains.
+### S5.6c — Lakekeeper: a real REST catalog for the lakehouse
+
+**In one line:** replace the Python-only table list with a small catalog server that
+every engine talks to through the standard Iceberg REST API — the open-source
+counterpart of Databricks' Unity Catalog.
+
+**User story**
+**As an** ML engineer, **I want** the lakehouse's tables served by an Iceberg REST
+catalog (Lakekeeper), **so that** any engine — PyIceberg, Polars, DuckDB, later Spark —
+finds and changes the same tables the same way, DuckDB can write (MERGE), and the
+platform has the shape Databricks and Snowflake use.
+
+**Why now:** today the catalog is PyIceberg's SQL catalog: rows in a Postgres database
+that only PyIceberg reads. DuckDB can read tables only by being handed a metadata file
+path, and cannot write at all without a REST catalog. Every later step — permissions
+(S5.6d), Feast (S5.6e), Spark (Phase 10) — assumes one.
+
+**Acceptance criteria**
+
+*Before anything starts*
+- [ ] **Lubo approves starting the container** (box rule). Compose file and RAM cap
+      shown to him first
+
+*The service*
+- [ ] Lakekeeper **v0.15.x**, pinned by image **digest**, in GraphGuard's compose project
+      on `graphguard-net`, hard memory cap (start at 256 MB), `restart: unless-stopped`
+- [ ] Bound to **127.0.0.1 only** — not on the public interface, not reachable from
+      other Docker networks or k3s pods — verified by trying from a Docker container and
+      a pod, not assumed
+- [ ] Its state lives in its **own database and user** in GraphGuard's existing Postgres
+      (like `lakehouse`), refused on `mlflow` and `lakehouse`; no new database server
+- [ ] Its encryption key and S3 credentials come from `.secrets/` (600, gitignored),
+      never the compose file or git
+- [ ] Hardened like `lubot-prod-backend`: non-root, `read_only`, `cap_drop: ALL`,
+      `no-new-privileges`, `pids_limit`, log rotation, healthcheck
+- [ ] **Measured**: idle RAM and RAM during a full `lakehouse-build`; kept only if it
+      fits the budget (the research's estimate is 30-100 MB — measured, not trusted)
+
+*The tables move to it — no data copied*
+- [ ] A Lakekeeper **warehouse** pointing at `s3://graphguard-lakehouse-0dcd18/lakehouse`
+- [ ] The existing tables are **registered** in Lakekeeper from their current metadata
+      (no rewrite, no copy); snapshot ids and history unchanged
+- [ ] `open_catalog()` returns the REST catalog; the SQL catalog stays readable as the
+      **rollback** for this story, then is retired in writing
+- [ ] **Given** the same tables, **when** read through Lakekeeper, **then** row hashes equal
+      the SQL catalog's
+- [ ] `just lakehouse-build`, `just store-load` and `just build-artifacts` work through
+      Lakekeeper; the 2,000 scores stay identical (max difference 0.0)
+- [ ] Time travel through Lakekeeper returns the older snapshot's rows
+
+*DuckDB through the catalog*
+- [ ] DuckDB `ATTACH`es the Lakekeeper catalog instead of reading metadata file paths;
+      `just sql` keeps working; `sealed` still never exposed
+- [ ] **MERGE works**: a test performs `MERGE INTO` on a lakehouse table through
+      DuckDB and reads back the change, with a new snapshot. (Real late-label updates
+      are Phase 6's label-delay policy; this story proves the capability)
+- [ ] DuckDB-written files are readable by PyIceberg and Polars (format v2, field ids)
+
+*Tests and guards*
+- [ ] Unit tests run against an **in-process REST catalog** where possible, or a
+      Lakekeeper container started only for the test run; CI skips anything that needs
+      a live Lakekeeper by an explicit flag with the reason printed
+- [ ] All three leakage guards pass; `test_set_touch_check` still blocks `sealed`
+- [ ] `just check` green; CI green; committed; pushed; remotes match; LuBot before/after
+      unchanged
+
+**Definition of Done:** every box ticked; Lakekeeper measured and inside the budget;
+scores unchanged; the rollback path written down; nothing secret in git.
+
+**Tasks**
+1. Write the compose service (digest-pinned, capped, hardened, 127.0.0.1) and the
+   `.secrets/lakekeeper.env` layout; **show Lubo; get the OK to start it**
+2. Create the `lakekeeper` database and user; bootstrap Lakekeeper (migrate), create
+   the warehouse on our S3 bucket
+3. Measure idle RAM; verify it is unreachable from a Docker container and a k3s pod
+4. Tests first: REST round trip, register-without-copy, hash identity, time travel,
+   DuckDB ATTACH + MERGE, sealed hidden
+5. Register the existing tables; switch `open_catalog()`; keep the SQL catalog as rollback
+6. Run build, store-load and the 2,000-score check through Lakekeeper; measure RAM
+   during the build
+7. DuckDB via ATTACH; MERGE test
+8. Runbook (start, stop, rollback), CLAUDE.md, ADR 0002 (catalog choice: Lakekeeper vs
+   Polaris vs SQL catalog, with the measured numbers), commit, push
+
+**Estimate:** 5 story points, ~2 sessions.
+
+**Dependencies:** S5.6b ✅ (S3). Lubo's OK to start one container. Possibly a second IAM
+user later, if Lakekeeper should hold credentials separate from the build's (decided in
+S5.6d).
+
+**Out of scope:** authentication, role-based permissions, vended credentials, the
+sealed namespace as a denied permission (all S5.6d); Feast (S5.6e); Spark (Phase 10).
+Until S5.6d, Lakekeeper has no login — which is why it is bound to 127.0.0.1 only.
+
+**Risks**
+- *An unauthenticated catalog on a shared box* → 127.0.0.1 only, own Docker network,
+  proven unreachable from containers and pods; auth arrives in S5.6d
+- *RAM* → hard cap; measured idle and under load; if it does not fit, the SQL catalog
+  stays and this is recorded as the decision
+- *Register-in-place breaks history* → hash and snapshot-id comparison before switching;
+  the SQL catalog is the rollback
+- *DuckDB's write support has gaps* (positional deletes only; version notes in the
+  research conflict) → proven by a test on a scratch table before any real table is
+  written by DuckDB
+- *Lakekeeper is young (0.x)* → digest-pinned; tables stay plain Iceberg on S3, so
+  switching catalogs later (Polaris, Unity) needs only re-registration, no data move
+- *Another long-running service to keep healthy* → healthcheck; `just k8s-check`-style
+  check added for it; runbook
 
 ### S5.6d — Governance *(short until its turn)*
+**Identity provider: Dex** (Lubo, 2026-11-18) — self-hosted, small (Go, CNCF), no external
+account; issues OIDC tokens for job identities (`trainer`, `builder`, `duckdb-reader`)
+that Lakekeeper trusts. AWS Cognito was the alternative (no container, but console work
+and an internet dependency for every login).
 Grants and vended credentials. The sealed test set becomes a **permission denial with a
 negative test**: the training identity cannot read `sealed`.
 
