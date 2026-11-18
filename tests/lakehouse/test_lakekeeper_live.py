@@ -64,10 +64,10 @@ def test_write_read_and_time_travel_through_the_catalog(rest, scratch):
 
 
 def test_duckdb_merge_through_the_catalog_is_visible_to_pyiceberg(rest, scratch):
-    from graphguard.lakehouse.sql import attach_catalog_for_writes, connect
+    from graphguard.lakehouse.sql import attach_catalog, connect
 
     con = connect(rest)
-    lk = attach_catalog_for_writes(con, rest)
+    lk = attach_catalog(con, rest)
     con.execute(
         f"CREATE TABLE {lk}.{scratch}.labels "
         "(source_row BIGINT, is_laundering INTEGER, label_known_at TIMESTAMP)"

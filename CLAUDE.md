@@ -162,8 +162,13 @@ decision ADR 0002.
 bronze holds the test window — FINDING-011; `sealed` invisible), `admin` (setup).
 The policy is `src/graphguard/lakehouse/governance.py` — change access only there,
 then `just lakekeeper-init`. `open_catalog("<identity>")`: the REST catalog has no
-anonymous access. Until S5.6d part 2 (vended credentials) every job still shares the
-S3 key, which the catalog's rules do not bind. The S5.6a SQL catalog (`lakehouse`
+anonymous access. **Jobs hold no S3 key** (part 2): Lakekeeper vends each a 1-hour STS
+key per table, read-only unless it may write, none for bronze to trainer/reader. The
+only long-lived key is Lakekeeper's (`.secrets/lakekeeper-aws.env`, user
+`graphguard-lakekeeper`, which can only assume role `graphguard-lakekeeper-vending`).
+Storage helpers take a **table's** `io.properties`, never the catalog's. Never give a
+job a static key again: it silently undoes the S3 lock. Decision: ADR 0003; AWS side:
+`docs/runbooks/aws-vending.md`. The S5.6a SQL catalog (`lakehouse`
 database) is a stale rollback: `GRAPHGUARD_CATALOG=sql`. Research and roadmap:
 `docs/research/Open source lakehouse on one box.md`; later steps S5.6b-e (S3 + DuckDB,
 Lakekeeper REST catalog, governance, Feast).
@@ -184,21 +189,23 @@ just store-load        # Redis from gold on S3, ~13s, peak ~0.6GB, in place, no 
 
 **Storage (S5.6b, live 2026-11-18):** GraphGuard's own S3 bucket
 `graphguard-lakehouse-0dcd18` (us-east-1, same AWS account, new bucket), prefix
-`lakehouse/`, through IAM user `graphguard-lakehouse` whose policy reaches nothing
-else — 5 live tests prove the denials. Keys in `.secrets/aws.env`. 0.83 GB, ~$0.02/month;
+`lakehouse/`, policy `graphguard-lakehouse-s3` reaching nothing else — live tests
+prove the denials. Since S5.6d it is used through the vending role; the S5.6b user
+`graphguard-lakehouse` and its `.secrets/aws.env` key are retired. 0.83 GB, ~$0.02/month;
 old versions expire after 7 days. The local warehouse is gone; force local with
 `GRAPHGUARD_LAKEHOUSE_WAREHOUSE=file:///...` if S3 is ever unreachable. Every lakehouse
 test also runs on a fake S3 (moto). Setup steps: `docs/runbooks/aws-setup.md`.
 
-**SQL:** `just sql "select ..."` — DuckDB 2.0 as `reader`, views `silver_transactions`,
-`gold_account_features_asof`, `gold_labels` (never `sealed`, never bronze: both hold the
-test window), capped at 512MB. History in SQL must order by **(timestamp, source_row)**, never time
+**SQL:** `just sql "select ..."` — DuckDB 2.0 as `reader` with the catalog ATTACHed as
+`lk` (vended keys), plus views `silver_transactions`, `gold_account_features_asof`,
+`gold_labels`. `sealed` does not exist for reader and bronze is Forbidden — by
+permission, not by a list. Capped at 512MB. History in SQL must order by **(timestamp, source_row)**, never time
 alone: 9.4% of transactions tie on the minute (FINDING-010).
 
 **Lakekeeper:** `just lakekeeper-status | lakekeeper-up | lakekeeper-down | lakekeeper-init
 | lakekeeper-export | identity-secrets` (status/up/down cover Dex and OpenFGA too).
-DuckDB writes (MERGE) go through `attach_catalog_for_writes`, logged in as the
-catalog's identity — but with the shared S3 key, so not in `just sql` until part 2.
+DuckDB ATTACH (`sql.attach_catalog`) logs in as the catalog's identity, so its writes
+(MERGE) need `builder`.
 
 **Gitignore trap (FINDING-012):** a bare folder name in `.gitignore` or ruff's
 excludes matches at any depth. `lakehouse/` and `models/` both hid real source code.
@@ -376,8 +383,8 @@ Multi-PNA rematch (R-2). SageMaker is cut by R-2; S3 moves to Phase 5.
 `just k8s-check`, runbook), S5.3 (Ray kept and right-sized, dashboard locked by
 NetworkPolicy, ADR 0001; p99 7.6ms on k3s), S5.6a (the lakehouse; Redis now rebuilt
 from gold, 2,000/2,000 scores identical), S5.6b (S3 + DuckDB), S5.6c (Lakekeeper),
-S5.6d part 1 (Dex logins + OpenFGA grants). Next: S5.6d part 2 (vended credentials,
-needs Lubo's AWS step), S5.6e, then the S5.8 lockdown, S5.4, S5.5, S5.7.
+S5.6d (Dex logins, OpenFGA grants, vended per-table S3 keys; ADR 0003). Next: S5.6e,
+then the S5.8 lockdown, S5.4, S5.5, S5.7.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models

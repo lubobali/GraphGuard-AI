@@ -97,8 +97,10 @@ def _overwrite_streaming(
     this keeps one day in memory at a time.
     """
     table = _table(catalog, name, lf.head(0).collect(), by_day="timestamp" if by_day else None)
+    # The table's own properties: on Lakekeeper they carry the key it vended for
+    # this table (S5.6d), elsewhere the catalog's.
     fs, batch_dir = filesystem(
-        f"{table.location()}/data/batch-{uuid.uuid4().hex}", catalog.properties
+        f"{table.location()}/data/batch-{uuid.uuid4().hex}", table.io.properties
     )
     if isinstance(fs, pafs.LocalFileSystem):
         Path(batch_dir).mkdir(parents=True, exist_ok=True)
@@ -150,7 +152,7 @@ def _scan(catalog: Catalog, name: str, snapshot_id: int | None = None) -> pl.Laz
     return pl.scan_iceberg(
         table,
         snapshot_id=snapshot_id,
-        storage_options=polars_storage_options(catalog.properties),
+        storage_options=polars_storage_options(table.io.properties),
     )
 
 
@@ -273,7 +275,7 @@ def expire_old_snapshots(catalog: Catalog, name: str, keep_last: int) -> int:
 def data_files_on_storage(catalog: Catalog, name: str) -> set[str]:
     """Every Parquet file under the table's data directory, as full URIs."""
     table = catalog.load_table(name)
-    fs, data_dir = filesystem(f"{table.location()}/data", catalog.properties)
+    fs, data_dir = filesystem(f"{table.location()}/data", table.io.properties)
     infos = fs.get_file_info(pafs.FileSelector(data_dir, recursive=True, allow_not_found=True))
     return {
         to_uri(fs, i.path)
@@ -294,10 +296,10 @@ def remove_orphan_files(catalog: Catalog, name: str) -> int:
     """
     table = catalog.load_table(name)
     referenced = set(table.inspect.all_files()["file_path"].to_pylist())
-    fs, data_dir = filesystem(f"{table.location()}/data", catalog.properties)
+    fs, data_dir = filesystem(f"{table.location()}/data", table.io.properties)
     removed = 0
     for uri in data_files_on_storage(catalog, name) - referenced:
-        fs.delete_file(filesystem(uri, catalog.properties)[1])
+        fs.delete_file(filesystem(uri, table.io.properties)[1])
         removed += 1
     if isinstance(fs, pafs.LocalFileSystem):
         root = Path(data_dir)

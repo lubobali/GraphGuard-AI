@@ -1,10 +1,12 @@
-"""DuckDB over the lakehouse (S5.6b): SQL on the Iceberg tables, read-only.
+"""DuckDB over the lakehouse (S5.6b): SQL on the Iceberg tables.
 
     just sql "select count(*) from silver_transactions"
 
-Each SQL table is a view named after it (`silver.transactions` ->
-`silver_transactions`). The test window is never exposed: not `sealed`, and not
-bronze either, whose raw rows include the test window (FINDING-011, S5.6d). Memory is
+`just sql` runs as the `reader` identity with the catalog ATTACHed (S5.6d): DuckDB
+logs in to Dex and reads with keys Lakekeeper vends per table. The test window is
+kept out by permission: `sealed` does not exist for reader, and bronze (the raw CSV,
+test window included -- FINDING-011) comes with no key. The SQL tables also get
+short view names (`silver.transactions` -> `silver_transactions`). Memory is
 capped at 512 MB with a spill directory, because this box's budget is shared
 with Ray, MLflow and LuBot production.
 
@@ -25,6 +27,7 @@ import polars as pl
 from pyiceberg.catalog import Catalog
 
 from graphguard.config import REPO_ROOT
+from graphguard.lakehouse.storage import LAKEHOUSE_REGION
 from graphguard.lakehouse.tables import GOLD_FEATURES, GOLD_LABELS, SILVER_TX
 
 MEMORY_LIMIT = "512MB"
@@ -40,8 +43,7 @@ def view_name(table: str) -> str:
     return table.replace(".", "_")
 
 
-def connect(catalog: Catalog) -> duckdb.DuckDBPyConnection:
-    """An in-memory DuckDB with one view per tracked lakehouse table."""
+def _base_connection() -> duckdb.DuckDBPyConnection:
     SPILL_DIR.mkdir(parents=True, exist_ok=True)
     con = duckdb.connect()
     con.execute(f"SET extension_directory='{EXTENSION_DIR}'")
@@ -49,41 +51,55 @@ def connect(catalog: Catalog) -> duckdb.DuckDBPyConnection:
     con.execute(f"SET threads={THREADS}")
     con.execute(f"SET temp_directory='{SPILL_DIR}'")
     con.execute("INSTALL iceberg; LOAD iceberg")
-
-    props = catalog.properties
-    if "s3.access-key-id" in props:
-        con.execute("INSTALL httpfs; LOAD httpfs")
-        opts = [
-            "TYPE s3",
-            f"KEY_ID '{props['s3.access-key-id']}'",
-            f"SECRET '{props['s3.secret-access-key']}'",
-            f"REGION '{props.get('s3.region', 'us-east-1')}'",
-        ]
-        if endpoint := props.get("s3.endpoint"):  # a test S3 server
-            u = urlparse(endpoint)
-            opts += [f"ENDPOINT '{u.netloc}'", "URL_STYLE 'path'", f"USE_SSL {u.scheme == 'https'}"]
-        con.execute(f"CREATE SECRET lakehouse ({', '.join(opts)})")
-
-    for name in SQL_TABLES:
-        location = catalog.load_table(name).metadata_location
-        con.execute(f"CREATE VIEW {view_name(name)} AS SELECT * FROM iceberg_scan('{location}')")
     return con
 
 
-def attach_catalog_for_writes(
-    con: duckdb.DuckDBPyConnection, catalog: Catalog, alias: str = "lk"
-) -> str:
-    """ATTACH the Lakekeeper REST catalog so DuckDB can write (INSERT, MERGE).
+def _s3_secret(con: duckdb.DuckDBPyConnection, name: str, props: dict, scope: str) -> None:
+    """A DuckDB S3 secret valid only under `scope` (one table's location)."""
+    con.execute("INSTALL httpfs; LOAD httpfs")
+    opts = [
+        "TYPE s3",
+        f"KEY_ID '{props['s3.access-key-id']}'",
+        f"SECRET '{props['s3.secret-access-key']}'",
+        f"REGION '{props.get('s3.region', 'us-east-1')}'",
+        f"SCOPE '{scope}'",
+    ]
+    if token := props.get("s3.session-token"):  # vended by Lakekeeper (S5.6d)
+        opts.append(f"SESSION_TOKEN '{token}'")
+    if endpoint := props.get("s3.endpoint"):  # a test S3 server
+        u = urlparse(endpoint)
+        opts += [f"ENDPOINT '{u.netloc}'", "URL_STYLE 'path'", f"USE_SSL {u.scheme == 'https'}"]
+    con.execute(f"CREATE SECRET {name} ({', '.join(opts)})")
 
-    DuckDB logs in as the same identity as `catalog` (OAuth2 client credentials
-    against Dex), so Lakekeeper applies that identity's permissions to DuckDB too.
-    It still uses its own S3 secret (ACCESS_DELEGATION_MODE 'none') until
-    credential vending is on, and that key opens every table's files -- so only
-    code that must write uses this, and `just sql` keeps to its views.
+
+def connect(catalog: Catalog) -> duckdb.DuckDBPyConnection:
+    """An in-memory DuckDB with one view per SQL table (never bronze, never sealed).
+
+    Each view reads with its own table's credentials -- on Lakekeeper the key it
+    vended for that table alone -- held in a secret scoped to that table's location.
+    """
+    con = _base_connection()
+    for i, name in enumerate(SQL_TABLES):
+        table = catalog.load_table(name)
+        if "s3.access-key-id" in table.io.properties:
+            _s3_secret(con, f"t{i}", table.io.properties, table.location())
+        con.execute(
+            f"CREATE VIEW {view_name(name)} AS "
+            f"SELECT * FROM iceberg_scan('{table.metadata_location}')"
+        )
+    return con
+
+
+def attach_catalog(con: duckdb.DuckDBPyConnection, catalog: Catalog, alias: str = "lk") -> str:
+    """ATTACH Lakekeeper to DuckDB as the same identity as `catalog`.
+
+    DuckDB logs in to Dex itself and asks Lakekeeper for **vended** credentials, so
+    it sees and reads exactly what that identity may: as `reader`, `sealed` does not
+    exist and bronze has no key; only `builder` can write (INSERT, MERGE).
     """
     uri = catalog.properties.get("uri")
     if not uri:
-        raise ValueError("not a REST catalog: DuckDB writes need Lakekeeper")
+        raise ValueError("not a REST catalog: ATTACH needs Lakekeeper")
     credential = catalog.properties.get("credential")
     if not credential:
         raise ValueError("the catalog has no identity: open it with open_catalog(<identity>)")
@@ -97,9 +113,22 @@ def attach_catalog_for_writes(
     con.execute(
         f"ATTACH '{catalog.properties['warehouse']}' AS {alias} "
         f"(TYPE iceberg, ENDPOINT '{uri}', SECRET {alias}_login, "
-        "ACCESS_DELEGATION_MODE 'none')"
+        # With a region set, a table vended no key (bronze, for reader) fails as
+        # an S3 403, not as a confusing "no region" error.
+        f"DEFAULT_REGION '{LAKEHOUSE_REGION}', "
+        "ACCESS_DELEGATION_MODE 'vended_credentials')"
     )
     return alias
+
+
+def sql_session(catalog: Catalog) -> duckdb.DuckDBPyConnection:
+    """What `just sql` gets: the catalog ATTACHed as `lk`, plus short view names for
+    the SQL tables. Permissions, not this list, keep the test window out."""
+    con = _base_connection()
+    lk = attach_catalog(con, catalog)
+    for name in SQL_TABLES:
+        con.execute(f"CREATE VIEW {view_name(name)} AS SELECT * FROM {lk}.{name}")
+    return con
 
 
 _HISTORY = """
@@ -149,7 +178,7 @@ def main() -> int:
             'usage: just sql "select ..."   views: ' + ", ".join(view_name(t) for t in SQL_TABLES)
         )
         return 2
-    print(connect(open_catalog("reader")).sql(sys.argv[1]).pl())
+    print(sql_session(open_catalog("reader")).sql(sys.argv[1]).pl())
     return 0
 
 

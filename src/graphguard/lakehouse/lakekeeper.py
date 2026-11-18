@@ -11,10 +11,12 @@ the export file (no data is copied: Iceberg tables are files on S3, and a
 catalog only points at their current metadata), and applies the access policy
 in `governance.py`.
 
-The S3 key is sent to Lakekeeper once, which stores it encrypted in its own
-database (LAKEKEEPER__PG_ENCRYPTION_KEY) to validate storage and write metadata.
-Credential vending and remote signing are off until the vending role exists
-(S5.6d, part 2).
+**Credential vending (S5.6d part 2).** The warehouse holds Lakekeeper's own key
+(`.secrets/lakekeeper-aws.env`, IAM user `graphguard-lakekeeper`), whose only
+permission is to assume the role `graphguard-lakekeeper-vending`. Lakekeeper assumes
+it for its own reads and writes, and again -- with a session policy narrowed to one
+table -- for every key it vends. Remote signing stays off: DuckDB cannot use it.
+The key is stored encrypted in Lakekeeper's database (LAKEKEEPER__PG_ENCRYPTION_KEY).
 """
 
 from __future__ import annotations
@@ -29,7 +31,12 @@ from pathlib import Path
 from graphguard.config import REPO_ROOT
 from graphguard.lakehouse import governance
 from graphguard.lakehouse.identity import IDENTITIES, fetch_token, read_identity
-from graphguard.lakehouse.storage import AwsEnv, read_aws_env
+from graphguard.lakehouse.storage import (
+    LAKEHOUSE_BUCKET,
+    LAKEHOUSE_REGION,
+    VendingEnv,
+    read_vending_env,
+)
 
 LAKEKEEPER_URL = os.environ.get("GRAPHGUARD_LAKEKEEPER_URL", "http://127.0.0.1:8181")
 WAREHOUSE = "graphguard"
@@ -71,25 +78,41 @@ def _err(body: dict) -> str:
     return f"{e.get('type')}: {e.get('message')}" if isinstance(e, dict) else str(e)[:200]
 
 
-def warehouse_request(env: AwsEnv) -> dict:
-    """The warehouse definition. Pure, so the security-relevant flags are testable."""
+VENDED_KEY_SECONDS = 3600
+
+
+def storage_profile(
+    vending: VendingEnv, bucket: str = LAKEHOUSE_BUCKET, region: str = LAKEHOUSE_REGION
+) -> dict:
+    """Pure, so the security-relevant flags are testable."""
+    return {
+        "type": "s3",
+        "bucket": bucket,
+        "key-prefix": KEY_PREFIX,
+        "region": region,
+        "flavor": "aws",
+        "sts-enabled": True,
+        "assume-role-arn": vending.role_arn,
+        "sts-role-arn": vending.role_arn,
+        "sts-token-validity-seconds": VENDED_KEY_SECONDS,
+        "remote-signing-enabled": False,
+    }
+
+
+def storage_credential(vending: VendingEnv) -> dict:
+    return {
+        "type": "s3",
+        "credential-type": "access-key",
+        "aws-access-key-id": vending.access_key_id,
+        "aws-secret-access-key": vending.secret_access_key,
+    }
+
+
+def warehouse_request(vending: VendingEnv) -> dict:
     return {
         "warehouse-name": WAREHOUSE,
-        "storage-profile": {
-            "type": "s3",
-            "bucket": env.bucket,
-            "key-prefix": KEY_PREFIX,
-            "region": env.region,
-            "flavor": "aws",
-            "sts-enabled": False,
-            "remote-signing-enabled": False,
-        },
-        "storage-credential": {
-            "type": "s3",
-            "credential-type": "access-key",
-            "aws-access-key-id": env.access_key_id,
-            "aws-secret-access-key": env.secret_access_key,
-        },
+        "storage-profile": storage_profile(vending),
+        "storage-credential": storage_credential(vending),
     }
 
 
@@ -127,10 +150,19 @@ def _bootstrap(token: str) -> str:
     raise LakekeeperError(f"bootstrap failed: HTTP {status} {_err(body)}")
 
 
-def _ensure_warehouse(token: str, env: AwsEnv) -> str:
+def _ensure_warehouse(token: str, vending: VendingEnv) -> str:
+    """Create the warehouse, or bring an existing one's storage to the vending setup
+    (idempotent: the same profile and credential every time)."""
     if wid := existing_warehouse_id(token):
+        body = {
+            "storage-profile": storage_profile(vending),
+            "storage-credential": storage_credential(vending),
+        }
+        status, resp = call("POST", f"/management/v1/warehouse/{wid}/storage", body, token=token)
+        if status not in (200, 204):
+            raise LakekeeperError(f"storage update failed: HTTP {status} {_err(resp)}")
         return wid
-    status, body = call("POST", "/management/v1/warehouse", warehouse_request(env), token=token)
+    status, body = call("POST", "/management/v1/warehouse", warehouse_request(vending), token=token)
     if status not in (200, 201):
         raise LakekeeperError(f"warehouse creation failed: HTTP {status} {_err(body)}")
     return body["warehouse-id"]
@@ -181,14 +213,19 @@ def namespace_ids(catalog) -> dict[str, str]:
 
 
 def init() -> int:
-    env = read_aws_env()
-    if env is None:
-        print("AWS not configured: fill .secrets/aws.env first (docs/runbooks/aws-setup.md)")
+    vending = read_vending_env()
+    if vending is None:
+        print(
+            "Lakekeeper's key missing: fill .secrets/lakekeeper-aws.env (runbooks/aws-vending.md)"
+        )
         return 1
     admin_token = fetch_token(read_identity("admin"))
     print(_bootstrap(admin_token))
-    wid = _ensure_warehouse(admin_token, env)
-    print(f"warehouse '{WAREHOUSE}' on s3://{env.bucket}/{KEY_PREFIX}/ ({wid})")
+    wid = _ensure_warehouse(admin_token, vending)
+    print(
+        f"warehouse '{WAREHOUSE}' on s3://{LAKEHOUSE_BUCKET}/{KEY_PREFIX}/ ({wid}), "
+        f"vending {VENDED_KEY_SECONDS // 60}-minute keys"
+    )
 
     catalog = _admin_catalog()  # creates the namespaces as admin
     if EXPORT_FILE.exists():

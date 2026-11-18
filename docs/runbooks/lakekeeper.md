@@ -1,4 +1,4 @@
-# Runbook — Lakekeeper, the lakehouse catalog (S5.6c), with logins and grants (S5.6d)
+# Runbook — Lakekeeper, the lakehouse catalog (S5.6c), with logins, grants and vended keys (S5.6d)
 
 Lakekeeper is the Iceberg REST catalog: the list of tables, where their files are, and
 every snapshot. Since S5.6d every request carries a **Dex** token (who you are) and
@@ -11,7 +11,8 @@ depend on any of the three being up.
 | Addresses | Lakekeeper `127.0.0.1:8181`, Dex `127.0.0.1:5556` (token endpoint `/dex/token`); OpenFGA has **no host port** |
 | Versions | Lakekeeper v0.15.1, Dex v2.46.1, OpenFGA v1.14.2 (the version Lakekeeper 0.15 is tested with) — all digest-pinned |
 | State | databases `lakekeeper`, `dex`, `openfga` (each its own user, refused on the others) in `graphguard-mlflow-db` |
-| Secrets | `.secrets/` (600, gitignored): `lakekeeper.env`, `lakekeeper-authz.env`, `dex.env`, `openfga.env`, `governance.env`, `identity-<name>.env` |
+| Secrets | `.secrets/` (600, gitignored): `lakekeeper.env`, `lakekeeper-authz.env`, `lakekeeper-aws.env` (its AWS key), `dex.env`, `openfga.env`, `governance.env`, `identity-<name>.env` |
+| S3 access | **vended**: each job gets a 1-hour STS key per table, read-only unless it may write (setup: `aws-vending.md`) |
 | Warehouse | `graphguard` → `s3://graphguard-lakehouse-0dcd18/lakehouse/` |
 | Memory | caps 256 / 64 / 128 MB; measured idle ~39 / 11 / 44 MB, ~42 / 11 / 45 MB during a full build |
 
@@ -25,8 +26,13 @@ depend on any of the three being up.
 | `admin` | `just lakekeeper-init` | operator | | | |
 
 Bronze is metadata-only for trainer and reader because it is the raw CSV, **test window
-included** (FINDING-011). To trainer and reader `sealed` does not exist: it is not
-listed, and loading it answers "no such table", not "forbidden".
+included** (FINDING-011): they can load its metadata, and Lakekeeper vends **no key**
+for its files. To trainer and reader `sealed` does not exist: it is not listed, and
+loading it answers "no such table", not "forbidden".
+
+Two locks, each tested on its own: the **catalog** refuses commits it does not allow,
+and **S3** refuses any file the vended key was not scoped to — so a job that skips
+the catalog and fetches a `sealed` file by path gets AccessDenied.
 
 ## Everyday
 
@@ -37,7 +43,7 @@ just lakekeeper-down     # stop all three
 just lakekeeper-init     # bootstrap, warehouse, namespaces, missing tables, grants; safe to re-run
 just lakekeeper-export   # save each table's metadata location + snapshot id
 just identity-secrets    # create any missing secret file; never overwrites
-just sql "select ..."    # DuckDB as `reader`: silver and gold views only
+just sql "select ..."    # DuckDB as `reader`, catalog ATTACHed as `lk` + short view names
 ```
 
 Change who may do what **only in `governance.py`**, then `just lakekeeper-init`.
@@ -51,6 +57,8 @@ Change who may do what **only in `governance.py`**, then `just lakekeeper-init`.
    features; only builds, reloads and SQL need the catalog.
 4. A job says `401`: Dex is down or its secret changed — `docker logs graphguard-dex`.
    A job says `403` or "no such table": the policy says no; check `governance.py`.
+5. S3 `AccessDenied` for a table a job *should* reach: check the vending role still
+   exists and `just lakekeeper-init` succeeds (it re-validates storage).
 
 ## Rotating a job's secret
 
@@ -72,7 +80,10 @@ S5.6d rebuilt Lakekeeper this way:
 The S5.6c catalog database is kept as `lakekeeper_s56c` (no logins, `allowall`). To use
 it: stop Lakekeeper, point `LAKEKEEPER__PG_DATABASE_URL_*` at `lakekeeper_s56c`, set
 `LAKEKEEPER__AUTHZ_BACKEND=allowall` and drop the `OPENID_*` settings in compose, start
-it, and open catalogs with `open_rest_catalog(None)`. Its tables point at the metadata
+it, and open catalogs with `open_rest_catalog(None)`. Its warehouse still names the
+S5.6b key, **deleted after S5.6d** — so first re-send the storage credential with the
+vending setup (`lakekeeper.storage_profile` / `storage_credential`), and give clients a
+key: `open_rest_catalog(None)` reads `.secrets/aws.env`. Its tables point at the metadata
 of 2026-11-18 18:10; re-register from a fresh export if newer builds happened. It is
 safe only because Lakekeeper is bound to 127.0.0.1 — but it has no permissions at all,
 so treat it as an emergency path. The older SQL catalog (`GRAPHGUARD_CATALOG=sql`) is
@@ -84,10 +95,9 @@ staler still.
 - Never add Dex's `mockCallback` connector: it lets anyone log in. The password DB is
   enabled only because Dex will not start without a connector; it has **zero** users,
   and only the client-credentials grant is allowed.
-- **Until credential vending (S5.6d part 2)** every job still holds the same S3 key,
-  which opens all of `lakehouse/`. The catalog denies trainer and reader the test
-  window; the S3 key would not. Part 2 gives each job temporary keys scoped to the
-  tables it may read.
+- Jobs hold **no** S3 key. Never put one back in `.secrets/aws.env` for a job: a
+  long-lived key opens every table's files and silently undoes the S3 lock.
+- Remote signing stays off (DuckDB cannot use it; vended keys already scope tables).
 - All jobs run as root on one box, so a job could read another's secret file. The
   boundary holds for a process that has only its own credentials; per-job users are
   S5.8 work.

@@ -122,3 +122,9 @@ interactive editor, so the key was pasted into the Claude chat and written to
 prefix). It is in no code, git history or image. **Recommended:** rotate it once —
 create a second access key, put it in `.secrets/aws.env` from your own terminal
 (`nano`), run `just test` (the live tests must pass), then delete the first key in IAM.
+
+**Status 2026-11-18, S5.6d:** this key is **retired**. Jobs now get short-lived keys
+vended by Lakekeeper (`docs/runbooks/aws-vending.md`); the bucket, lifecycle rule and
+the `graphguard-lakehouse-s3` policy stay (the vending role uses that policy). The
+access key of `graphguard-lakehouse` is deleted once S5.6d is verified — which also
+retires the key that was pasted in chat.

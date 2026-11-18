@@ -4,8 +4,8 @@ Since S5.6c the catalog is **Lakekeeper**, an Iceberg REST catalog on 127.0.0.1:
 (`graphguard` warehouse on our S3 bucket). Since S5.6d it is opened **as an
 identity** (`identity.py`): the job logs in to Dex, and Lakekeeper allows only what
 `governance.py` grants it. Only `admin` and `builder` create namespaces; `trainer`
-and `reader` cannot even see `sealed`. Clients still bring the S3 key until
-credential vending is on (S5.6d, part 2).
+and `reader` cannot even see `sealed`. Jobs hold no S3 key: Lakekeeper vends a
+short-lived one per table, scoped to it (S5.6d part 2).
 
 The PyIceberg SQL catalog (its `lakehouse` Postgres database) was S5.6a's catalog.
 It still opens with `GRAPHGUARD_CATALOG=sql` as the rollback, but it no longer sees
@@ -112,19 +112,30 @@ def open_catalog(
 
 def open_rest_catalog(identity: str | None) -> RestCatalog:
     """Lakekeeper as `identity` (OAuth2 client credentials against Dex, refreshed
-    by PyIceberg). `None` sends no token -- it only works while Lakekeeper runs
-    with `allowall`, i.e. for the S5.6c rollback and the one-time export."""
+    by PyIceberg), with **vended** S3 credentials: the job brings no key, and each
+    table it loads comes with a 1-hour key scoped to that table -- read-only
+    unless the identity may write, none at all if it may not read.
+
+    `None` sends no token and brings the old S5.6b key (`.secrets/aws.env`): it
+    only works against the `allowall` rollback catalog (runbook), never the real one.
+    """
+    if identity is None:
+        env = read_aws_env()
+        if env is None:
+            raise RuntimeError("the anonymous rollback needs the S5.6b key in .secrets/aws.env")
+        return RestCatalog(
+            CATALOG_NAME,
+            uri=LAKEKEEPER_CATALOG_URI,
+            warehouse=LAKEKEEPER_WAREHOUSE,
+            **{"header.X-Iceberg-Access-Delegation": "client-managed"},
+            **s3_properties(env),
+        )
     from graphguard.lakehouse.identity import pyiceberg_auth, read_identity
 
-    env = read_aws_env()
-    if env is None:
-        raise RuntimeError("Lakekeeper's warehouse is on S3: fill .secrets/aws.env first")
-    auth = pyiceberg_auth(read_identity(identity)) if identity is not None else {}
     return RestCatalog(
         CATALOG_NAME,
         uri=LAKEKEEPER_CATALOG_URI,
         warehouse=LAKEKEEPER_WAREHOUSE,
-        **{"header.X-Iceberg-Access-Delegation": "client-managed"},
-        **auth,
-        **s3_properties(env),
+        **{"header.X-Iceberg-Access-Delegation": "vended-credentials"},
+        **pyiceberg_auth(read_identity(identity)),
     )

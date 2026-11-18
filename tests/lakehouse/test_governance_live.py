@@ -107,11 +107,22 @@ def test_builder_does_see_sealed_because_it_writes_it():
 
 
 @pytest.mark.parametrize("who", ["trainer", "reader"])
-def test_trainer_and_reader_cannot_write(who):
+def test_the_catalog_refuses_their_commits(who):
+    # A metadata-only change writes no data file, so S3 is never asked: this is the
+    # catalog's own lock.
     from pyiceberg.exceptions import ForbiddenError
 
     t = _cat(who).load_table("gold.labels")
     with pytest.raises(ForbiddenError):
+        with t.transaction() as tx:
+            tx.set_properties({"probe": uuid.uuid4().hex})
+
+
+@pytest.mark.parametrize("who", ["trainer", "reader"])
+def test_s3_refuses_their_data_files_before_the_catalog_is_even_asked(who):
+    # Appending data needs a file on S3 first, and their vended key is read-only.
+    t = _cat(who).load_table("gold.labels")
+    with pytest.raises(OSError, match="ACCESS_DENIED|AccessDenied"):
         t.append(t.scan(limit=1).to_arrow())
 
 
@@ -162,3 +173,88 @@ def test_admin_operator_can_read_the_grants_and_trainer_cannot():
     wid = existing_warehouse_id(_token("admin"))
     assert _status(f"/management/v1/warehouse/{wid}/grants", _token("admin")) == 200
     assert _status(f"/management/v1/warehouse/{wid}/grants", _token("trainer")) in (403, 404)
+
+
+# --- which files your key opens (vended credentials, S5.6d part 2) -----------
+
+BUCKET = "graphguard-lakehouse-0dcd18"
+
+
+def _vended_s3(who: str, table: str):
+    """An S3 client holding exactly the key Lakekeeper vended `who` for `table`."""
+    import boto3
+
+    p = _cat(who).load_table(table).io.properties
+    return boto3.client(
+        "s3",
+        region_name="us-east-1",
+        aws_access_key_id=p["s3.access-key-id"],
+        aws_secret_access_key=p["s3.secret-access-key"],
+        aws_session_token=p["s3.session-token"],
+    )
+
+
+def _a_data_file(table: str) -> str:
+    path = _cat("builder").load_table(table).inspect.files()["file_path"][0].as_py()
+    return path.split(f"{BUCKET}/", 1)[1]
+
+
+def _s3_denied(call):
+    from botocore.exceptions import ClientError
+
+    with pytest.raises(ClientError) as e:
+        call()
+    assert e.value.response["Error"]["Code"] in {"AccessDenied", "403"}
+
+
+@pytest.mark.parametrize("who", ["trainer", "reader"])
+def test_bronze_comes_with_no_key_for_trainer_and_reader(who):
+    # describe-only: the metadata (for lineage), never the means to read rows
+    assert "s3.access-key-id" not in _cat(who).load_table("bronze.transactions_raw").io.properties
+
+
+def test_every_key_is_short_lived():
+    p = _cat("trainer").load_table("silver.transactions").io.properties
+    assert p.get("s3.session-token")  # STS: expires in an hour, unlike an IAM user key
+
+
+def test_trainers_silver_key_reads_silver():
+    _vended_s3("trainer", "silver.transactions").head_object(
+        Bucket=BUCKET, Key=_a_data_file("silver.transactions")
+    )
+
+
+@pytest.mark.parametrize("target", [SEALED_TX, "bronze.transactions_raw"])
+def test_trainers_key_cannot_bypass_the_catalog_to_the_test_window(target):
+    # The bypass S5.6d exists to close: skip the catalog, fetch the file by path.
+    s3 = _vended_s3("trainer", "silver.transactions")
+    _s3_denied(lambda: s3.get_object(Bucket=BUCKET, Key=_a_data_file(target)))
+    prefix = "lakehouse/" + target.replace(".", "/") + "/"
+    _s3_denied(lambda: s3.list_objects_v2(Bucket=BUCKET, Prefix=prefix, MaxKeys=1))
+
+
+@pytest.mark.parametrize(
+    ("who", "table"), [("trainer", "silver.transactions"), ("reader", "gold.labels")]
+)
+def test_read_only_identities_get_read_only_keys(who, table):
+    s3 = _vended_s3(who, table)
+    key = "lakehouse/" + table.replace(".", "/") + f"/data/_probe-{uuid.uuid4().hex}"
+    _s3_denied(lambda: s3.put_object(Bucket=BUCKET, Key=key, Body=b"x"))
+
+
+def test_even_builders_key_opens_only_the_table_it_was_vended_for():
+    s3 = _vended_s3("builder", "silver.transactions")
+    _s3_denied(lambda: s3.get_object(Bucket=BUCKET, Key=_a_data_file(SEALED_TX)))
+
+
+def test_duckdb_as_reader_cannot_read_bronze_or_find_sealed():
+    import duckdb as ddb
+
+    from graphguard.lakehouse.sql import sql_session
+
+    con = sql_session(_cat("reader"))
+    assert con.execute("select count(*) from silver_transactions").fetchone()[0] > 0
+    with pytest.raises(ddb.Error, match="Forbidden|403"):
+        con.execute("select count(*) from lk.bronze.transactions_raw").fetchone()
+    with pytest.raises(ddb.CatalogException):
+        con.execute(f"select count(*) from lk.{SEALED_TX}").fetchone()
