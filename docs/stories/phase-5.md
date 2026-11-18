@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1 and S5.2 done; S5.3 in progress.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2 and S5.3 done; S5.8 next.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -108,11 +108,13 @@ trade-off in an interview.
       their memory is added up, **then** the total is written down against the 4GB
       budget — k3s 792 + Ray 1,965 + kube helpers ~40 + MLflow 96 + MLflow DB 22 +
       Redis 32 + runner 21 ≈ **2.97 GB idle**, ~3.6 GB with MLflow busy. Fits, tightly
-- [ ] **If** the total is over budget, **then** Ray is right-sized — fewer replicas,
+- [x] *(not needed — under budget)* **If** the total is over budget, **then** Ray is right-sized — fewer replicas,
       smaller object store, a tighter memory limit — and re-measured until it fits,
       with p99 still under 50ms
-- [ ] The pod's memory **limit** sits a safe margin above the measured peak (not 3Gi
-      by habit), and the **request** matches real use
+- [x] The pod's memory **limit** sits a safe margin above the measured peak (not 3Gi
+      by habit), and the **request** matches real use — limit 3Gi → **2560Mi**, request
+      2Gi kept (real use ~1.9 GiB). Zero-downtime rollout by KubeRay; peak after 1,928
+      MiB, p99 7.57ms warm
 - [x] Ray version is ≥ 2.52 (CVE-2025-62593, actively exploited); if not, upgraded
       and re-verified with `just k8s-check` and one scoring request — **2.58.0**, no
       upgrade needed
@@ -125,9 +127,11 @@ trade-off in an interview.
       still reach it — kube-router always admits node-local traffic, and the host is
       root already. `just k8s-check` alarms if the policies go missing; `k8s-deploy`
       applies them first
-- [ ] `docs/adr/0001-serving-runtime.md` written: context, options (Ray Serve, FastAPI,
+- [x] `docs/adr/0001-serving-runtime.md` written: context, options (Ray Serve, FastAPI,
       BentoML), decision, the measured numbers, consequences
-- [ ] LuBot unaffected: same containers, lubot.ai 200, before and after any change
+- [x] LuBot unaffected: same containers, lubot.ai 200, before and after any change —
+      70 containers and all four sites 200, checked around both the NetworkPolicy and
+      the resize
 
 **Definition of Done:** every box above ticked, `just check` green, committed and
 pushed with both remotes matching. Rolls up to the phase gate: "the Ray decision

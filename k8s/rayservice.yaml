@@ -53,10 +53,14 @@ spec:
                   value: "redis://10.42.0.1:6380/0"
                 - name: GRAPHGUARD_BUNDLE
                   value: "/app/models/production"
+              # Sized from measurement, not habit (S5.3, 2026-11-18): 1,920 MiB
+              # idle, 1,965 MiB peak over 2,000 requests (cgroup memory.peak).
+              # 2.5Gi leaves ~27% headroom; 3Gi was a guess. The request
+              # matches real use so the scheduler reserves the truth.
               resources:
                 limits:
                   cpu: "2"
-                  memory: "3Gi"
+                  memory: "2560Mi"
                 requests:
                   cpu: "500m"
                   memory: "2Gi"
