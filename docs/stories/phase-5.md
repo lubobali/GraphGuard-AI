@@ -97,23 +97,34 @@ scorer can run for months beside LuBot without starving it, and I can explain th
 trade-off in an interview.
 
 **Acceptance criteria**
-- [ ] **Given** the scorer is idle, **when** memory is read from the pod's cgroup (not
-      from the YAML), **then** the idle figure is recorded
-- [ ] **Given** a burst of 2,000 real validation transactions, **when** memory is read
-      during the burst, **then** the peak figure is recorded (a small load generator
+- [x] **Given** the scorer is idle, **when** memory is read from the pod's cgroup (not
+      from the YAML), **then** the idle figure is recorded — **1,920 MiB** (anon 1,861);
+      the model replicas are 2 × 377 MiB, the rest is Ray's own machinery
+- [x] **Given** a burst of 2,000 real validation transactions, **when** memory is read
+      during the burst, **then** the peak figure is recorded — **1,965 MiB** peak
+      (cgroup `memory.peak`); p99 7.83ms through the k3s service on the way (a small load generator
       here; the formal latency run is S5.4)
-- [ ] **Given** all GraphGuard parts (k3s, Ray, MLflow, its Postgres, Redis), **when**
+- [x] **Given** all GraphGuard parts (k3s, Ray, MLflow, its Postgres, Redis), **when**
       their memory is added up, **then** the total is written down against the 4GB
-      budget
+      budget — k3s 792 + Ray 1,965 + kube helpers ~40 + MLflow 96 + MLflow DB 22 +
+      Redis 32 + runner 21 ≈ **2.97 GB idle**, ~3.6 GB with MLflow busy. Fits, tightly
 - [ ] **If** the total is over budget, **then** Ray is right-sized — fewer replicas,
       smaller object store, a tighter memory limit — and re-measured until it fits,
       with p99 still under 50ms
 - [ ] The pod's memory **limit** sits a safe margin above the measured peak (not 3Gi
       by habit), and the **request** matches real use
-- [ ] Ray version is ≥ 2.52 (CVE-2025-62593, actively exploited); if not, upgraded
-      and re-verified with `just k8s-check` and one scoring request
-- [ ] The Ray dashboard (port 8265) is reachable only inside the cluster — verified by
-      trying from the host, not assumed from the Service type
+- [x] Ray version is ≥ 2.52 (CVE-2025-62593, actively exploited); if not, upgraded
+      and re-verified with `just k8s-check` and one scoring request — **2.58.0**, no
+      upgrade needed
+- [x] The Ray dashboard (port 8265) is reachable only inside the cluster — verified by
+      trying from the host, not assumed from the Service type. **Was open to every
+      Docker container** (`/api/jobs/` answered 200 from `graphguard-mlflow`). Fixed with
+      `k8s/networkpolicy.yaml` (default-deny ingress; KubeRay operator allowed; only
+      :8000 open). After: dashboard BLOCKED from Docker, :8000 open, scoring works,
+      operator ran 162 serve-status checks in 6 min with 0 errors. The host itself can
+      still reach it — kube-router always admits node-local traffic, and the host is
+      root already. `just k8s-check` alarms if the policies go missing; `k8s-deploy`
+      applies them first
 - [ ] `docs/adr/0001-serving-runtime.md` written: context, options (Ray Serve, FastAPI,
       BentoML), decision, the measured numbers, consequences
 - [ ] LuBot unaffected: same containers, lubot.ai 200, before and after any change

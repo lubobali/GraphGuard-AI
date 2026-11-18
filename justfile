@@ -158,6 +158,7 @@ image-import:
     k3s ctr -n k8s.io images label docker.io/graphguard/serving:{{IMAGE_TAG}} io.cri-containerd.pinned=pinned
 
 k8s-deploy:
+    k3s kubectl apply -f k8s/networkpolicy.yaml
     k3s kubectl apply -f k8s/rayservice.yaml
 
 k8s-status:

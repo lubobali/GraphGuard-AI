@@ -21,6 +21,10 @@ import sys
 NAMESPACE = "graphguard"
 DEFAULT_IMAGE = "docker.io/graphguard/serving:0.1.2"
 
+# Without these the Ray dashboard -- unauthenticated job submission, i.e. code
+# execution -- is reachable from every Docker container on the box (S5.3).
+REQUIRED_POLICIES = ("default-deny-ingress", "allow-scoring-port")
+
 # Pods in these phases have finished; they are leftovers, not the service.
 _FINISHED = {"Succeeded", "Failed"}
 
@@ -67,6 +71,16 @@ def assess_image(image: str, inspect: dict | None) -> list[str]:
     return []
 
 
+def assess_network_policies(policies: dict, required: tuple[str, ...]) -> list[str]:
+    """Problems with ``kubectl get networkpolicy -o json`` output: any required one missing."""
+    present = {p.get("metadata", {}).get("name") for p in policies.get("items", [])}
+    return [
+        f"network policy {name!r} missing: Ray dashboard may be open to every container"
+        for name in required
+        if name not in present
+    ]
+
+
 def _run_json(cmd: list[str]) -> dict | None:
     result = subprocess.run(cmd, capture_output=True, text=True, check=False)
     if result.returncode != 0:
@@ -79,13 +93,22 @@ def main(argv: list[str] | None = None) -> int:
     image = argv[0] if argv else DEFAULT_IMAGE
     pods = _run_json(["k3s", "kubectl", "get", "pods", "-n", NAMESPACE, "-o", "json"])
     problems = ["could not query k3s for pods"] if pods is None else assess_pods(pods)
+    policies = _run_json(["k3s", "kubectl", "get", "networkpolicy", "-n", NAMESPACE, "-o", "json"])
+    problems += (
+        ["could not query k3s for network policies"]
+        if policies is None
+        else assess_network_policies(policies, REQUIRED_POLICIES)
+    )
     problems += assess_image(image, _run_json(["k3s", "crictl", "inspecti", "-o", "json", image]))
 
     if problems:
         for problem in problems:
             print(f"GRAPHGUARD K8S UNHEALTHY: {problem}", file=sys.stderr)
         return 1
-    print(f"graphguard k8s healthy: all pods ready, {image} present and pinned")
+    print(
+        "graphguard k8s healthy: all pods ready, network policies in place, "
+        f"{image} present and pinned"
+    )
     return 0
 
 

@@ -1,0 +1,69 @@
+# Who may open a connection to GraphGuard's pods (S5.3 / S5.8).
+#
+# Why: the Ray dashboard (8265) and GCS (6379) accept job submission with no
+# authentication -- anyone who reaches them can run code in the pod (the
+# "ShadowRay" class). The Hetzner firewall blocks the internet, but every
+# Docker container on this box could reach the pod IP, including LuBot's code
+# sandboxes. Verified 2026-11-18 from a Docker container: /api/jobs/ answered.
+#
+# Rule: deny all ingress by default; let KubeRay's operator in (it reads Serve
+# status through the dashboard); open only the scoring port 8000 to the rest.
+# Egress is not restricted: the scorer must reach Redis and, later, S3.
+# Enforced by k3s's embedded kube-router network-policy controller.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-ingress
+  namespace: graphguard
+spec:
+  podSelector: {}
+  policyTypes: ["Ingress"]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-kuberay-operator
+  namespace: graphguard
+spec:
+  podSelector:
+    matchLabels:
+      ray.io/is-ray-node: "yes"
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ray-system
+---
+# Ray nodes talking to each other. Head-only today, but a worker group added
+# later must not be silently cut off from the head.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ray-intra-cluster
+  namespace: graphguard
+spec:
+  podSelector:
+    matchLabels:
+      ray.io/is-ray-node: "yes"
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              ray.io/is-ray-node: "yes"
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-scoring-port
+  namespace: graphguard
+spec:
+  podSelector:
+    matchLabels:
+      ray.io/node-type: head
+  policyTypes: ["Ingress"]
+  ingress:
+    - ports:
+        - protocol: TCP
+          port: 8000

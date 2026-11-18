@@ -7,7 +7,7 @@ command is faked; the judgement is the real code.
 
 import pytest
 
-from graphguard.ops.k8s_health import assess_image, assess_pods
+from graphguard.ops.k8s_health import assess_image, assess_network_policies, assess_pods
 
 pytestmark = pytest.mark.unit
 
@@ -98,3 +98,27 @@ def test_a_missing_image_is_a_problem():
     problems = assess_image(IMAGE, None)
     assert len(problems) == 1
     assert "missing" in problems[0]
+
+
+REQUIRED_POLICIES = ("default-deny-ingress", "allow-scoring-port")
+
+
+def _policies(*names):
+    return {"items": [{"metadata": {"name": n}} for n in names]}
+
+
+def test_all_required_network_policies_present_is_fine():
+    assert assess_network_policies(_policies(*REQUIRED_POLICIES, "extra"), REQUIRED_POLICIES) == []
+
+
+@pytest.mark.regression
+def test_missing_default_deny_is_a_problem():
+    # Without it the Ray dashboard (unauthenticated job submission) is open to
+    # every Docker container on the box again.
+    problems = assess_network_policies(_policies("allow-scoring-port"), REQUIRED_POLICIES)
+    assert len(problems) == 1
+    assert "default-deny-ingress" in problems[0]
+
+
+def test_no_policies_lists_every_missing_one():
+    assert len(assess_network_policies(_policies(), REQUIRED_POLICIES)) == len(REQUIRED_POLICIES)
