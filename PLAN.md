@@ -625,7 +625,7 @@ than inventing a new one, then adds the parts that only matter for ML.
   ceiling that passes today and tightened as code gets refactored
 - **prek pre-commit hooks** running ruff lint, ruff format, and the unit suite, scoped to
   `.py` changes so doc commits do not pay for a full run
-- **xdist** — `-n 4 --dist=loadgroup`, with the **exact same flags in prek and CI**.
+- **xdist** — `-n 2 --dist=loadgroup` (4 until 2026-11-18, when the suite outgrew the CI job's 2 GB cap), with the **exact same flags in prek and CI**.
   Drift between the two is a known failure mode from LuBot and gets an explicit comment
 - **Forgejo CI** installing with **uv from the committed lockfile**, cached, the same
   lockfile the container uses — so CI cannot pass on a dependency set production does not

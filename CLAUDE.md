@@ -270,7 +270,8 @@ Stood up in Phase 0, before any modelling code exists.
   `regression`). Default run deselects slow ones
 - Ruff — `E,F,I,W,B,PLR0912,PLR0915,C901`, ceiling that passes today, tightened later
 - prek hooks — ruff lint, ruff format, unit suite, scoped to `.py` changes
-- xdist — `-n 4 --dist=loadgroup`, **identical flags in prek and CI** (drift is a known
+- xdist — `-n 2 --dist=loadgroup` (was 4; 4 workers peaked at 2.25 GB, over the CI job's
+  2 GB cap — 2026-11-18), **identical flags in prek and CI** (drift is a known
   LuBot failure mode)
 - CI installs with **uv from the committed lockfile** — same lockfile as the container
 - Unit and integration as separate stages

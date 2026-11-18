@@ -218,7 +218,7 @@ a REST catalog, object storage, engines as jobs.
 | **L0 + L1** | **S5.6a — Iceberg tables on local disk, Redis rebuilt from them** | 0 | no |
 | L2 | S5.6b — Warehouse on our own S3; DuckDB for SQL | 0 | AWS bucket + IAM user |
 | L3 | S5.6c — Lakekeeper REST catalog; late labels via MERGE | 30-100MB | start a container |
-| L4 | S5.6d — Governance: grants, vended credentials, the sealed test set as a denied permission | 50-150MB | start a container |
+| L4 | S5.6d — Governance: Dex logins, OpenFGA grants, vended credentials, the sealed test set as a denied permission | 50-150MB | start two containers + one AWS step |
 | L5 | S5.6e — Feast over Iceberg → Redis, lineage, marimo worksheets | 0 | no |
 
 Maintenance with Dagster is Phase 8 (L6); Spark on the same tables is Phase 10 (L7).
@@ -565,7 +565,11 @@ path, and cannot write at all without a REST catalog. Every later step — permi
       Lakekeeper in throwaway namespaces; CI skips them with `GRAPHGUARD_SKIP_LAKEKEEPER_TESTS=1`
 - [x] All three leakage guards pass; `test_set_touch_check` still blocks `sealed`
 - [x] `just check` green; CI green; committed; pushed; remotes match; LuBot before/after
-      unchanged
+      unchanged — *correction 2026-11-18:* CI was **not** green. The first CI run
+      that included the lakehouse tests (55d29ad) OOM-killed test workers: 4 xdist workers
+      peaked at 2.25 GB against the job's 2 GB cap. My clean-clone check ran without the
+      cap, so it could not see this, and I did not look at the real run. Fixed by
+      `-n 2` (1.19 GB, measured under a 2 GB cgroup); the real CI run is the check now
 
 **Definition of Done:** every box ticked; Lakekeeper measured and inside the budget;
 scores unchanged; the rollback path written down; nothing secret in git.
@@ -610,16 +614,161 @@ Until S5.6d, Lakekeeper has no login — which is why it is bound to 127.0.0.1 o
 - *Another long-running service to keep healthy* → healthcheck; `just k8s-check`-style
   check added for it; runbook
 
-### S5.6d — Governance *(short until its turn)*
-**Identity provider: Dex** (Lubo, 2026-11-18) — self-hosted, small (Go, CNCF), no external
-account; issues OIDC tokens for job identities (`trainer`, `builder`, `duckdb-reader`)
-that Lakekeeper trusts. AWS Cognito was the alternative (no container, but console work
-and an internet dependency for every login).
-Grants and vended credentials. The sealed test set becomes a **permission denial with a
-negative test**: the training identity cannot read `sealed`.
+### S5.6d — Governance: logins, grants, and `sealed` as a denied permission *(expanded 2026-11-18, awaiting approval)*
+
+**In one line:** every job gets its own login (Dex), the catalog decides what each login
+may do (OpenFGA), and each job gets S3 keys that open only the tables it is allowed —
+so training **cannot** read the test set, and a test proves it.
+
+**User story**
+**As a** model-risk reviewer, **I want** each lakehouse job to run as its own identity
+with only the permissions it needs — and the training identity unable to read the
+`sealed` test window through the catalog **or** straight from S3 — **so that** "the test
+set was never touched" is enforced by the platform and proven by a negative test, not
+just promised by a lint guard.
+
+**Why now:** since S5.6c Lakekeeper has no login: anything on the box can read or
+change any table, including `sealed`. And every job holds the same S3 key, which opens
+all of `lakehouse/` — so even with catalog permissions, a job could skip the catalog and
+read sealed files directly. Real governance needs both locks: **who you are** (identity)
+and **which files your key opens** (vended, scoped credentials). This is what Unity
+Catalog does at Databricks.
+
+**Facts checked before writing (2026-11-18)**
+- Dex **v2.46** added the OAuth2 *client credentials* flow (opt-in) — the machine login
+  our jobs need. Older Dex had no machine login.
+- Lakekeeper's open-source authorizer is **OpenFGA** (a separate service with its own
+  database). Its Cedar authorizer is Lakekeeper Plus (paid) — so not an option.
+- Lakekeeper vends S3 credentials through **AWS STS**, downscoped to each table's
+  location, read-only for readers. PyIceberg and DuckDB both accept vended credentials.
+
+**Identities** (Dex machine clients; each secret only in `.secrets/`)
+
+| Identity | Used by | bronze | silver | gold | sealed |
+|---|---|---|---|---|---|
+| `builder` | `just lakehouse-build` | write | write | write | write |
+| `trainer` | `just build-artifacts` | — | read | read | **none** |
+| `reader` | `just sql`, `just store-load` | read | read | read | **none** |
+| `admin` | bootstrap and grants only | owner | owner | owner | owner |
+
+(`evaluator`, the one-time read of `sealed` for the final test evaluation, is created
+only when that evaluation happens — contract rule 4.)
+
+**Acceptance criteria**
+
+*Before anything starts*
+- [ ] **Lubo approves starting two containers** (box rule): Dex and OpenFGA, compose
+      and caps shown first. Lakekeeper is restarted with auth on
+- [ ] **Lubo does one AWS console step** (~10 min, runbook with copy-paste JSON): an
+      IAM role `graphguard-lakekeeper-vending` (S3 `lakehouse/` only) and a new IAM
+      user `graphguard-lakekeeper` that may only assume that role. Same account,
+      nothing of `aws-job-streamer` touched. STS is free
+
+*The services*
+- [ ] **Dex v2.46.x** and **OpenFGA** (latest stable), both pinned by digest, in
+      compose project `graphguard` on `graphguard-net`, hardened like Lakekeeper
+      (non-root, `read_only`, `cap_drop: ALL`, `no-new-privileges`, `pids_limit`, log
+      rotation, healthcheck), hard caps (start: Dex 64 MB, OpenFGA 128 MB)
+- [ ] Dex on **127.0.0.1:5556 only** (jobs on the host need it for tokens). OpenFGA has
+      **no host port at all** — only Lakekeeper reaches it, on `graphguard-net`, with a
+      preshared key. Both verified unreachable from the public IP and a k3s pod
+- [ ] State in **own databases and users** in GraphGuard's Postgres (`dex`, `openfga`),
+      each refused on the others; no new database server
+- [ ] **Measured:** idle RAM and RAM during a full build for all three services; kept
+      only if they fit (story budget 50-150 MB for the two new ones)
+
+*Who you are (authentication)*
+- [ ] Lakekeeper trusts Dex (`OPENID_PROVIDER_URI`, audience set); `AUTHZ_BACKEND`
+      changes from `allowall` to `openfga`
+- [ ] **Given** no token, **when** any catalog call is made, **then** 401
+- [ ] **Given** a token signed by a different key, or expired, **then** 401
+- [ ] `open_catalog()` takes an identity and logs in with client credentials; the
+      secret never appears in logs, reprs or MLflow (tested)
+
+*What you may do (authorization)*
+- [ ] Grants applied **from code** (one file listing the table above), idempotent —
+      re-running changes nothing; the grants are the documentation
+- [ ] **Given** `trainer`, **when** it loads `sealed.transactions`, **then** 403; when it
+      lists namespaces, `sealed` is not there
+- [ ] **Given** `trainer` or `reader`, **when** it writes any table, **then** 403
+- [ ] **Given** `builder`, **then** build, re-build and orphan cleanup all succeed
+
+*Which files your key opens (vended credentials)*
+- [ ] Warehouse switched to `sts-enabled: true` with the vending role; Lakekeeper holds
+      the only long-lived S3 key (`graphguard-lakekeeper`, which can only assume the role)
+- [ ] Jobs read and write S3 **only with vended credentials** — `.secrets/aws.env` is no
+      longer read by any job
+- [ ] **Given** `trainer`'s vended credentials for silver, **when** it fetches a `sealed`
+      data file directly from S3 by path, **then** AccessDenied — the bypass is closed
+- [ ] **Given** `reader`'s credentials, **when** it PUTs an object, **then** AccessDenied
+- [ ] The old `graphguard-lakehouse` access key (the one pasted in chat) is **deleted in
+      IAM** after everything passes — this also closes the key-rotation item
+
+*Nothing else changes*
+- [ ] `just lakehouse-build` (builder), `just build-artifacts` read path (trainer),
+      `just store-load` (reader) all work; **2,000/2,000 scores identical**
+- [ ] `just sql` switches to full DuckDB `ATTACH` as `reader` — `sealed` is now hidden
+      by permission, not by our view list (the S5.6c deferral, closed)
+- [ ] `test_set_touch_check` stays exactly as strict (defence in depth, not replaced)
+
+*Tests and guards*
+- [ ] Config builders (Dex clients, grants plan, warehouse profile) unit-tested;
+      every negative case above is a **live test**, skipped in CI only by the existing
+      `GRAPHGUARD_SKIP_LAKEKEEPER_TESTS=1` with the reason printed
+- [ ] A clean-clone run passes (as in S5.6c); `just check` green; CI green; committed;
+      pushed; remotes match; LuBot before/after unchanged
+
+**Definition of Done:** every box ticked; training is denied `sealed` at the catalog
+**and** at S3, shown by tests; one long-lived S3 key left, held only by Lakekeeper; the
+old key deleted; RAM measured and inside budget; ADR 0003 written; nothing secret in git.
+
+**Tasks**
+1. Compose for Dex and OpenFGA (digest-pinned, capped, hardened); `.secrets/` layout;
+   **show Lubo; get the OK to start them**
+2. Runbook `docs/runbooks/aws-vending.md` with copy-paste JSON; **Lubo does the AWS step**
+3. Tests first: 401s, 403s, S3 AccessDenied, grants idempotent, secrets never logged
+4. Databases and users; start Dex and OpenFGA; measure; verify unreachable
+5. Switch Lakekeeper to OIDC + OpenFGA (re-bootstrap if needed — see risks); apply grants
+6. `open_catalog(identity)`; move build / train / store-load / sql to their identities
+7. Turn on vending; remove `aws.env` from every job; run the S3 bypass tests
+8. Full build, reload, 2,000-score check; measure RAM; delete the old IAM key
+9. ADR 0003 (Dex + OpenFGA + STS vending vs alternatives, with numbers), runbook
+   updates, CLAUDE.md, commit, push
+
+**Estimate:** 8 story points, ~3 sessions (the biggest step of S5.6).
+
+**Dependencies:** S5.6c ✅. Lubo: OK for two containers; one AWS console step; deleting
+the old key at the end. (Feast moves to ADR 0004.)
+
+**Out of scope:** human login to the Lakekeeper web UI (browser redirects through an
+SSH tunnel — a later nice-to-have); row or column masking (neither authorizer does it);
+the `evaluator` identity (final evaluation only); separate Unix users per job (S5.8 —
+see risks); Redis and MLflow auth (S5.8).
+
+**Risks**
+- *Honest limit — one box, one Unix user:* every job runs as root, so a job could read
+  another job's secret file. The platform enforces the boundary for every engine
+  that goes through it, and the denial is real for any process holding only its own
+  credentials. Process isolation (own Unix user or container per job) is written down
+  as S5.8 work, not claimed here
+- *Switching `allowall` → OpenFGA on a running catalog* may need a fresh bootstrap → the
+  Lakekeeper DB is recreated and the tables **re-registered** (no data move, done once
+  in S5.6c); snapshot ids compared before and after
+- *Issuer mismatch:* Lakekeeper (in Docker) and jobs (on the host) reach Dex at
+  different addresses, but the token issuer must be one string → issuer set to Dex's
+  name on `graphguard-net`; the host only calls the token endpoint; tested
+- *Vended credentials with Polars and our streaming writer* (PyArrow fs + `add_files`)
+  may not pick them up → proven on a scratch table first; fallback: builder alone keeps
+  a scoped static key, recorded in the ADR
+- *Dex client credentials is new (v2.46)* → digest-pinned; tested end to end; Keycloak
+  (heavier, Java) is the documented fallback
+- *RAM* → hard caps; measured; if OpenFGA does not fit, the story stops and the choice
+  is recorded
+- *Locking ourselves out* → `admin` secret kept in `.secrets/`; runbook has the
+  recovery path (back to `allowall` on 127.0.0.1, as S5.6c ran)
 
 ### S5.6e — Feast, lineage, worksheets *(short until its turn)*
-Feast (library) over Iceberg → Redis, asserted equal to the Polars output (ADR 0003 on
+Feast (library) over Iceberg → Redis, asserted equal to the Polars output (ADR 0004 on
 Feast). OpenLineage audit records. marimo worksheets, started only when needed.
 
 ## S5.7 — The running model is traceable to one artifact

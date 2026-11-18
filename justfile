@@ -12,8 +12,12 @@ PREK := justfile_directory() / ".tools/bin/prek"
 # Keep interpreters inside the repo rather than the shared uv directory.
 export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
 
-# xdist settings, shared by every test recipe.
-XDIST := "-n 4 --dist=loadgroup"
+# xdist settings, shared by every test recipe (prek and CI both call `just test`).
+# 2 workers, not 4: every worker imports every test module (torch + torch_geometric
+# alone ~300 MB), and with 4 the suite peaked at 2.25 GB -- over the CI job's 2 GB cap,
+# which OOM-killed workers on 55d29ad. Measured 2026-11-18: -n 4 2,250 MB / 26 s,
+# -n 3 1,715 MB / 29 s, -n 2 1,195 MB / 34 s.
+XDIST := "-n 2 --dist=loadgroup"
 
 IMAGE_TAG := "0.1.2"
 
