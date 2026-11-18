@@ -252,6 +252,10 @@ That is not tidiness: k3s's built-in load balancer binds host ports 80 and 443, 
 nginx is already serving lubot.ai, staging.lubot.ai and git.lubot.ai on those ports.
 Leaving servicelb enabled would have put k3s in a fight with production nginx.
 
+**Admin kubeconfig is `600`** (`--write-kubeconfig-mode 600`, was 644 until S5b.0). The
+flag is on the unit's command line, which beats `/etc/rancher/k3s/config.yaml` — any
+reinstall or upgrade through the install script must pass it again.
+
 **It needed a box-wide kernel change.** `fs.inotify.max_user_instances` was at the
 default 128 with 134 instances already in use by ~118 Docker containers, so k3s could
 not allocate a watcher and failed with "too many open files". Raised to 1024 in
@@ -345,8 +349,8 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 2 | Evaluation harness + frozen split + dumb baselines | **done** (2026-08-19) |
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
-| 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — k3s pod broken, see below |
-| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | not started (after S5.6e) |
+| 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.6a-e done; S5.4, S5.5, S5.7 after Phase 5b |
+| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0 done (2026-11-18) |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |

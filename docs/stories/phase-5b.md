@@ -22,7 +22,7 @@ planned with the LuBot session and applied once, with a rollback. Never
 
 ---
 
-## S5b.0 — Urgent fixes and one coordinated maintenance window *(expanded 2026-11-18, awaiting approval)*
+## S5b.0 — Urgent fixes and one coordinated maintenance window ✅ done 2026-11-18
 
 **As the** owner of the box, **I want** the most urgent findings of the 2026-11-18 audit
 closed first — without downtime where possible, and in one announced maintenance window
@@ -30,8 +30,9 @@ where a restart is unavoidable — **so that** every app is back within minutes,
 by a before/after check, with a rollback for every step.
 
 Three owners: Lubo (approvals, the window), the LuBot session (box-wide and LuBot
-steps), the GraphGuard session (GraphGuard steps, the check script). The full story —
-steps, criteria, rollbacks — is private (`private/security/`), because it names what is
+steps), the GraphGuard session (GraphGuard steps, the check script). Done the same day (no paid users, so no night window needed): one reboot, every app
+verified back by a before/after check, GraphGuard's 2,000 scores identical. The full story —
+steps, criteria, rollbacks, record — is private (`private/security/`), because it names what is
 open until it is fixed (CLAUDE.md rule).
 
 ---
