@@ -11,7 +11,7 @@ from graphguard.ops.k8s_health import assess_image, assess_network_policies, ass
 
 pytestmark = pytest.mark.unit
 
-IMAGE = "docker.io/graphguard/serving:0.1.2"
+IMAGE = "docker.io/graphguard/serving:0.1.3"
 
 
 def _pod(name="scorer-head-abc", phase="Running", ready=True, state=None):

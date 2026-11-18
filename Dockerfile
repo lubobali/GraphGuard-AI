@@ -7,10 +7,19 @@
 # Base dependencies only -- no dev, no gnn. The GNN is the research arm and not
 # the served model (PLAN.md R-1), and leaving torch out keeps roughly 1.2GB of
 # it out of the image.
-FROM python:3.12.14-slim
+#
+# S5b.2: base and uv pinned by digest (a tag can be repointed), and Debian's security
+# updates applied at build time -- the August image carried 70 packages with known
+# vulnerabilities, OS libraries (OpenSSL, glibc, SQLite) among them. Python stays
+# 3.12.14, the project's interpreter everywhere; moving it is its own step.
+FROM python:3.12.14-slim@sha256:f77ac9e44ae96ef2c90b8053ea08c31f8be030f824196b0ae4db6d462c84e51f
 
 # uv pinned to the same version as the project toolchain.
-COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/uv
+COPY --from=ghcr.io/astral-sh/uv:0.12.5@sha256:e85be844203885286c60ffad8a858d48afb6c5a5c237ca0e67f12e74b8f174b1 /uv /bin/uv
+
+# The base image's system pip is never used (uv installs everything into /app/.venv)
+# and carried known vulnerabilities, so it goes (S5b.2).
+RUN python -m pip uninstall -y pip
 
 # wget is not decoration. KubeRay's head readiness probe runs
 #   wget -T 2 -q -O- http://localhost:52365/api/local_raylet_healthz
@@ -18,6 +27,7 @@ COPY --from=ghcr.io/astral-sh/uv:0.12.5 /uv /bin/uv
 # fails forever, the pod never becomes ready, KubeRay refuses to deploy Serve
 # because the pod is not ready, and nothing ever converges.
 RUN apt-get update \
+ && apt-get upgrade -y --no-install-recommends \
  && apt-get install -y --no-install-recommends wget \
  && rm -rf /var/lib/apt/lists/*
 

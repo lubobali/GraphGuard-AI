@@ -34,7 +34,12 @@ def test_no_password_gets_nothing():
 
 def test_a_wrong_password_is_refused():
     with pytest.raises(redis.exceptions.AuthenticationError):
-        redis.Redis(host="127.0.0.1", port=6380, username="scorer", password="wrong").ping()
+        redis.Redis(
+            host="127.0.0.1",
+            port=6380,
+            username="scorer",
+            password="wrong",  # betterleaks:allow -- deliberately wrong; Redis must refuse it
+        ).ping()
 
 
 def test_the_scorer_reads_accounts_but_cannot_write():

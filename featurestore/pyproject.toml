@@ -13,6 +13,11 @@ dependencies = [
 
 [tool.uv]
 package = false
+# Same rule as the main project (S5b.2): nothing younger than 14 days...
+exclude-newer = "P14D"
+# ...except Feast itself, pinned ==0.68.0 so the ADR 0004 measurement stays
+# reproducible; evaluation only, outside every production path.
+exclude-newer-package = { feast = false }
 
 [dependency-groups]
 dev = ["pytest>=8.3"]

@@ -27,6 +27,8 @@ jobs:
       # Pinned to a commit, not a movable tag (S5b.2). Resolved from data.forgejo.org,
       # where this Forgejo instance fetches actions. Tag v4.4.0 (2026-07-16).
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+        with:
+          fetch-depth: 0  # full history, for the secret scan
 
       - name: Isolation probe
         # No capabilities, own network, no other container reachable, PyPI reachable --
@@ -47,6 +49,12 @@ jobs:
 
       - name: Leakage contract guards
         run: ./.tools/bin/just guards
+
+      - name: Secret scan (every commit, every branch)
+        run: ./.tools/bin/just secrets-history
+
+      - name: Dependencies (locks current, no known vulnerability)
+        run: ./.tools/bin/just deps-check
 
   test:
     runs-on: graphguard

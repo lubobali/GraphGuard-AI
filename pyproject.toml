@@ -49,6 +49,10 @@ notebooks = [
 ]
 
 [tool.uv]
+# S5b.2: no package version younger than 14 days is ever resolved (the 2025-2026
+# npm/PyPI worms were caught within days). Security releases are exempted per
+# package in exclude-newer-package, each with its reason.
+exclude-newer = "P14D"
 # Supply chain: no dependency version younger than ~2 weeks without a reason.
 # httpx2/httpcore2 2.16.1-2.16.2 were uploaded 2026-11-16, two days before
 # OpenLineage pulled them in (S5.6e); 2.16.0 is from 2026-10-21.

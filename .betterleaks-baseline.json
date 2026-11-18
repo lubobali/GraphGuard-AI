@@ -1,0 +1,50 @@
+[
+ {
+  "RuleID": "generic-password",
+  "Description": "Detected a potential hardcoded password literal, which may expose account credentials.",
+  "StartLine": 37,
+  "EndLine": 37,
+  "StartColumn": 69,
+  "EndColumn": 85,
+  "Match": "password=\"REDACTED\")",
+  "Secret": "REDACTED",
+  "Attributes": {
+   "confidence": "medium",
+   "git.author_email": "lubobali23@gmail.com",
+   "git.author_name": "lubobali",
+   "git.date": "2026-11-18T22:31:03Z",
+   "git.message": "S5b.1: harden GraphGuard's runtime -- Redis, Postgres, MLflow, the scorer pod\n\n- Safety net first: every GraphGuard database dumped and restored once into a\n  throwaway container; row counts identical.\n- Redis: current 7.4 patch by digest; one user per client with only the\n  commands it uses (serving/redis_acl.py), default user off, no scripting or\n  admin for anyone, hashes-only ACL file; scorer credentials from a Kubernetes\n  Secret; non-root (not a uid that belongs to another app on the host),\n  read-only, no capabilities.\n- Postgres: current 16.x patch by digest; pg_hba generated from\n  ops/pg_access.py (own role + own DB, SCRAM, reject the rest, superuser local\n  only); MLflow on its own role, password via PGPASSFILE, superuser rotated.\n- MLflow: no credential in its command line; 2 workers (private memory 730 -\u003e\n  426 MiB idle).\n- Every compose service held to one standard by tests/test_compose_hardening.py.\n- Scorer pod: Pod Security restricted enforced on the namespace, non-root,\n  read-only root, no SA token, egress denied except DNS, Redis and Ray. The\n  egress test caught that Docker DNATs 10.42.0.1:6380 to the container before\n  the policy is checked; the rule allows the real destination.\n- Memory caps re-sized from measured peaks: sum 4.0 GiB.\n- Verified: 2,000/2,000 scores identical after every step, p99 10.9 ms on k3s,\n  465 tests, clean copy under a 2 GB cap.\n\nCo-Authored-By: Claude Opus 5.5 \u003cnoreply@anthropic.com\u003e",
+   "git.platform": "unknown",
+   "git.remote_url": "https://github-graphguard/lubobali/GraphGuard-AI",
+   "git.sha": "1d15a83e23fc1e43bb06bcfaac4de6ed67fe6df3",
+   "path": "tests/serving/test_redis_acl_live.py",
+   "resource": "git.patch_content"
+  },
+  "Tags": [],
+  "ComponentSets": [
+   {
+    "components": [
+     {
+      "RuleID": "generic-username",
+      "Optional": true,
+      "StartLine": 37,
+      "EndLine": 37,
+      "StartColumn": 49,
+      "EndColumn": 67,
+      "Match": " username=\"REDACTED\",",
+      "Secret": "REDACTED"
+     }
+    ]
+   }
+  ],
+  "Fingerprint": "1d15a83e23fc1e43bb06bcfaac4de6ed67fe6df3:tests/serving/test_redis_acl_live.py:generic-password:37",
+  "File": "tests/serving/test_redis_acl_live.py",
+  "SymlinkFile": "",
+  "Commit": "1d15a83e23fc1e43bb06bcfaac4de6ed67fe6df3",
+  "Entropy": 2.321928,
+  "Author": "lubobali",
+  "Email": "lubobali23@gmail.com",
+  "Date": "2026-11-18T22:31:03Z",
+  "Message": "S5b.1: harden GraphGuard's runtime -- Redis, Postgres, MLflow, the scorer pod\n\n- Safety net first: every GraphGuard database dumped and restored once into a\n  throwaway container; row counts identical.\n- Redis: current 7.4 patch by digest; one user per client with only the\n  commands it uses (serving/redis_acl.py), default user off, no scripting or\n  admin for anyone, hashes-only ACL file; scorer credentials from a Kubernetes\n  Secret; non-root (not a uid that belongs to another app on the host),\n  read-only, no capabilities.\n- Postgres: current 16.x patch by digest; pg_hba generated from\n  ops/pg_access.py (own role + own DB, SCRAM, reject the rest, superuser local\n  only); MLflow on its own role, password via PGPASSFILE, superuser rotated.\n- MLflow: no credential in its command line; 2 workers (private memory 730 -\u003e\n  426 MiB idle).\n- Every compose service held to one standard by tests/test_compose_hardening.py.\n- Scorer pod: Pod Security restricted enforced on the namespace, non-root,\n  read-only root, no SA token, egress denied except DNS, Redis and Ray. The\n  egress test caught that Docker DNATs 10.42.0.1:6380 to the container before\n  the policy is checked; the rule allows the real destination.\n- Memory caps re-sized from measured peaks: sum 4.0 GiB.\n- Verified: 2,000/2,000 scores identical after every step, p99 10.9 ms on k3s,\n  465 tests, clean copy under a 2 GB cap.\n\nCo-Authored-By: Claude Opus 5.5 \u003cnoreply@anthropic.com\u003e"
+ }
+]

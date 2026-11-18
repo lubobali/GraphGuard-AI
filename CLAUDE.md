@@ -113,9 +113,23 @@ If one remote fails, git does **not** roll back the other — they can drift.
 never LuBot's runner.
 
 **The runner:** `graphguard-runner.service`, own systemd unit, registered to this repo
-only. State in `/srv/graphguard/runner/` — gitignored, `chmod 600`, holds the runner
+only. State in `/srv/graphguard/runner/` — gitignored, `700`/`600`, holds the runner
 credential. Daemon capped at 1G; **each job container capped at 2G, verified in CI, not
-assumed**. One job at a time, 45m timeout, image `node:20-bookworm-slim`.
+assumed**. One job at a time, 45m timeout.
+
+**CI supply chain (S5b.2).** Jobs run in our own image `graphguard/ci:1`
+(`docker/ci.Dockerfile`, pinned Node 22 LTS + git/curl; `just ci-image`) on **a fresh
+network per job**, with **no capabilities and no-new-privileges**. The first step of
+every job is `scripts/ci/isolation-probe.sh` (`just ci-probe` locally): it fails the
+build if the job can reach another container, has capabilities, or cannot reach PyPI.
+Actions are pinned to **commit SHAs** (resolved from data.forgejo.org); a test fails on
+any tag. **Secrets:** betterleaks (pinned + checksum in `bootstrap.sh`) in pre-commit
+(`just secrets-staged`) and on the whole history in CI (`just secrets-history`;
+accepted findings in `.betterleaks-baseline.json` or an inline `betterleaks:allow` with
+its reason). **Dependencies:** uv `exclude-newer = "P14D"` (nothing younger than 14
+days; exemptions per package with a reason), and `just deps-check` (locks current +
+OSV-Scanner) in CI. The serving image is rebuilt from the current lock on a
+digest-pinned base with Debian security updates (`serving:0.1.3`).
 
 `forgejo-runner.service` (LuBot) and `sentinel-runner.service` are **not ours** — never
 touch them.
@@ -124,8 +138,7 @@ touch them.
 to LuBot. Confirm ownership in the runner log (`task N repo is lubo/GraphGuard-AI`)
 before inspecting anything.
 
-**Known cost, not yet fixed:** the job installs `git` and `curl` via apt on every run
-(~7s of a 14s build). Replace with a prebuilt image once the real CI exists.
+The old per-job `apt-get` (~7 s of every job) is gone: git and curl are in the job image.
 
 ---
 

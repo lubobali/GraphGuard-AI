@@ -71,9 +71,46 @@ if [ "$("$BIN_DIR/kaggle" --version 2>/dev/null | awk '{print $3}')" != "$KAGGLE
     "$BIN_DIR/uv" tool install --force "kaggle==$KAGGLE_VERSION" >/dev/null
 fi
 
+# --- scanners, pinned by checksum (S5b.2) -----------------------------------
+# Downloaded, verified against a pinned SHA-256, refused on mismatch. Both are
+# releases >= 2 weeks old: a scanner is itself supply chain (the March 2026
+# trivy-action attack turned a scanner into the attack).
+BETTERLEAKS_VERSION="1.10.0"  # 2026-11-04; successor to gitleaks by its creator
+BETTERLEAKS_SHA256="9d9ad503cd5d80d18a939352266c3fcca52f10da9b83cd5cfe646989b13940fe"
+OSV_SCANNER_VERSION="2.7.0"   # 2026-10-12
+OSV_SCANNER_SHA256="160c6253e2922e9e0a6a9771c5c4c40a4b3c6090b34a3cdd5e80c96cc2e4218b"
+
+verified_download() {  # url sha256 dest
+  local tmp; tmp="$(mktemp)"
+  curl -fsSL "$1" -o "$tmp"
+  if ! echo "$2  $tmp" | sha256sum -c --status; then
+    echo "CHECKSUM MISMATCH for $1 -- refusing to install" >&2; rm -f "$tmp"; exit 1
+  fi
+  mv "$tmp" "$3"
+}
+
+if [ "$("$BIN_DIR/betterleaks" version 2>/dev/null | tr -d v)" != "$BETTERLEAKS_VERSION" ]; then
+  echo "installing betterleaks $BETTERLEAKS_VERSION into .tools/bin"
+  verified_download \
+    "https://github.com/betterleaks/betterleaks/releases/download/v$BETTERLEAKS_VERSION/betterleaks_${BETTERLEAKS_VERSION}_linux_x64.tar.gz" \
+    "$BETTERLEAKS_SHA256" "$TOOLS_DIR/betterleaks.tar.gz"
+  tar -xzf "$TOOLS_DIR/betterleaks.tar.gz" -C "$BIN_DIR" betterleaks
+  rm -f "$TOOLS_DIR/betterleaks.tar.gz"
+fi
+
+if ! "$BIN_DIR/osv-scanner" --version 2>/dev/null | grep -q "$OSV_SCANNER_VERSION"; then
+  echo "installing osv-scanner $OSV_SCANNER_VERSION into .tools/bin"
+  verified_download \
+    "https://github.com/google/osv-scanner/releases/download/v$OSV_SCANNER_VERSION/osv-scanner_linux_amd64" \
+    "$OSV_SCANNER_SHA256" "$BIN_DIR/osv-scanner"
+  chmod 755 "$BIN_DIR/osv-scanner"
+fi
+
 echo
 echo "toolchain ready:"
 echo "  uv:     $("$BIN_DIR/uv" --version)"
 echo "  just:   $("$BIN_DIR/just" --version)"
 echo "  prek:   $("$BIN_DIR/prek" --version)"
+echo "  betterleaks: $("$BIN_DIR/betterleaks" version 2>/dev/null)"
+echo "  osv-scanner: $("$BIN_DIR/osv-scanner" --version 2>/dev/null | head -1)"
 echo "  python: $("$BIN_DIR/uv" run python -c 'import sys; print(sys.version.split()[0])')"

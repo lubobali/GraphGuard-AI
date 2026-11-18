@@ -19,7 +19,7 @@ export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
 # -n 3 1,715 MB / 29 s, -n 2 1,195 MB / 34 s.
 XDIST := "-n 2 --dist=loadgroup"
 
-IMAGE_TAG := "0.1.2"
+IMAGE_TAG := "0.1.3"
 
 default:
     @just --list
@@ -314,3 +314,21 @@ ci-probe:
     docker network create gg-probe-net >/dev/null
     -docker run --rm --network gg-probe-net --memory 256m --pids-limit 512 --cap-drop ALL --security-opt no-new-privileges -v {{justfile_directory()}}/scripts/ci:/p:ro graphguard/ci:1 bash /p/isolation-probe.sh
     docker network rm gg-probe-net >/dev/null
+
+# --- S5b.2: secrets and dependencies ------------------------------------------
+# Staged changes only (the pre-commit hook). Redacted: a finding never prints the secret.
+secrets-staged:
+    {{justfile_directory()}}/.tools/bin/betterleaks git . --staged --pre-commit --redact --no-banner
+
+# Every commit on every branch (CI, ~1 s). .betterleaks-baseline.json lists accepted
+# historical findings, each one reviewed (today: one deliberately wrong test password).
+secrets-history:
+    {{justfile_directory()}}/.tools/bin/betterleaks git . --log-opts="--all" --redact --no-banner --baseline-path .betterleaks-baseline.json
+
+# Lockfiles current (main + the isolated Feast project) and no known vulnerability in
+# either (OSV database). A new advisory fails the build; to accept one, add it to
+# osv-scanner.toml with the reason.
+deps-check:
+    {{UV}} lock --check
+    cd featurestore && UV_PYTHON_INSTALL_DIR={{justfile_directory()}}/.tools/python {{UV}} lock --check
+    {{justfile_directory()}}/.tools/bin/osv-scanner scan source --lockfile uv.lock --lockfile featurestore/uv.lock
