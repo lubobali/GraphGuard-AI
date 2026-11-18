@@ -18,9 +18,9 @@ pytestmark = pytest.mark.unit
 
 SOURCES = sorted(
     p.relative_to(REPO_ROOT).as_posix()
-    for d in ("src", "tests", "scripts")
+    for d in ("src", "tests", "scripts", "notebooks", "featurestore")
     for p in (REPO_ROOT / d).rglob("*.py")
-    if "__pycache__" not in p.parts
+    if "__pycache__" not in p.parts and ".venv" not in p.parts
 )
 
 
@@ -44,7 +44,18 @@ def test_no_source_file_is_gitignored():
 
 def test_ruff_lints_every_source_file():
     out = subprocess.run(
-        [sys.executable, "-m", "ruff", "check", "--show-files", "src", "tests", "scripts"],
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--show-files",
+            "src",
+            "tests",
+            "scripts",
+            "notebooks",
+            "featurestore",
+        ],
         cwd=REPO_ROOT,
         capture_output=True,
         text=True,

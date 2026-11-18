@@ -1,0 +1,18 @@
+# Feast, isolated (S5.6e). Its own uv project and lock on purpose: adding Feast to the
+# main project downgrades the Redis client the scorer uses (8.1 -> 7.4) and pulls in
+# pandas, dask, gunicorn and mypy (dry-run lock, 2026-11-18). Nothing here is imported
+# by graphguard; the two talk through files.
+[project]
+name = "graphguard-featurestore"
+version = "0.1.0"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+  # Library only: no feature server, no UI (their 2026 CVEs; we need neither).
+  "feast[iceberg,duckdb]==0.68.0",
+]
+
+[tool.uv]
+package = false
+
+[dependency-groups]
+dev = ["pytest>=8.3"]

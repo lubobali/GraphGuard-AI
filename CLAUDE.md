@@ -208,6 +208,18 @@ alone: 9.4% of transactions tie on the minute (FINDING-010).
 DuckDB ATTACH (`sql.attach_catalog`) logs in as the catalog's identity, so its writes
 (MERGE) need `builder`.
 
+**Feature store, lineage, worksheets (S5.6e):** we keep **our own store** (Polars →
+gold → `just store-load` → Redis). Feast 0.68 was measured in its own uv project
+`featurestore/` — identical online values, but 3.96 GB RAM to fill (ours 0.58 GB) and it
+**cannot build the training features** without leakage on same-minute ties. ADR 0004.
+`just feast-trial | feast-parity | feast-test` re-run that evaluation (capped; never the
+live Redis; never add Feast to the main lock — it downgrades the scorer's Redis client).
+**Lineage:** build, store-load and build-artifacts emit OpenLineage events to
+`lakehouse/lineage/events.jsonl` (training's also go to its MLflow run); `just lineage`.
+**Worksheet:** `just notebook` — marimo as `reader`, 127.0.0.1:2718 with a token, 1 GB cap.
+**Supply chain:** new dependencies are pinned to releases ≥ 2 weeks old;
+`[tool.uv] constraint-dependencies` in pyproject records each cap and why.
+
 **Gitignore trap (FINDING-012):** a bare folder name in `.gitignore` or ruff's
 excludes matches at any depth. `lakehouse/` and `models/` both hid real source code.
 Anchor root folders (`/models/`); `tests/test_repo_hygiene.py` fails the build if any
@@ -385,8 +397,9 @@ Multi-PNA rematch (R-2). SageMaker is cut by R-2; S3 moves to Phase 5.
 `just k8s-check`, runbook), S5.3 (Ray kept and right-sized, dashboard locked by
 NetworkPolicy, ADR 0001; p99 7.6ms on k3s), S5.6a (the lakehouse; Redis now rebuilt
 from gold, 2,000/2,000 scores identical), S5.6b (S3 + DuckDB), S5.6c (Lakekeeper),
-S5.6d (Dex logins, OpenFGA grants, vended per-table S3 keys; ADR 0003). Next: S5.6e,
-then **Phase 5b — box security** (R-3, `docs/stories/phase-5b.md`), then S5.4, S5.5, S5.7.
+S5.6d (Dex logins, OpenFGA grants, vended per-table S3 keys; ADR 0003), S5.6e (own
+feature store kept over Feast by measurement, ADR 0004; OpenLineage; marimo). Next:
+**Phase 5b — box security** (R-3, `docs/stories/phase-5b.md`), then S5.4, S5.5, S5.7.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models

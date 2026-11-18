@@ -43,3 +43,6 @@ runner/
 
 # Lakehouse warehouse files (Iceberg/Parquet). Rebuilt by `just lakehouse-build`.
 /lakehouse/
+
+# marimo saves cell outputs (real query results) next to notebooks. Never commit them.
+__marimo__/

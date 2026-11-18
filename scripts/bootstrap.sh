@@ -39,7 +39,7 @@ export UV_PYTHON_INSTALL_DIR="$TOOLS_DIR/python"
 
 cd "$REPO_ROOT"
 "$BIN_DIR/uv" python install
-"$BIN_DIR/uv" sync --extra dev --extra gnn --extra lakehouse --locked
+"$BIN_DIR/uv" sync --extra dev --extra gnn --extra lakehouse --extra notebooks --locked
 
 # DuckDB's Iceberg and S3 extensions, pre-fetched into the project's own .tools/
 # (not ~/.duckdb), so tests and `just sql` never download mid-run.

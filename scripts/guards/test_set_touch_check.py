@@ -18,6 +18,18 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SRC_DIR = REPO_ROOT / "src" / "graphguard"
+# Code that is not the package but still runs against the data (S5.6e): worksheets
+# and the isolated Feast project. Same rules.
+EXTRA_DIRS = (REPO_ROOT / "notebooks", REPO_ROOT / "featurestore")
+
+
+def _sources() -> list[Path]:
+    paths = list(SRC_DIR.rglob("*.py"))
+    for d in EXTRA_DIRS:
+        if d.exists():
+            paths += [p for p in d.rglob("*.py") if ".venv" not in p.parts]
+    return sorted(paths)
+
 
 # Loading the test split looks like load_split("test") or similar.
 LOADER_NAMES = {"load_split", "read_split", "get_split"}
@@ -87,7 +99,7 @@ def main() -> int:
     violations: list[str] = []
     allowed_hits = 0
 
-    for path in sorted(SRC_DIR.rglob("*.py")):
+    for path in _sources():
         rel = path.relative_to(REPO_ROOT).as_posix()
         source = path.read_text()
         hits = find_test_loads(rel, source)

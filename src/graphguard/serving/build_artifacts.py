@@ -18,11 +18,14 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
+from mlflow.tracking import MlflowClient
+
 from graphguard.analysis.patterns import parse_patterns
 from graphguard.config import PATTERNS_FILE, REPO_ROOT, SEED
 from graphguard.evaluation.dataset import attach_pattern_ids, frozen_boundaries
 from graphguard.lakehouse.catalog import open_catalog
 from graphguard.lakehouse.lineage import training_lineage
+from graphguard.lakehouse.lineage_events import lineage_run
 from graphguard.lakehouse.tables import SILVER_TX, scan_in_source_order
 from graphguard.models.pipeline import features_for_split
 from graphguard.models.tabular import (
@@ -50,10 +53,26 @@ BUNDLE_DIR = REPO_ROOT / "models" / "production"
 
 def main() -> int:
     t0 = time.time()
-    train_end, val_end = frozen_boundaries()
-
     catalog = open_catalog("trainer")
     lineage = training_lineage(catalog)  # recorded BEFORE reading, so it names what is read
+    with lineage_run("build-artifacts") as run:
+        # Only what training reads. The other tables' snapshot ids are context,
+        # kept as MLflow params; trainer cannot even read bronze's rows.
+        run.read(SILVER_TX, lineage[f"snapshot.{SILVER_TX}"])
+        bundle_path = str(Path(BUNDLE_DIR).relative_to(REPO_ROOT))
+        run.wrote(bundle_path, lineage["git_sha"], namespace="file://graphguard")
+        run_id = _train(catalog, lineage, t0)
+    # After the block, so the record includes the COMPLETE event.
+    MlflowClient().log_dict(run_id, {"events": run.events}, "lineage/openlineage.json")
+    print(f"lineage logged to MLflow run {run_id} (params + OpenLineage events)")
+    print("the online store is NOT refilled here: run `just store-load`")
+    print(f"total {time.time() - t0:.0f}s")
+    return 0
+
+
+def _train(catalog, lineage: dict, t0: float) -> str:
+    """Train, save the bundle, log the run to MLflow; returns the MLflow run id."""
+    train_end, val_end = frozen_boundaries()
     # Silver holds train + validation with the tail already removed; the test
     # window is in `sealed`, which training never opens.
     # In source order, so features match the CSV path bit for bit (S5.6a).
@@ -83,11 +102,7 @@ def main() -> int:
         params={**{k: str(v) for k, v in lineage.items()}, "n_train_rows": str(X_train.height)},
         tags={"job": "build-artifacts", "bundle": str(Path(BUNDLE_DIR).relative_to(REPO_ROOT))},
     )
-    print(f"lineage logged to MLflow run {run_id}")
-    print("the online store is NOT refilled here: run `just store-load`")
-
-    print(f"total {time.time() - t0:.0f}s")
-    return 0
+    return run_id
 
 
 if __name__ == "__main__":

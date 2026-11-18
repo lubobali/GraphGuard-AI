@@ -39,11 +39,18 @@ def load_store_from_gold(catalog: Catalog, store, as_of: dt.datetime) -> int:
 def main() -> int:
     from graphguard.evaluation.dataset import frozen_boundaries
     from graphguard.lakehouse.catalog import open_catalog
-    from graphguard.serving.store import RedisFeatureStore
+    from graphguard.lakehouse.lineage_events import lineage_run
+    from graphguard.lakehouse.tables import GOLD_FEATURES
+    from graphguard.serving.store import REDIS_BASE, RedisFeatureStore
 
     train_end, _ = frozen_boundaries()
     t0 = time.time()
-    n = load_store_from_gold(open_catalog("reader"), RedisFeatureStore(), as_of=train_end)
+    catalog = open_catalog("reader")
+    with lineage_run("store-load") as run:
+        snap = catalog.load_table(GOLD_FEATURES).current_snapshot()
+        n = load_store_from_gold(catalog, RedisFeatureStore(), as_of=train_end)
+        run.read(GOLD_FEATURES, snap.snapshot_id if snap else None)
+        run.wrote("db0/gg:acct", None, namespace=REDIS_BASE)
     print(
         f"online store loaded from gold: {n:,} accounts as of {train_end} ({time.time() - t0:.1f}s)"
     )

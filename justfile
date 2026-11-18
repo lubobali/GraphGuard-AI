@@ -255,3 +255,33 @@ hooks-all:
 
 # The Phase 0 gate. CI runs exactly this.
 check: lint format-check guards test
+
+# --- S5.6e: lineage, Feast (measured, isolated), worksheets -------------------
+
+# The lineage graph: newest run per job, with the table snapshots it read and wrote.
+lineage:
+    {{UV}} run python -m graphguard.lakehouse.lineage_events
+
+# Feast lives in its own uv project (featurestore/), never in the main lock.
+feast-sync:
+    cd featurestore && UV_PYTHON_INSTALL_DIR={{justfile_directory()}}/.tools/python {{UV}} sync -q --group dev
+
+# Materialise gold into Feast's SQLite online store and measure it. Never touches
+# the live Redis. Capped at 4.5 GB: it peaked at 3.96 GB (2026-11-18) -- don't run it
+# while MLflow or a build is busy.
+feast-trial: feast-sync
+    systemd-run --scope -q -p MemoryMax=4500M -p MemorySwapMax=0 featurestore/.venv/bin/python featurestore/run.py
+
+# Feast's values vs the live store, every account (read-only).
+feast-parity:
+    {{UV}} run python -m graphguard.lakehouse.feast_parity
+
+# Feast's own tests (the point-in-time tie characterisation), in Feast's environment.
+feast-test: feast-sync
+    cd featurestore && .venv/bin/python -m pytest -q -p no:cacheprovider tests
+
+# A marimo worksheet over the lakehouse, as `reader` (no test window). 127.0.0.1 only,
+# token in the printed URL, capped at 1 GB (headless run peaked at 591 MB). Not a
+# service: Ctrl-C stops it. From a laptop: ssh -L 2718:127.0.0.1:2718 <box>.
+notebook:
+    systemd-run --scope -q -p MemoryMax=1G -p MemorySwapMax=0 {{UV}} run marimo edit notebooks/lakehouse.py --host 127.0.0.1 --port 2718 --headless

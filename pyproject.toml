@@ -41,7 +41,24 @@ dev = [
 ]
 lakehouse = [
     "duckdb>=1.4",
+    "openlineage-python>=1.55,<1.56",  # lineage events (S5.6e)
     "pyiceberg[pyarrow,pyiceberg-core,sql-postgres]>=0.12",
+]
+notebooks = [
+    "marimo>=0.25.2,<0.26",
+]
+
+[tool.uv]
+# Supply chain: no dependency version younger than ~2 weeks without a reason.
+# httpx2/httpcore2 2.16.1-2.16.2 were uploaded 2026-11-16, two days before
+# OpenLineage pulled them in (S5.6e); 2.16.0 is from 2026-10-21.
+constraint-dependencies = [
+  "httpx2<2.16.1",
+  "httpcore2<2.16.1",
+  # marimo's, same rule (S5.6e): 0.0.34 is no security release (none cited).
+  "loro<1.18.0",
+  "python-multipart<0.0.34",
+  "markdown<3.11.3",
 ]
 
 [tool.uv.sources]

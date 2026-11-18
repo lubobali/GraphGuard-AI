@@ -256,7 +256,7 @@ alternatives.
 | Data quality | **Pandera** | schema and expectation checks on every pipeline stage; bad data fails loudly instead of quietly training a worse model |
 | Explainability | **SHAP** (production) + **GNNExplainer** (GNN arm) | which features and which hops drove the score. Non-optional in a regulated domain. SHAP explains the model that actually serves; GNNExplainer explains the research one (R-1) |
 | Narratives | **LLM investigator agent** (NVIDIA NIM) | drafts the case report an investigator reads. Tools exposed over **MCP**, a transaction ID behind every claim, a deterministic checker, traced and evaluated in **MLflow GenAI** (R-2) |
-| Feature store | **Feast, library only** — or our own store, decided in Phase 5 | solves train/serve skew structurally. Feast is still pre-1.0 and its servers had critical 2026 CVEs, so no feature or registry server runs (R-2) |
+| Feature store | **Our own store** (Polars → Iceberg gold → Redis) — Feast measured and not adopted (ADR 0004) | solves train/serve skew structurally. Feast is still pre-1.0 and its servers had critical 2026 CVEs, so no feature or registry server runs (R-2) |
 | Serving | **Ray Serve on k3s**, kept only if its measured memory fits; else FastAPI on k3s | real model serving on real Kubernetes. Ray ≥ 2.52 and dashboard internal only, because of CVE-2025-62593 (R-2) |
 | Artifacts | **AWS S3** | trained models, feature snapshots, and evaluation outputs versioned in S3 rather than on a disk that could die |
 | ~~GPU training~~ | ~~AWS SageMaker~~ | cut by R-2: the production model is a tree and needs no GPU |
@@ -450,9 +450,10 @@ The hard engineering. You cannot walk a graph in 30ms.
   FINDING-011). FINDING-010, FINDING-012
 - ✅ **Measure Ray's real memory on k3s** and decide: kept Ray Serve, right-sized,
   dashboard locked by NetworkPolicy (S5.3, ADR 0001)
-- **Feast decision** (S5.6e): Feast as a library only (≥ 0.68, no Feast servers) or keep
-  our own store, decided by measured parity, latency and RAM and recorded as ADR 0004.
-  Either is fine; the plan saying Feast while the code does not use it is not (R-2)
+- ✅ **Feast decision** (S5.6e, ADR 0004): **our own store kept.** Feast 0.68 matched our
+  online values exactly but needed 3.96 GB to fill (ours 0.58 GB) and cannot build the
+  training features without leakage on same-minute ties. OpenLineage on every job;
+  a marimo worksheet as `reader`
 - **Then Phase 5b (box security)** before the remaining Phase 5 steps below (R-3)
 - **Cold-account path tested** as an explicit test, not only observed in a measurement
 - **Model pulled from S3 at startup**, so the running version is always traceable to a

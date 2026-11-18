@@ -813,7 +813,7 @@ see risks); Redis and MLflow auth (Phase 5b).
 - *Locking ourselves out* → `admin` secret kept in `.secrets/`; runbook has the
   recovery path (back to `allowall` on 127.0.0.1, as S5.6c ran)
 
-### S5.6e — Feast decided by measurement, lineage on every job, worksheets *(expanded 2026-11-18, awaiting approval)*
+### S5.6e — Feast decided by measurement, lineage on every job, worksheets *(approved 2026-11-18; done but for CI)*
 
 **In one line:** try the standard feature store (Feast) on our real data, keep it only
 where it matches our numbers exactly, record which data every job read and wrote, and
@@ -851,50 +851,70 @@ has said "Feast" since August while the code uses its own store. This is the las
 **Acceptance criteria**
 
 *A — Feast, isolated and measured*
-- [ ] Feast lives in **its own uv project** (`featurestore/`, own `pyproject.toml` and lock);
-      the main lockfile and the serving image are **unchanged** (diff shown)
-- [ ] One entity (`account`) and one feature view over `gold.account_features_asof`,
-      read through Lakekeeper **as `reader`** with vended keys; no Feast server, no UI
-- [ ] **Trial runs never touch the live Redis.** Materialisation goes to Feast's SQLite
-      online store (a local file); nothing is written to `graphguard-redis`
-- [ ] **Given** the same gold snapshot, **when** Feast materialises it, **then** for all
+- [x] Feast lives in **its own uv project** (`featurestore/`, own `pyproject.toml` and lock);
+      the main lockfile and the serving image are **unchanged** (diff shown) — `featurestore/` (Feast 0.68.0, 594 MB env); the main lock
+      gained no Feast package. (It did gain OpenLineage and marimo, below, both pinned to
+      releases ≥ 2 weeks old after two brand-new transitive versions were caught)
+- [x] One entity (`account`) and one feature view over `gold.account_features_asof`,
+      read through Lakekeeper **as `reader`** with vended keys; no Feast server, no UI — every column declared: Feast's type
+      inference sends the warehouse *name* where Lakekeeper wants its id (HTTP 400)
+- [x] **Trial runs never touch the live Redis.** Materialisation goes to Feast's SQLite
+      online store (a local file); nothing is written to `graphguard-redis` — live Redis after the trial: db0 only,
+      512,705 keys
+- [x] **Given** the same gold snapshot, **when** Feast materialises it, **then** for all
       512,705 accounts its online values equal our store's **exactly** (counts as
-      integers, money bit for bit) — or every difference is counted and explained
-- [ ] **Given** two transactions in the same minute, **when** Feast's historical retrieval
+      integers, money bit for bit) — or every difference is counted and explained — **identical: 512,705 accounts × 9
+      features, 0 differences** (`just feast-parity`; unit tests prove it catches 1-ulp,
+      1-minute and missing-account differences)
+- [x] **Given** two transactions in the same minute, **when** Feast's historical retrieval
       builds training features, **then** the test records whether it matches training's
-      (timestamp, source_row) rule — a pass or a documented finding, not an assumption
-- [ ] **Measured** and compared with `just store-load`: wall time, peak RAM, and
+      (timestamp, source_row) rule — a pass or a documented finding, not an assumption — **Feast cannot**: both natural
+      modellings leak (a payment sees a later same-minute one, or counts itself) —
+      `featurestore/tests/test_point_in_time_ties.py`, 3 passed
+- [x] **Measured** and compared with `just store-load`: wall time, peak RAM, and
       `get_online_features` latency for 2 accounts (p50/p99, 1,000 calls) against our
-      store's lookup, plus the install size Feast would add to the serving image
-- [ ] **ADR 0004** chooses one, with the numbers: (a) Feast fills Redis and the scorer
+      store's lookup, plus the install size Feast would add to the serving image — 36.3 s vs 13.4 s; **3,957 MB vs 580 MB**
+      (ran uncapped once — no harm, now capped at 4.5 GB); SQLite 1,047 MB; lookups p50
+      0.18 / p99 0.40 ms on a local file; +594 MB of dependencies
+- [x] **ADR 0004** chooses one, with the numbers: (a) Feast fills Redis and the scorer
       reads through Feast; (b) Feast as the feature registry and offline retrieval, our
       loader keeps filling Redis; (c) keep our own store. Moving the live Redis to
-      Feast's format, if chosen, is a separate, approved step with a capacity check
+      Feast's format, if chosen, is a separate, approved step with a capacity check — **(c) keep our own store**; Feast kept as a pinned, tested
+      evaluation outside every production path
 
 *B — Lineage on every job*
-- [ ] `lakehouse-build`, `store-load`, `build-artifacts` and (if kept) Feast
+- [x] `lakehouse-build`, `store-load`, `build-artifacts` and (if kept) Feast
       materialisation each emit **OpenLineage** START and COMPLETE/FAIL events: job
-      name, run id, input and output tables **with their Iceberg snapshot ids**
-- [ ] Events go to an append-only JSON-lines file under `lakehouse/lineage/` (no new
-      service); a training run also logs its events to its MLflow run
-- [ ] `just lineage` prints the graph: table → job → table, newest run per job
-- [ ] **Given** a training run, **then** its lineage names the silver snapshot it read —
-      the same id MLflow already records — and never `sealed`
-- [ ] Events hold no secret (tested), and a failed job emits FAIL, not nothing
+      name, run id, input and output tables **with their Iceberg snapshot ids** — all three jobs;
+      Feast materialisation not kept (ADR 0004). Training's inputs are **only what it
+      reads** (silver), not every snapshot it records
+- [x] Events go to an append-only JSON-lines file under `lakehouse/lineage/` (no new
+      service); a training run also logs its events to its MLflow run — and the training run's events are an MLflow
+      artifact — which first needed MLflow's artifact store fixed: it had **never** been
+      writable (root-owned volume vs uid 10001; nothing had used it before)
+- [x] `just lineage` prints the graph: table → job → table, newest run per job
+- [x] **Given** a training run, **then** its lineage names the silver snapshot it read —
+      the same id MLflow already records — and never `sealed` — silver
+      @6020000459637894689 in both; live test
+- [x] Events hold no secret (tested), and a failed job emits FAIL, not nothing
 
 *C — Worksheets, on demand*
-- [ ] One **marimo** notebook (`notebooks/lakehouse.py`, plain Python in git): row counts
+- [x] One **marimo** notebook (`notebooks/lakehouse.py`, plain Python in git): row counts
       per layer, the laundering rate per day in silver, one labelled ring from gold, and
-      the tie-aware "history before" query (FINDING-010)
-- [ ] `just notebook` starts it as **`reader`** on **127.0.0.1** only, with marimo's
+      the tie-aware "history before" query (FINDING-010) — marimo 0.25.2
+- [x] `just notebook` starts it as **`reader`** on **127.0.0.1** only, with marimo's
       token, inside a hard memory cap (systemd scope, 768 MB); it is not a service and
-      stops with Ctrl-C. Reached through the SSH tunnel, like MLflow
-- [ ] The notebook runs headless as a test (live, skipped in CI by the existing flag);
-      the `sealed` guard also scans `notebooks/`
+      stops with Ctrl-C. Reached through the SSH tunnel, like MLflow — *refined:* cap 1 GB, not
+      768 MB — headless run peaked at 591 MB, the editor adds to it; tested: 127.0.0.1
+      only, 401 without the token, public port blocked, stops cleanly
+- [x] The notebook runs headless as a test (live, skipped in CI by the existing flag);
+      the `sealed` guard also scans `notebooks/` — 3 live tests; the guard now scans `notebooks/` and
+      `featurestore/` and was shown to fail on a notebook naming `sealed`
 
 *Nothing else changes*
-- [ ] The scorer, the live Redis and the main lockfile untouched unless ADR 0004 picks
-      (a) and Lubo approves that step; **2,000/2,000 scores identical**
+- [x] The scorer, the live Redis and the main lockfile untouched unless ADR 0004 picks
+      (a) and Lubo approves that step; **2,000/2,000 scores identical** — **2,000/2,000 identical**;
+      production model retrained twice under a 3 GB cap, **byte-identical** to August's
 - [ ] `just check` green; CI green **checked on the real run**; committed; pushed; remotes
       match; LuBot before/after unchanged
 

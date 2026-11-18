@@ -1,0 +1,12 @@
+# Feast for GraphGuard (S5.6e). Library only: no feature server, no UI.
+# Trial setup: the online store is a local SQLite file, never the live Redis
+# (which is ~80% full with noeviction). State lives under /lakehouse/ (gitignored).
+project: graphguard
+provider: local
+registry: ../../lakehouse/feast/registry.db
+online_store:
+  type: sqlite
+  path: ../../lakehouse/feast/online.db
+offline_store:
+  type: duckdb
+entity_key_serialization_version: 3

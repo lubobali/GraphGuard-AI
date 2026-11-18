@@ -124,6 +124,17 @@ the CI runner (S5b.2); backups (S5b.3); anything LuBot's.
 
 ---
 
+*Noted on the way (S5.6e, 2026-11-18), for S5b.1:*
+- The MLflow database password is in the MLflow container's **command line**
+  (`--backend-store-uri postgresql://user:password@…`), so anyone who can list Docker
+  containers can read it. Move it to an env file / `MLFLOW_BACKEND_STORE_URI`
+- MLflow could never store an artifact: its volume was root-owned while the server
+  runs as uid 10001. Fixed in place (`chown`) and in `docker/mlflow.Dockerfile`; the
+  image is rebuilt with the rest of S5b.1
+- MLflow **client 3.15 vs server 2.19**: some client calls hit endpoints the server
+  lacks (e.g. listing artifacts). Pin the client to the server's major, or upgrade the
+  server, in one step with a tested restore (S5b.3)
+
 ### S5b.2 — Supply chain *(short until its turn)*
 **As the** owner, **I want** CI jobs and commits unable to leak secrets or run tampered
 code, **so that** the build pipeline is not a way in.

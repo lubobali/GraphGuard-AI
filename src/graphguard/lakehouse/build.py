@@ -12,10 +12,11 @@ from __future__ import annotations
 import sys
 import time
 
-from graphguard.config import TRANSACTIONS_FILE
+from graphguard.config import REPO_ROOT, TRANSACTIONS_FILE
 from graphguard.data.loader import load_transactions
 from graphguard.evaluation.dataset import frozen_boundaries
 from graphguard.lakehouse.catalog import open_catalog
+from graphguard.lakehouse.lineage_events import lineage_run
 from graphguard.lakehouse.tables import (
     GOLD_FEATURES,
     current_snapshot_ids,
@@ -33,6 +34,20 @@ KEEP_SNAPSHOTS = 5
 
 
 def main() -> int:
+    with lineage_run("lakehouse-build") as run:
+        run.read(str(TRANSACTIONS_FILE.relative_to(REPO_ROOT)), None, namespace="file://graphguard")
+        _build()
+        # Every table the build wrote, with the snapshot it ended on -- listed from
+        # the catalog, so the test window's table is recorded without being named here.
+        catalog = open_catalog("builder")
+        for ns in catalog.list_namespaces():
+            for ident in catalog.list_tables(ns):
+                snap = catalog.load_table(ident).current_snapshot()
+                run.wrote(".".join(ident), snap.snapshot_id if snap else None)
+    return 0
+
+
+def _build() -> None:
     t0 = time.time()
     boundaries = frozen_boundaries()
     catalog = open_catalog("builder")
@@ -60,7 +75,6 @@ def main() -> int:
         f"total {time.time() - t0:.1f}s; "
         f"kept last {KEEP_SNAPSHOTS} snapshots ({GOLD_FEATURES} etc.)"
     )
-    return 0
 
 
 if __name__ == "__main__":
