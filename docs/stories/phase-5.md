@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1, S5.2 and S5.3 done; S5.8 next.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2 and S5.3 done; S5.6a next.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -201,29 +201,149 @@ Acceptance criteria:
 
 Rolls up to: "the cold-account path tested rather than assumed".
 
-## S5.6 — A small lakehouse: Iceberg offline store, Redis online copy
+## S5.6 — A small lakehouse (epic)
 
-*Short until its turn. Rewritten 2026-11-18 (was "Feast: in or out").*
+*Research: `docs/research/Open source lakehouse on one box.md` (2026-11-18). Catalog
+decision (Lakekeeper; Polaris only if measured to fit; PyIceberg SQL catalog as the
+zero-RAM fallback) agreed with Lubo the same day.*
 
-**As an** ML engineer, **I want** the features kept in versioned Iceberg tables with Redis
-loaded from them, **so that** a model is traceable to the exact feature snapshot it was
-trained on, the online store can be rebuilt fast, and the same tables serve Polars now
-and Spark later.
+**Why:** the account profiles exist only in Redis, which keeps nothing on disk, and the
+only way to refill it today is `just build-artifacts` — which **retrains the model** to
+do it. There is no versioned copy of the features a model was trained on. A lakehouse
+fixes all three, and it is the same shape Databricks and Snowflake use: Iceberg tables,
+a REST catalog, object storage, engines as jobs.
 
-Draft acceptance criteria (refined at expansion):
-- [ ] Iceberg tables via PyIceberg + SQLite catalog (no Spark, no servers): at least
-      `transactions` (typed, partitioned by day) and `account_features` (profile as of a
-      timestamp). `labels` with the time each label became known, for Phase 6
-- [ ] Written by Polars from the same feature code that training uses — train/serve
-      parity test still passes, now against the Iceberg path
-- [ ] Redis loaded *from* `account_features`; reload timed; key count matches
-- [ ] Snapshot id recorded with every model in MLflow (ties to S5.7)
-- [ ] Time travel shown: read an older snapshot, get the older features
-- [ ] Leakage guards still pass; nothing in the tables uses information after its
-      `as_of`
-- [ ] Feast decided inside this story and written as ADR 0002 (library over the
-      Iceberg/Parquet offline store, or not at all)
-- [ ] RAM and disk measured against the budget
+| Step | Story | New resident RAM (est.) | Needs Lubo |
+|---|---|---|---|
+| **L0 + L1** | **S5.6a — Iceberg tables on local disk, Redis rebuilt from them** | 0 | no |
+| L2 | S5.6b — Warehouse on our own S3; DuckDB for SQL | 0 | AWS bucket + IAM user |
+| L3 | S5.6c — Lakekeeper REST catalog; late labels via MERGE | 30-100MB | start a container |
+| L4 | S5.6d — Governance: grants, vended credentials, the sealed test set as a denied permission | 50-150MB | start a container |
+| L5 | S5.6e — Feast over Iceberg → Redis, lineage, marimo worksheets | 0 | no |
+
+Maintenance with Dagster is Phase 8 (L6); Spark on the same tables is Phase 10 (L7).
+**Every step has a measurement gate:** it stays only if its measured RAM fits.
+
+---
+
+### S5.6a — Iceberg tables on local disk, Redis rebuilt from them
+
+**User story**
+**As an** ML engineer, **I want** the transactions, features and labels kept in
+versioned Iceberg tables (bronze / silver / gold), with Redis rebuilt *from* the gold
+table, **so that** every model can be traced to the exact rows it trained on, a Redis
+restart is a two-minute reload instead of a retrain, and the platform has one source of
+truth.
+
+**Acceptance criteria**
+
+*L0 — baseline, before anything changes*
+- [ ] Peak memory of today's feature build + Redis fill measured (`/usr/bin/time -v`),
+      plus `free -h` and `docker stats`, written down
+
+*The catalog and the warehouse*
+- [ ] PyIceberg **SQL catalog in its own database** (`lakehouse`, own DB user) inside the
+      existing MLflow Postgres — not SQLite, which PyIceberg calls development-only
+- [ ] Warehouse on local disk under `/srv/graphguard/lakehouse/` (gitignored); disk use
+      measured against the 25GB budget
+- [ ] Tables are **Iceberg format v2**, set explicitly (v3 support is uneven in Polars
+      and PyIceberg)
+- [ ] Namespaces `bronze`, `silver`, `gold`, and `sealed`
+
+*The tables*
+- [ ] `bronze.transactions_raw` — the CSV, typed, nothing else changed
+- [ ] `silver.transactions` — cleaned, typed, partitioned by day, artifacts excluded the
+      same way FINDING-006 does
+- [ ] `gold.account_features_asof` — each account's profile **as of** a time, from the
+      **same feature code training uses**
+- [ ] `gold.labels` — the label plus the time it became known (for Phase 6's label delay)
+- [ ] **Test-window rows go only to `sealed`**, which training code never reads;
+      `test_set_touch_check` still counts zero unapproved loads
+
+*Correctness — the leakage contract on the new path*
+- [ ] **Given** the same transactions, **when** features come from `gold`, **then** they
+      equal the features from today's path (parity test)
+- [ ] **Given** a transaction at time T, **when** its account features are joined,
+      **then** only events strictly before T are used — a unit test for the
+      exact-same-timestamp edge
+- [ ] **Given** the same bronze snapshot, **when** silver and gold are rebuilt twice,
+      **then** the contents are identical (determinism)
+- [ ] One **Pandera schema per layer**, asserted as tests, not only applied at runtime
+- [ ] All three leakage guards pass
+
+*Versioning and traceability*
+- [ ] **Time travel**: write, append, read the old snapshot id → the old rows
+- [ ] Every training run logs to MLflow: table names, **Iceberg snapshot ids**, the
+      frozen-split sha256 and the git sha
+- [ ] `expire_snapshots` keeps the last N snapshots; N written down
+
+*Redis, rebuilt from gold*
+- [ ] **Train and load are separate**: a new `just store-load` fills Redis from
+      `gold.account_features_asof` **without retraining**
+- [ ] After a reload: key count equals before (512,707), and 2,000 real validation
+      requests return **the same scores** as before the change
+- [ ] The reload is timed and the time written into the runbook
+
+*Everywhere*
+- [ ] Peak RAM of the new jobs measured; nothing new runs all the time
+- [ ] `just check` green; committed; pushed; remotes match; LuBot untouched (no new
+      containers in this story)
+
+**Definition of Done:** every box ticked, nothing weakened; the scorer gives identical
+scores from the rebuilt store; rolls up to the Phase 5 gate without degrading it.
+
+**Tasks**
+1. L0 baseline measurements
+2. Add `pyiceberg` (and its SQL extra) to the project via `uv` — project-only, the
+   lockfile updated, nothing installed box-wide
+3. Create the `lakehouse` database and user in the existing Postgres; credentials in
+   `.secrets/`
+4. Tests first: parity, strict-before as-of edge, determinism, time travel, Pandera per
+   layer, the sealed-namespace rule
+5. Write bronze → silver → gold with Polars, through PyIceberg
+6. Split `build_artifacts` into train and `store-load`; load Redis from gold; compare
+   key count and 2,000 scores
+7. Log snapshot ids to MLflow; add `expire_snapshots`
+8. Measure RAM and disk; update the runbook; commit; push
+
+**Estimate:** 8 story points, 2-3 sessions. The biggest of Phase 5, because it changes
+how data flows.
+
+**Dependencies:** S5.3 ✅. The existing Postgres. Nothing outside GraphGuard; no new
+container.
+
+**Out of scope:** S3 and DuckDB (S5.6b), Lakekeeper (S5.6c), permissions (S5.6d), Feast
+(S5.6e), Redis persistence settings (S5.8a), retraining the production model.
+
+**Risks**
+- *Polars 1.43.2's Iceberg writer is marked unstable* → write through PyIceberg with
+  Arrow tables, which is the stable path; do not upgrade Polars inside this story
+  (that is its own step, behind the determinism test)
+- *Features from the new path differ slightly* → the parity test catches it before the
+  scorer ever sees it; differences get investigated, never tolerated
+- *The catalog lives in MLflow's Postgres* → one database to back up (S5.8c), and a
+  separate DB user so neither can touch the other's tables
+- *Disk*: compressed Parquet for 5M rows is expected in the low hundreds of MB, measured
+  in task 8
+- *Upsert memory*: PyIceberg upserts used ~80GB for 34M rows in one report → tables are
+  append-only by design; late labels wait for DuckDB MERGE in S5.6c
+
+### S5.6b — Warehouse on our own S3; DuckDB *(short until its turn)*
+Move the warehouse to our own S3 bucket (own IAM user, Lubo signs off). Add DuckDB 2.0
+for SQL, with an as-of parity check against Polars. Same results from S3 as from disk.
+
+### S5.6c — Lakekeeper REST catalog *(short until its turn)*
+Lakekeeper as the catalog, capped, internal only; existing tables registered. Late labels
+updated with DuckDB `MERGE INTO`. Stays only if its measured RAM fits; otherwise the SQL
+catalog remains.
+
+### S5.6d — Governance *(short until its turn)*
+Grants and vended credentials. The sealed test set becomes a **permission denial with a
+negative test**: the training identity cannot read `sealed`.
+
+### S5.6e — Feast, lineage, worksheets *(short until its turn)*
+Feast (library) over Iceberg → Redis, asserted equal to the Polars output (ADR 0002 on
+Feast). OpenLineage audit records. marimo worksheets, started only when needed.
 
 ## S5.7 — The running model is traceable to one artifact
 
@@ -378,7 +498,11 @@ expose the box.
 
 ## Order
 
-S5.1 → S5.2 → S5.3 → **S5.8a → S5.8b → S5.8c → S5.8d** → S5.4 → S5.5 → S5.6 → S5.7
+S5.1 → S5.2 → S5.3 → **S5.6a** → S5.6b-e → S5.8a-d → S5.4 → S5.5 → S5.7
+
+Lakehouse before lockdown (Lubo, 2026-11-18): build the Redis reload once, the right
+way, then harden. The box stays as it is meanwhile — internet blocked by Hetzner, Ray
+dashboard locked (S5.3).
 
 S5.1-S5.2 first because nothing can be measured on a dead pod. S5.3 before S5.4 because
 if Ray goes, the latency must be measured on what replaces it. S5.7 last because it
