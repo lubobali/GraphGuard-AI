@@ -54,12 +54,16 @@ collection, **so that** a disk-full day does not take the endpoint down for week
 unnoticed.
 
 Acceptance criteria:
-- [ ] The imported image is pinned (verified label for this k3s version, not assumed)
+- [x] The imported image is pinned (verified label for this k3s version, not assumed) —
+      `io.cri-containerd.pinned=pinned`, CRI reports `"pinned": true` (k3s v1.36.3,
+      containerd v2.3.2)
 - [ ] `just image-build` pins on every import, so the fix survives the next version
 - [ ] A check (`just k8s-status` or similar) says loudly when the pod is not Ready —
       18 days of ImagePullBackOff must not be possible to miss again
-- [ ] Old unused images (`serving:0.1.0`, `0.1.1`) removed from Docker, disk recorded
-      before and after
+- [x] Old unused images (`serving:0.1.0`, `0.1.1`) removed from Docker, disk recorded
+      before and after — removed 2026-11-18 in a box-wide cleanup run by the LuBot
+      session (disk 77% → 58%, 51GB → 92GB free); GraphGuard re-verified after: pod,
+      RayService, pin, Redis (512,707 keys), MLflow UI and a scoring request all intact
 
 Rolls up to: "a live endpoint on k3s" — one that stays live.
 
