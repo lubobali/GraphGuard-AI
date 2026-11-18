@@ -112,3 +112,13 @@ the file's permissions and that the key works — without ever printing it.
 **If a key ever leaks:** IAM → the user → Security credentials → **Deactivate** the key,
 create a new one, update `.secrets/aws.env`. The damage is limited to the `lakehouse/`
 prefix, and versioning keeps 7 days of old copies.
+
+---
+
+**Status 2026-11-18:** done. Bucket, lifecycle rule, policy and user created by Lubo; the
+5 live least-privilege tests pass. One deviation: the `!` prompt cannot run an
+interactive editor, so the key was pasted into the Claude chat and written to
+`.secrets/aws.env` from there (Lubo's decision — a portfolio project, key limited to one
+prefix). It is in no code, git history or image. **Recommended:** rotate it once —
+create a second access key, put it in `.secrets/aws.env` from your own terminal
+(`nano`), run `just test` (the live tests must pass), then delete the first key in IAM.

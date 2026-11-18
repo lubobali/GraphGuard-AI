@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3 and S5.6a done; S5.6b next.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3, S5.6a and S5.6b done; S5.6c next.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -367,7 +367,7 @@ container.
 - *Upsert memory*: PyIceberg upserts used ~80GB for 34M rows in one report → tables are
   append-only by design; late labels wait for DuckDB MERGE in S5.6c
 
-### S5.6b — The warehouse on our own S3, and DuckDB for SQL
+### S5.6b — The warehouse on our own S3, and DuckDB for SQL ✅ done 2026-11-18
 
 **User story**
 **As an** ML engineer, **I want** the lakehouse's files in GraphGuard's own S3 bucket
@@ -383,43 +383,52 @@ us-east-1 answers in **3.7 ms** to connect, 24 ms to first byte — same region.
 **Acceptance criteria**
 
 *AWS — created by Lubo from a checklist (the one step that is his)*
-- [ ] A **new** bucket for GraphGuard only, us-east-1, Block Public Access on,
+- [x] A **new** bucket for GraphGuard only, us-east-1, Block Public Access on,
       versioning on, default encryption on. Nothing belonging to `aws-job-streamer`
-      is read, reused or edited
-- [ ] A **new** IAM user `graphguard-lakehouse` whose policy allows only
+      is read, reused or edited — `graphguard-lakehouse-0dcd18`, global namespace, private,
+      versioned, SSE-S3, Object Lock off; lifecycle: noncurrent versions deleted after 7
+      days, delete markers cleaned, incomplete uploads aborted after 1 day
+- [x] A **new** IAM user `graphguard-lakehouse` whose policy allows only
       `s3:ListBucket` on that bucket and `s3:GetObject/PutObject/DeleteObject` on its
-      `lakehouse/` prefix — nothing else in the account
-- [ ] Its keys are put into `.secrets/aws.env` (600, gitignored) **by Lubo**; they are
-      never pasted into chat, code, git or the image
+      `lakehouse/` prefix — nothing else in the account — policy `graphguard-lakehouse-s3`,
+      no console access, no other policy attached
+- [x] Its keys are put into `.secrets/aws.env` (600, gitignored) **by Lubo**; they are
+      never pasted into chat, code, git or the image — *deviation, Lubo's call*: the `!`
+      prompt cannot run an editor, so Lubo pasted the key in chat and Claude wrote the
+      file. It is in no code, git or image; rotating it is recommended (runbook)
 
 *Least privilege, proven — not assumed*
-- [ ] **Given** the lakehouse keys, **when** they write under `lakehouse/`, **then** it
+- [x] **Given** the lakehouse keys, **when** they write under `lakehouse/`, **then** it
       works; **when** they write outside it, list another bucket, or touch IAM, **then**
-      AWS answers AccessDenied — a test that expects the denial
+      AWS answers AccessDenied — a test that expects the denial — 5/5 live tests pass
+      against real AWS: lakehouse/ read-write-delete allowed; writing elsewhere, listing
+      the bucket root, ListBuckets and IAM all denied
 
 *The warehouse moves*
-- [~] The catalog's warehouse points at `s3://<bucket>/lakehouse/`; the local path stays
+- [x] The catalog's warehouse points at `s3://<bucket>/lakehouse/`; the local path stays
       available for tests and as a fallback — *code done*: S3 automatically once
       `.secrets/aws.env` is filled, local until then; `GRAPHGUARD_LAKEHOUSE_WAREHOUSE`
       forces either. Every lakehouse test runs on local disk **and** a fake S3 (moto)
-- [ ] `just lakehouse-build` writes all tables to S3; Iceberg metadata, Parquet files
+- [x] `just lakehouse-build` writes all tables to S3; Iceberg metadata, Parquet files
       and orphan cleanup all work against S3 (cleanup re-implemented for S3: list
       the prefix, delete what no snapshot references) — *proven on fake S3*; real bucket
-      waits for AWS
-- [ ] **Given** the same CSV, **when** built to S3 and to local disk, **then** every
-      table's contents are identical (row hashes)
-- [ ] `just store-load` from the S3 gold gives the same 512,705 accounts and the same
-      2,000 scores as today (max difference 0.0)
-- [ ] Time travel works on S3: an older snapshot reads back the older rows
-- [ ] Local warehouse files deleted only **after** the S3 copy is verified; disk freed
-      recorded
+      waits for AWS — real: 35 s (9 s locally; the difference is upload), peak 1.26 GB,
+      124 objects / 0.83 GB on S3
+- [x] **Given** the same CSV, **when** built to S3 and to local disk, **then** every
+      table's contents are identical (row hashes) — all four tables identical
+- [x] `just store-load` from the S3 gold gives the same 512,705 accounts and the same
+      2,000 scores as today (max difference 0.0) — 512,705 accounts in 13.3 s, peak 0.57
+      GB; 2,000 / 2,000 identical to the original baseline
+- [x] Time travel works on S3: an older snapshot reads back the older rows
+- [x] Local warehouse files deleted only **after** the S3 copy is verified; disk freed
+      recorded — 1.2 GB freed after all checks; Redis then reloaded purely from S3
 
 *DuckDB for SQL*
 - [x] DuckDB added to the `lakehouse` extra (project-only), with `memory_limit` set
       (512 MB) and a spill directory — DuckDB **2.0.0** (settles the research's version
       conflict); Iceberg + httpfs extensions pre-fetched by bootstrap into `.tools/`
-- [~] SQL reads the S3 Iceberg tables: row counts per layer match PyIceberg's — on local
-      and fake S3 ✅; real S3 waits for AWS
+- [x] SQL reads the S3 Iceberg tables: row counts per layer match PyIceberg's — on local
+      and fake S3 ✅; real S3 ✅ — all four tables in 1.7 s
 - [x] **As-of parity**: DuckDB `ASOF JOIN` with a **strict `>`** gives the same account
       state at a transaction's time as the Polars path, on a sample — and a unit test
       for the exact-same-timestamp edge — on **all 4,061,486** silver rows, counts exact.
@@ -430,13 +439,15 @@ us-east-1 answers in **3.7 ms** to connect, 24 ms to first byte — same region.
       view exposes it
 
 *Measured*
-- [ ] Build time and peak RAM to S3 vs local; S3 request count and bytes per build;
-      monthly cost estimate written down
+- [x] Build time and peak RAM to S3 vs local; S3 request count and bytes per build;
+      monthly cost estimate written down — storage ~$0.02/month for 0.83 GB at S3
+      Standard list price; a build is ~125 PUTs (well under a cent); old versions
+      expire after 7 days. Far under the $1/month target
 - [x] DuckDB query peak RAM stays under its 512 MB cap — 4M-row history query in 8.9 s,
       process peak 1.13 GB including Python, Polars and the 4M-row result frame
 
 *Everywhere*
-- [ ] `just check` green; CI green (S3 tests skipped in CI by an explicit flag, like
+- [x] `just check` green; CI green (S3 tests skipped in CI by an explicit flag, like
       Redis — CI has no AWS keys); committed; pushed; remotes match; LuBot untouched
 
 **Definition of Done:** every box ticked; the scorer gives identical scores from the

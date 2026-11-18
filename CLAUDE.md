@@ -165,16 +165,18 @@ Lakekeeper REST catalog, governance, Feast).
 | `gold.labels` | labels + `label_known_at` (null until Phase 6's label-delay policy) |
 
 ```
-just lakehouse-build   # CSV -> Iceberg, ~10s, peak ~1.2GB, keeps last 5 snapshots, cleans orphans
+just lakehouse-build   # CSV -> Iceberg on S3, ~35s, peak ~1.3GB, keeps last 5 snapshots, cleans orphans
 just build-artifacts   # trains from silver, logs snapshot ids + split sha + git sha to MLflow
-just store-load        # Redis from gold, ~15s, peak ~0.55GB, in place, no retraining
+just store-load        # Redis from gold on S3, ~13s, peak ~0.6GB, in place, no retraining
 ```
 
-**Storage (S5.6b):** local disk until `.secrets/aws.env` is filled in
-(`docs/runbooks/aws-setup.md` — Lubo's step), then automatically GraphGuard's own S3
-bucket `graphguard-lakehouse-0dcd18`, prefix `lakehouse/`, via an IAM user that can
-touch nothing else (live tests expect AccessDenied outside it). Every lakehouse test
-runs on local disk and on a fake S3 (moto).
+**Storage (S5.6b, live 2026-11-18):** GraphGuard's own S3 bucket
+`graphguard-lakehouse-0dcd18` (us-east-1, same AWS account, new bucket), prefix
+`lakehouse/`, through IAM user `graphguard-lakehouse` whose policy reaches nothing
+else — 5 live tests prove the denials. Keys in `.secrets/aws.env`. 0.83 GB, ~$0.02/month;
+old versions expire after 7 days. The local warehouse is gone; force local with
+`GRAPHGUARD_LAKEHOUSE_WAREHOUSE=file:///...` if S3 is ever unreachable. Every lakehouse
+test also runs on a fake S3 (moto). Setup steps: `docs/runbooks/aws-setup.md`.
 
 **SQL:** `just sql "select ..."` — DuckDB 2.0, views `bronze_transactions_raw`,
 `silver_transactions`, `gold_account_features_asof`, `gold_labels` (never `sealed`),
