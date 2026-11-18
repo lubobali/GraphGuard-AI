@@ -238,8 +238,22 @@ truth.
 **Acceptance criteria**
 
 *L0 — baseline, before anything changes*
-- [ ] Peak memory of today's feature build + Redis fill measured (`/usr/bin/time -v`),
-      plus `free -h` and `docker stats`, written down
+- [x] Peak memory of today's feature build + Redis fill measured (`/usr/bin/time -v`),
+      plus `free -h` and `docker stats`, written down — 2026-11-18:
+      - Account-state build (Polars, no write): **2.8s, peak RSS 1.42 GB**, 512,705
+        accounts. A job-time peak above the ~1 GB spare, so it must not overlap with
+        Ray at peak plus a busy MLflow
+      - Redis: `used_memory` 159 MB of `maxmemory` 200 MB (**80%**, noeviction — a fill
+        that grows it ~25% would start failing writes); RSS 41 MB with fragmentation
+        ratio 0.26, i.e. **most of Redis's memory is in swap** on this swap-full box
+      - Redis holds **512,708 keys, not 512,705**: three `test:acct:*` keys left by the
+        integration tests, which run against the **live** Redis (db 0, namespace
+        `test`). Docker: Redis 45 MiB, MLflow 99 MiB, MLflow DB 23 MiB. Disk 92 GB free
+- [ ] Integration tests use their **own Redis database** (not db 0), clean up after
+      themselves, and **fail rather than silently skip** when Redis is unreachable or
+      needs a password (`_redis_available()` skips today — with S5.8a's password it
+      would quietly stop testing Redis at all)
+- [ ] Key-count checks count `gg:acct:*` only
 
 *The catalog and the warehouse*
 - [ ] PyIceberg **SQL catalog in its own database** (`lakehouse`, own DB user) inside the
