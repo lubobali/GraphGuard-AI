@@ -111,6 +111,15 @@ measure-staleness:
 build-artifacts:
     {{UV}} run python -m graphguard.serving.build_artifacts
 
+# CSV -> bronze -> silver (+ sealed) -> gold, as new Iceberg snapshots (S5.6a).
+lakehouse-build:
+    {{UV}} run python -m graphguard.lakehouse.build
+
+# Fill Redis from gold.account_features_asof. No retraining. In place: the store
+# is never empty mid-reload.
+store-load:
+    {{UV}} run python -m graphguard.lakehouse.store_load
+
 # End-to-end scoring latency against real Redis and the real model.
 measure-latency:
     {{UV}} run python -m graphguard.serving.measure_latency

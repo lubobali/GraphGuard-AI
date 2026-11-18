@@ -353,3 +353,46 @@ Direction 1 preserves the measured 0.28155. Direction 2 would require retraining
 and re-evaluating, and its ceiling is unknown.
 
 **Reproduce:** `just measure-staleness`.
+
+## FINDING-009 — Bit-identical float features across two engines is not a real target
+
+*Found: 2026-11-18, Phase 5 (S5.6a, the lakehouse). Acts on: every parity check from here on.*
+
+Moving the account features from "computed straight into Redis from the CSV" to
+"written to an Iceberg gold table, then loaded into Redis" was checked account by
+account against the live store. The first comparison found **23,384 of 512,705
+accounts different**. Every count, every timestamp and every date matched
+exactly; only the two money sums differed, and by at most **2.8 × 10⁻¹⁶
+relative** -- the last bit of a 64-bit float.
+
+**Two causes, peeled apart one at a time.**
+
+1. **Row order.** Float addition is not associative, and the CSV is not
+   time-sorted, while the lakehouse stored rows by day. Fixed properly: bronze now
+   keeps each row's position in the source file (`source_row`, which is also the
+   transaction key the dataset never had), and every aggregation reads in that
+   order. With it, the **training and validation feature frames built from silver
+   are bit-identical to the CSV path** -- 3,046,186 and 1,015,300 rows -- and
+   23,384 differing accounts became 62. A unit test reproduces the order effect
+   with values chosen so that `0.1 + 0.7 + 0.2 + 1e16 + 0.3 - 1e16 + 0.6` depends
+   on the order, and fails without the fix.
+2. **Parallel chunking.** The last 62 survive with identical rows in identical
+   order. Polars aggregates in parallel and combines partial sums per chunk; a
+   CSV scan and an Iceberg scan are chunked differently, so a handful of sums
+   round differently. Each path is deterministic run to run; they just do not
+   agree with each other in the last bit. A hypothesis that the pattern join
+   reordered rows was tested and was wrong.
+
+**What decides it is the model, not the bits.** The store was reloaded from gold
+and 2,000 real validation transactions were rescored through the live k3s
+endpoint: **2,000 of 2,000 identical** -- score and both cold flags -- maximum
+difference **0.0**. A 1-ulp difference can only change a tree's output if a value
+sits exactly on a split threshold.
+
+**The rule this leaves.** Parity checks across engines compare integers and
+timestamps exactly and floats to a stated tolerance, and are gated on what the
+model actually outputs. Order is still preserved, because it removed 99.7% of the
+differences for free, and because "same order" is what makes a rebuild from the
+same snapshot reproducible. Within one engine, rebuilds are exact: rebuilding the
+lakehouse from the same CSV gave tables identical to the previous build, read
+back through Iceberg time travel.

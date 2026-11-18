@@ -40,3 +40,6 @@ runner/
 
 # Credentials — never in git
 .secrets/
+
+# Lakehouse warehouse files (Iceberg/Parquet). Rebuilt by `just lakehouse-build`.
+lakehouse/

@@ -17,13 +17,23 @@ account last sent in 1970" are different inputs to the model.
 from __future__ import annotations
 
 import datetime as dt
+import os
 from typing import Protocol
 
 import redis
 
 from graphguard.serving.online_features import AccountState
 
-DEFAULT_URL = "redis://127.0.0.1:6380/0"
+# GraphGuard's own Redis (not LuBot's). db 0 is the live store; tests use their
+# own database number so they can never write into it.
+REDIS_BASE = os.environ.get("GRAPHGUARD_REDIS_BASE", "redis://127.0.0.1:6380")
+
+
+def redis_url(db: int = 0) -> str:
+    return f"{REDIS_BASE}/{db}"
+
+
+DEFAULT_URL = redis_url(0)
 
 # Sentinel for "no timestamp". Redis has no null, and an empty string would be
 # ambiguous with a corrupted write.
@@ -97,6 +107,12 @@ class InMemoryFeatureStore:
     def clear(self) -> None:
         self._data.clear()
 
+    def prune_except(self, keep: set[str]) -> int:
+        gone = [a for a in self._data if a not in keep]
+        for a in gone:
+            del self._data[a]
+        return len(gone)
+
 
 class RedisFeatureStore:
     """Serving. One hash per account, one pipeline per multi-account read."""
@@ -148,3 +164,22 @@ class RedisFeatureStore:
                 self._client.delete(*keys)
             if cursor == 0:
                 break
+
+    def prune_except(self, keep: set[str]) -> int:
+        """Delete accounts in this namespace that are not in `keep`.
+
+        Used after an in-place reload: overwrite every current account first,
+        then remove the ones that no longer exist. The store is never empty
+        during a reload, so no request ever sees every account as cold.
+        """
+        prefix = f"{self._ns}:acct:"
+        removed = 0
+        cursor = 0
+        while True:
+            cursor, keys = self._client.scan(cursor, match=f"{prefix}*", count=5000)
+            stale = [k for k in keys if k[len(prefix) :] not in keep]
+            if stale:
+                removed += self._client.delete(*stale)
+            if cursor == 0:
+                break
+        return removed

@@ -32,6 +32,27 @@ ALLOWLIST: dict[str, str] = {
 }
 
 
+# The lakehouse keeps the test window in the Iceberg namespace "sealed" (S5.6a).
+# Naming that namespace is how code would read it, so outside the files that
+# create and write it, merely naming it counts as touching the test set.
+SEALED_NAMESPACE = "sealed"
+SEALED_ALLOWLIST: dict[str, str] = {
+    "src/graphguard/lakehouse/catalog.py": "creates the namespace",
+    "src/graphguard/lakehouse/tables.py": "writes the test window into it; never reads it",
+}
+
+
+def find_sealed_refs(rel: str, source: str) -> list[str]:
+    """Any string literal naming the sealed namespace ("sealed" or "sealed.x")."""
+    hits: list[str] = []
+    for node in ast.walk(ast.parse(source, filename=rel)):
+        if isinstance(node, ast.Constant) and isinstance(node.value, str):
+            v = node.value
+            if v == SEALED_NAMESPACE or v.startswith(SEALED_NAMESPACE + "."):
+                hits.append(f"{rel}:{node.lineno}: names the sealed (test-window) namespace")
+    return hits
+
+
 def find_test_loads(rel: str, source: str) -> list[str]:
     """Pure check over one file's source. Kept free of I/O so it is testable."""
     hits: list[str] = []
@@ -65,13 +86,16 @@ def main() -> int:
 
     for path in sorted(SRC_DIR.rglob("*.py")):
         rel = path.relative_to(REPO_ROOT).as_posix()
-        hits = find_test_loads(rel, path.read_text())
-        if not hits:
-            continue
-        if rel in ALLOWLIST:
-            allowed_hits += len(hits)
-        else:
-            violations.extend(hits)
+        source = path.read_text()
+        hits = find_test_loads(rel, source)
+        if hits:
+            if rel in ALLOWLIST:
+                allowed_hits += len(hits)
+            else:
+                violations.extend(hits)
+        sealed = find_sealed_refs(rel, source)
+        if sealed and rel not in SEALED_ALLOWLIST:
+            violations.extend(sealed)
 
     if violations:
         print("TEST SET TOUCH CHECK FAILED\n")

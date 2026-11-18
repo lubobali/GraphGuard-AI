@@ -44,6 +44,18 @@ just k8s-check     # must print "healthy", exit 0
 just k8s-smoke     # /health
 ```
 
+If Redis was restarted or emptied (it keeps nothing on disk), refill it from the
+lakehouse — **no retraining**, about 15 s, peak ~0.55 GB, in place so the store is
+never empty mid-reload:
+
+```
+just store-load      # gold.account_features_asof -> Redis, 512,705 accounts
+```
+
+If the lakehouse itself is gone: `just lakehouse-build` (CSV -> Iceberg, ~10 s, peak
+~1.2 GB), then `just store-load`. Do not run either while MLflow is busy with a big
+training run (memory peaks would overlap).
+
 Score one transaction between two **stored** accounts (pick two keys with
 `docker exec graphguard-redis redis-cli --scan --count 100 | head -2`, strip `gg:acct:`).
 Expect `"sender_cold": false`. If every account comes back cold, Redis is not reachable

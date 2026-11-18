@@ -1,6 +1,6 @@
 # Phase 5 — Serving it for real: stories
 
-**Status:** approved by Lubo 2026-11-18. S5.1, S5.2 and S5.3 done; S5.6a next.
+**Status:** approved by Lubo 2026-11-18. S5.1, S5.2, S5.3 and S5.6a done; S5.6b next.
 
 **How stories are expanded:** one at a time, just before work starts on it (Lubo,
 2026-11-18). The next story gets the full treatment — Given/When/Then criteria, Definition
@@ -226,7 +226,7 @@ Maintenance with Dagster is Phase 8 (L6); Spark on the same tables is Phase 10 (
 
 ---
 
-### S5.6a — Iceberg tables on local disk, Redis rebuilt from them
+### S5.6a — Iceberg tables on local disk, Redis rebuilt from them ✅ done 2026-11-18
 
 **User story**
 **As an** ML engineer, **I want** the transactions, features and labels kept in
@@ -249,59 +249,84 @@ truth.
       - Redis holds **512,708 keys, not 512,705**: three `test:acct:*` keys left by the
         integration tests, which run against the **live** Redis (db 0, namespace
         `test`). Docker: Redis 45 MiB, MLflow 99 MiB, MLflow DB 23 MiB. Disk 92 GB free
-- [ ] Integration tests use their **own Redis database** (not db 0), clean up after
+- [x] Integration tests use their **own Redis database** (not db 0), clean up after
       themselves, and **fail rather than silently skip** when Redis is unreachable or
       needs a password (`_redis_available()` skips today — with S5.8a's password it
       would quietly stop testing Redis at all)
-- [ ] Key-count checks count `gg:acct:*` only
+- [x] Key-count checks count `gg:acct:*` only — the 3 stray `test:acct:*` keys removed;
+      live Redis holds exactly 512,705. Tests use db 15 and clean up (db 15 empty after);
+      with no Redis they now **error** (7 errors), and CI skips them only via
+      `GRAPHGUARD_SKIP_REDIS_TESTS=1`, reason printed
 
 *The catalog and the warehouse*
-- [ ] PyIceberg **SQL catalog in its own database** (`lakehouse`, own DB user) inside the
-      existing MLflow Postgres — not SQLite, which PyIceberg calls development-only
-- [ ] Warehouse on local disk under `/srv/graphguard/lakehouse/` (gitignored); disk use
-      measured against the 25GB budget
-- [ ] Tables are **Iceberg format v2**, set explicitly (v3 support is uneven in Polars
+- [x] PyIceberg **SQL catalog in its own database** (`lakehouse`, own DB user) inside the
+      existing MLflow Postgres — not SQLite, which PyIceberg calls development-only. The
+      `lakehouse` user is refused on `mlflow` (no CONNECT); MLflow UI unaffected
+- [x] Warehouse on local disk under `/srv/graphguard/lakehouse/` (gitignored); disk use
+      measured against the 25GB budget — ~250-400 MB per build, last 5 builds kept
+      (~1.2 GB worst case); orphan files cleaned by our own `remove_orphan_files`
+- [x] Tables are **Iceberg format v2**, set explicitly (v3 support is uneven in Polars
       and PyIceberg)
-- [ ] Namespaces `bronze`, `silver`, `gold`, and `sealed`
+- [x] Namespaces `bronze`, `silver`, `gold`, and `sealed`
 
 *The tables*
-- [ ] `bronze.transactions_raw` — the CSV, typed, nothing else changed
-- [ ] `silver.transactions` — cleaned, typed, partitioned by day, artifacts excluded the
-      same way FINDING-006 does
-- [ ] `gold.account_features_asof` — each account's profile **as of** a time, from the
+- [x] `bronze.transactions_raw` — the CSV, typed, nothing else changed — plus
+      `source_row`, each row's position in the file: the transaction key the dataset
+      lacks, and the order float sums depend on (FINDING-009)
+- [x] `silver.transactions` — typed, partitioned by day, the post-Sep-10 tail removed
+      exactly as `truncate_tail` does (FINDING-001). *(Wording fixed: FINDING-006's
+      artifacts are feature columns, excluded at training, not rows)*
+- [x] `gold.account_features_asof` — each account's profile **as of** a time, from the
       **same feature code training uses**
-- [ ] `gold.labels` — the label plus the time it became known (for Phase 6's label delay)
-- [ ] **Test-window rows go only to `sealed`**, which training code never reads;
-      `test_set_touch_check` still counts zero unapproved loads
+- [x] `gold.labels` — the label plus the time it became known (for Phase 6's label delay)
+      — `label_known_at` is explicitly **null** until Phase 6 sets the policy; keyed by
+      `source_row`
+- [x] **Test-window rows go only to `sealed`**, which training code never reads;
+      `test_set_touch_check` still counts zero unapproved loads — and now also fails on
+      any mention of the `sealed` namespace outside `catalog.py`/`tables.py` (proven
+      with a probe file)
 
 *Correctness — the leakage contract on the new path*
-- [ ] **Given** the same transactions, **when** features come from `gold`, **then** they
-      equal the features from today's path (parity test)
-- [ ] **Given** a transaction at time T, **when** its account features are joined,
+- [x] **Given** the same transactions, **when** features come from `gold`, **then** they
+      equal the features from today's path (parity test) — exact in unit tests; on real
+      data the **train and validation feature frames from silver are bit-identical**
+      to the CSV path, and gold matches live Redis exactly on counts and dates, with 62
+      accounts 1 ulp off in a money sum (parallel chunking; FINDING-009)
+- [x] **Given** a transaction at time T, **when** its account features are joined,
       **then** only events strictly before T are used — a unit test for the
       exact-same-timestamp edge
-- [ ] **Given** the same bronze snapshot, **when** silver and gold are rebuilt twice,
-      **then** the contents are identical (determinism)
-- [ ] One **Pandera schema per layer**, asserted as tests, not only applied at runtime
-- [ ] All three leakage guards pass
+- [x] **Given** the same bronze snapshot, **when** silver and gold are rebuilt twice,
+      **then** the contents are identical (determinism) — unit test, and on real data
+      via time travel: each table identical to the previous build's snapshot
+- [x] One **Pandera schema per layer**, asserted as tests, not only applied at runtime
+- [x] All three leakage guards pass
 
 *Versioning and traceability*
-- [ ] **Time travel**: write, append, read the old snapshot id → the old rows
-- [ ] Every training run logs to MLflow: table names, **Iceberg snapshot ids**, the
-      frozen-split sha256 and the git sha
-- [ ] `expire_snapshots` keeps the last N snapshots; N written down
+- [x] **Time travel**: write, append, read the old snapshot id → the old rows
+- [x] Every training run logs to MLflow: table names, **Iceberg snapshot ids**, the
+      frozen-split sha256 and the git sha — `build-artifacts` now trains from silver at
+      a pinned snapshot and logs the lineage; verified on the real catalog (the
+      production model was not retrained — out of scope)
+- [x] `expire_snapshots` keeps the last N snapshots; N written down — N = 5, then
+      orphaned files are deleted
 
 *Redis, rebuilt from gold*
-- [ ] **Train and load are separate**: a new `just store-load` fills Redis from
+- [x] **Train and load are separate**: a new `just store-load` fills Redis from
       `gold.account_features_asof` **without retraining**
-- [ ] After a reload: key count equals before (512,707), and 2,000 real validation
-      requests return **the same scores** as before the change
-- [ ] The reload is timed and the time written into the runbook
+- [x] After a reload: key count equals before (512,705 real accounts; the "512,707" first written here
+      included stray test keys), and 2,000 real validation
+      requests return **the same scores** as before the change — **2,000 / 2,000
+      identical**, score and both cold flags, max difference 0.0
+- [x] The reload is timed and the time written into the runbook — 13.4 s, peak 0.55 GB,
+      in place (overwrite then prune: the store is never empty mid-reload)
 
 *Everywhere*
-- [ ] Peak RAM of the new jobs measured; nothing new runs all the time
-- [ ] `just check` green; committed; pushed; remotes match; LuBot untouched (no new
-      containers in this story)
+- [x] Peak RAM of the new jobs measured; nothing new runs all the time — build first
+      peaked at **3.77 GB**; streaming day files + one-commit `add_files` + staging the
+      CSV brought it to **1.12-1.19 GB** (per step 0.9-1.13 GB), below the old 1.42 GB
+      job. Not to overlap busy MLflow + Ray at peak
+- [x] `just check` green; committed; pushed; remotes match; LuBot untouched (no new
+      containers in this story) — 271 tests
 
 **Definition of Done:** every box ticked, nothing weakened; the scorer gives identical
 scores from the rebuilt store; rolls up to the Phase 5 gate without degrading it.

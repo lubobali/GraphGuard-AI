@@ -39,7 +39,7 @@ export UV_PYTHON_INSTALL_DIR="$TOOLS_DIR/python"
 
 cd "$REPO_ROOT"
 "$BIN_DIR/uv" python install
-"$BIN_DIR/uv" sync --extra dev --extra gnn --locked
+"$BIN_DIR/uv" sync --extra dev --extra gnn --extra lakehouse --locked
 
 # --- just, pinned ----------------------------------------------------------
 # Installed with the project's own uv, into the project's own bin dir.

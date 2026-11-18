@@ -43,3 +43,33 @@ def test_unrelated_call_is_ignored():
 def test_multiple_sites_are_all_reported():
     source = 'load_split("test")\nload_split("test")\n'
     assert len(find_test_loads("src/graphguard/m.py", source)) == 2
+
+
+# --- the lakehouse's sealed namespace (S5.6a) --------------------------------
+# Test-window rows live in the Iceberg namespace "sealed". Naming it is how code
+# reads it, so outside the allowlisted writer, naming it counts as a test load.
+
+from test_set_touch_check import find_sealed_refs  # noqa: E402
+
+
+@pytest.mark.unit
+def test_sealed_table_literal_is_found():
+    hits = find_sealed_refs("src/graphguard/m.py", 'cat.load_table("sealed.transactions")\n')
+    assert len(hits) == 1
+
+
+@pytest.mark.unit
+def test_bare_sealed_namespace_is_found():
+    hits = find_sealed_refs("src/graphguard/m.py", 'NS = "sealed"\n')
+    assert len(hits) == 1
+
+
+@pytest.mark.unit
+def test_other_namespaces_are_ignored():
+    src = 'cat.load_table("silver.transactions")\ncat.load_table("gold.labels")\n'
+    assert find_sealed_refs("src/graphguard/m.py", src) == []
+
+
+@pytest.mark.unit
+def test_words_containing_sealed_are_ignored():
+    assert find_sealed_refs("src/graphguard/m.py", 'msg = "the envelope was unsealed"\n') == []

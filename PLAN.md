@@ -421,7 +421,12 @@ The hard engineering. You cannot walk a graph in 30ms.
   HTTP, 22.08ms in-process. **Still to measure on k3s**
 - ✅ Ray Serve deployed on k3s via KubeRay. **Currently broken**: the image was deleted
   by k3s's image GC during a disk-full period (pod in ImagePullBackOff since ~Oct 30)
-- **Get the k3s endpoint healthy again**, and stop image GC from deleting it again
+- ✅ **Get the k3s endpoint healthy again**, and stop image GC from deleting it again
+  (S5.1-S5.2)
+- ✅ **A small lakehouse, step 1** (S5.6a): Iceberg bronze/silver/gold (+ `sealed` for the
+  test window) on local disk, catalog in our own Postgres; Redis rebuilt from gold
+  without retraining (2,000/2,000 scores identical); every training run logs the
+  snapshot ids it read. FINDING-009. Next steps S5.6b-e
 - **Measure Ray's real memory on k3s** and decide: keep Ray Serve (≥ 2.52, dashboard
   internal only) or replace it with FastAPI on k3s. Record the decision as an ADR (R-2)
 - **Feast decision**: Feast as a library only (≥ 0.68, offline join plus materialise into

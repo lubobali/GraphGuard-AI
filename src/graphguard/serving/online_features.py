@@ -81,11 +81,29 @@ class AccountState:
         )
 
 
-def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict[str, AccountState]:
-    """Materialise every account's state from history strictly before `as_of`.
+# Column order of the state table. Shared by the gold table and the store.
+STATE_COLUMNS: tuple[str, ...] = (
+    "account",
+    "n_sent",
+    "n_received",
+    "amount_sent",
+    "amount_received",
+    "distinct_out",
+    "distinct_in",
+    "sent_last_24h",
+    "last_seen",
+    "last_sent",
+)
 
-    This is the batch job that fills the online store. `as_of` is a hard bound,
-    applied before any aggregation, so a later transfer cannot reach the state.
+
+def account_states_frame(transactions: pl.LazyFrame, as_of: dt.datetime) -> pl.DataFrame:
+    """Every account's state from history strictly before `as_of`, as one table.
+
+    The single definition of an account's state. The online store and the
+    lakehouse's gold table are both filled from this, so they cannot drift.
+    `as_of` is a hard bound applied before any aggregation, so a later transfer
+    -- or one AT `as_of` -- cannot reach the state. Counts are Int64 because
+    Iceberg has no unsigned integers.
     """
     past = transactions.filter(pl.col("timestamp") < as_of)
 
@@ -113,23 +131,25 @@ def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict
         .rename({"to_account": "account"})
     )
 
-    joined = (
+    counts = ("n_sent", "n_received", "distinct_out", "distinct_in", "sent_last_24h")
+    return (
         sent.join(received, on="account", how="full", coalesce=True)
         .with_columns(
-            pl.col("n_sent").fill_null(0),
-            pl.col("n_received").fill_null(0),
+            *(pl.col(c).fill_null(0).cast(pl.Int64) for c in counts),
             pl.col("amount_sent").fill_null(0.0),
             pl.col("amount_received").fill_null(0.0),
-            pl.col("distinct_out").fill_null(0),
-            pl.col("distinct_in").fill_null(0),
-            pl.col("sent_last_24h").fill_null(0),
         )
         .with_columns(
             pl.max_horizontal("last_sent", "last_received").alias("last_seen"),
         )
+        .select(STATE_COLUMNS)
+        .sort("account")
         .collect()
     )
 
+
+def states_from_frame(frame: pl.DataFrame, as_of: dt.datetime) -> dict[str, AccountState]:
+    """Turn a state table back into AccountState objects."""
     return {
         row["account"]: AccountState(
             account=row["account"],
@@ -144,8 +164,17 @@ def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict
             sent_last_24h=int(row["sent_last_24h"]),
             materialised_at=as_of,
         )
-        for row in joined.iter_rows(named=True)
+        for row in frame.iter_rows(named=True)
     }
+
+
+def build_account_states(transactions: pl.LazyFrame, as_of: dt.datetime) -> dict[str, AccountState]:
+    """Materialise every account's state from history strictly before `as_of`.
+
+    This is the batch job that fills the online store. `as_of` is a hard bound,
+    applied before any aggregation, so a later transfer cannot reach the state.
+    """
+    return states_from_frame(account_states_frame(transactions, as_of), as_of)
 
 
 def to_model_row(

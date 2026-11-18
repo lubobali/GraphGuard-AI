@@ -56,4 +56,9 @@ jobs:
         run: ./scripts/bootstrap.sh
 
       - name: Unit tests
+        # CI has no Redis. The Redis-backed store tests are skipped by this
+        # explicit flag, with the reason printed -- never by a silent try/except.
+        # Everywhere else an unreachable Redis fails them (S5.6a).
+        env:
+          GRAPHGUARD_SKIP_REDIS_TESTS: "1"
         run: ./.tools/bin/just test

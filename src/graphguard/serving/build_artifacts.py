@@ -1,9 +1,16 @@
-"""Train the production model, save it, and fill the online store.
+"""Train the production model from the lakehouse and save it.
 
-This is the batch job a deployment runs: produce the artifact the service loads
-and the state it reads. Kept as one script so the two cannot fall out of step --
-a store filled from one feature definition and a model trained on another is the
-skew this project spends most of its guards preventing.
+Since S5.6a this no longer fills the online store. Training and loading are
+separate jobs that share one definition instead of one script:
+
+    just lakehouse-build   # CSV -> bronze -> silver -> gold
+    just build-artifacts   # train from silver; log which snapshots it read
+    just store-load        # fill Redis from gold, no retraining
+
+Skew is still prevented by construction: gold is written by
+`account_states_frame`, the same function the store used to be filled with, and
+the parity tests assert it. What changed is that refilling Redis no longer
+means retraining, and every model now names the exact table snapshots it saw.
 """
 
 from __future__ import annotations
@@ -12,10 +19,11 @@ import time
 from pathlib import Path
 
 from graphguard.analysis.patterns import parse_patterns
-from graphguard.config import PATTERNS_FILE, REPO_ROOT, SEED, TRANSACTIONS_FILE
-from graphguard.data.loader import load_transactions
+from graphguard.config import PATTERNS_FILE, REPO_ROOT, SEED
 from graphguard.evaluation.dataset import attach_pattern_ids, frozen_boundaries
-from graphguard.evaluation.split import truncate_tail
+from graphguard.lakehouse.catalog import open_catalog
+from graphguard.lakehouse.lineage import training_lineage
+from graphguard.lakehouse.tables import SILVER_TX, scan_in_source_order
 from graphguard.models.pipeline import features_for_split
 from graphguard.models.tabular import (
     FEATURE_COLUMNS,
@@ -25,8 +33,7 @@ from graphguard.models.tabular import (
 )
 from graphguard.models.train_tabular import ARTIFACT_FEATURES
 from graphguard.serving.model_bundle import ModelBundle
-from graphguard.serving.online_features import build_account_states
-from graphguard.serving.store import RedisFeatureStore
+from graphguard.tracking import log_run, start_tracking
 
 # Tuned in Phase 3 on validation.
 BEST_PARAMS = {
@@ -45,9 +52,13 @@ def main() -> int:
     t0 = time.time()
     train_end, val_end = frozen_boundaries()
 
-    base = attach_pattern_ids(
-        truncate_tail(load_transactions(TRANSACTIONS_FILE)), parse_patterns(PATTERNS_FILE)
-    )
+    catalog = open_catalog()
+    lineage = training_lineage(catalog)  # recorded BEFORE reading, so it names what is read
+    # Silver holds train + validation with the tail already removed; the test
+    # window is in `sealed`, which training never opens.
+    # In source order, so features match the CSV path bit for bit (S5.6a).
+    silver = scan_in_source_order(catalog, SILVER_TX, lineage[f"snapshot.{SILVER_TX}"])
+    base = attach_pattern_ids(silver, parse_patterns(PATTERNS_FILE))
 
     train_df = features_for_split(base, "train", boundaries=(train_end, val_end))
     keep = tuple(c for c in FEATURE_COLUMNS if c not in ARTIFACT_FEATURES)
@@ -66,14 +77,14 @@ def main() -> int:
     bundle.save(BUNDLE_DIR)
     print(f"bundle saved to {Path(BUNDLE_DIR).relative_to(REPO_ROOT)}")
 
-    # Fill the online store as of the end of training -- the state a service
-    # deployed at that moment would hold.
-    t = time.time()
-    states = build_account_states(base, as_of=train_end)
-    store = RedisFeatureStore()
-    store.clear()
-    store.put_many(list(states.values()))
-    print(f"online store filled: {len(states):,} accounts ({time.time() - t:.0f}s)")
+    _, experiment_id = start_tracking()
+    run_id = log_run(
+        experiment_id,
+        params={**{k: str(v) for k, v in lineage.items()}, "n_train_rows": str(X_train.height)},
+        tags={"job": "build-artifacts", "bundle": str(Path(BUNDLE_DIR).relative_to(REPO_ROOT))},
+    )
+    print(f"lineage logged to MLflow run {run_id}")
+    print("the online store is NOT refilled here: run `just store-load`")
 
     print(f"total {time.time() - t0:.0f}s")
     return 0

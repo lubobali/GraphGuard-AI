@@ -139,10 +139,41 @@ before inspecting anything.
 Ports 5000, 5432 and 5433 were already taken on this host, which is why these
 are 5010 and 5434. **Credentials live in `.secrets/`** - gitignored, `chmod 600`,
 generated locally and never committed. `.secrets/kaggle.json` holds the Kaggle
-token, `.secrets/mlflow.env` the database password.
+token, `.secrets/mlflow.env` the database password, `.secrets/lakehouse.env` the
+lakehouse catalog's own database user.
 
-MLflow idles at ~695MB, so its cap is 1200M rather than the 768M first tried -
-at 768M it sat at 91% of its limit and would have been OOM-killed under load.
+MLflow's cap is 1200M rather than the 768M first tried: in August it idled at
+~695MB, 91% of a 768M limit. Measured 2026-11-18 it idles at ~96MB and reaches
+~700MB when busy, so the cap is about the busy peak, not the idle.
+
+---
+
+## The lakehouse (S5.6a, 2026-11-18)
+
+Iceberg v2 tables, PyIceberg **SQL catalog in its own `lakehouse` database** inside the
+MLflow Postgres (own DB user, no CONNECT on `mlflow`), warehouse on local disk under
+`lakehouse/` (gitignored). No new container. Research and roadmap:
+`docs/research/Open source lakehouse on one box.md`; later steps S5.6b-e (S3 + DuckDB,
+Lakekeeper REST catalog, governance, Feast).
+
+| Table | Holds |
+|---|---|
+| `bronze.transactions_raw` | the CSV, typed, plus `source_row` (the transaction key) |
+| `silver.transactions` | train + validation, tail removed, partitioned by day |
+| `sealed.transactions` | the test window — named only in `lakehouse/catalog.py` and `tables.py`; `test_set_touch_check` fails anywhere else |
+| `gold.account_features_asof` | account states as of `train_end`, by the serving definition |
+| `gold.labels` | labels + `label_known_at` (null until Phase 6's label-delay policy) |
+
+```
+just lakehouse-build   # CSV -> Iceberg, ~10s, peak ~1.2GB, keeps last 5 snapshots, cleans orphans
+just build-artifacts   # trains from silver, logs snapshot ids + split sha + git sha to MLflow
+just store-load        # Redis from gold, ~15s, peak ~0.55GB, in place, no retraining
+```
+
+**Do not run lakehouse jobs while MLflow is busy with heavy training** — Ray at peak +
+busy MLflow + a ~1.1GB job would reach the 4GB budget. Aggregations read silver **in
+source order** (`scan_in_source_order`); FINDING-009 explains why and what parity
+across engines can and cannot mean.
 
 ---
 
@@ -304,12 +335,12 @@ and caveats in `docs/model_comparison.md`, recorded as FINDING-007.
 Still open in Phase 4: GNNExplainer, minority-class F1 in `evaluate()`, and the
 Multi-PNA rematch (R-2). SageMaker is cut by R-2; S3 moves to Phase 5.
 
-**Phase 5 status — 2026-11-18.** Built: online store with train/serve parity,
-staleness measured (FINDING-008), bundle, scoring service, Ray Serve (p99 7.71ms over
-HTTP outside k3s), KubeRay deploy. **Broken:** the scorer pod has been in
-ImagePullBackOff since ~Oct 30 — k3s image GC deleted `graphguard/serving:0.1.2`
-during a disk-full period; Docker still has it. Open: re-import and pin the image,
-measure Ray memory and p99 on k3s, Feast decision, cold-path test, S3 model load.
+**Phase 5 status — 2026-11-18.** Stories in `docs/stories/phase-5.md`. Done: S5.1
+(scorer back on k3s after 18 days of ImagePullBackOff), S5.2 (image pinned,
+`just k8s-check`, runbook), S5.3 (Ray kept and right-sized, dashboard locked by
+NetworkPolicy, ADR 0001; p99 7.6ms on k3s), S5.6a (the lakehouse; Redis now rebuilt
+from gold, 2,000/2,000 scores identical). Next: S5.6b-e, then the S5.8 lockdown, S5.4,
+S5.5, S5.7.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models
