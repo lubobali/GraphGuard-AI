@@ -1,0 +1,22 @@
+# GraphGuard backup (S5b.3). Installed by `just backup-install`; source of truth is this file.
+[Unit]
+Description=GraphGuard backup (restic, Object-Lock bucket)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/graphguard
+Environment=UV_CACHE_DIR=/srv/graphguard/.tools/uv-cache-backup
+ExecStart=/srv/graphguard/.tools/bin/uv run --no-sync python -m graphguard.ops.backup backup
+TimeoutStartSec=30min
+# Low priority and capped: never compete with LuBot or the scorer.
+MemoryMax=512M
+Nice=10
+IOSchedulingClass=idle
+# Read-only everywhere except where it must write.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/srv/graphguard/private/backups /srv/graphguard/.tools/restic-cache /srv/graphguard/.tools/uv-cache-backup

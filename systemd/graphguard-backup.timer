@@ -1,0 +1,11 @@
+# Nightly backup at 03:20 UTC: outside LuBot's night jobs (00:10-00:50 and 04:30 UTC).
+[Unit]
+Description=GraphGuard nightly backup
+
+[Timer]
+OnCalendar=*-*-* 03:20:00 UTC
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

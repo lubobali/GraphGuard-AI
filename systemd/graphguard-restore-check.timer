@@ -1,0 +1,11 @@
+# Weekly restore drill, Sundays 05:10 UTC: after the night's backup, outside LuBot's
+# night jobs (00:10-00:50 and 04:30 UTC).
+[Unit]
+Description=GraphGuard weekly restore drill
+
+[Timer]
+OnCalendar=Sun *-*-* 05:10:00 UTC
+Persistent=true
+
+[Install]
+WantedBy=timers.target

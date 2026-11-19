@@ -99,6 +99,22 @@ if [ "$("$BIN_DIR/betterleaks" version 2>/dev/null | tr -d v)" != "$BETTERLEAKS_
   rm -f "$TOOLS_DIR/betterleaks.tar.gz"
 fi
 
+# restic, for GraphGuard's own backups (S5b.3). The system /usr/bin/restic is not ours.
+RESTIC_VERSION="0.19.1"   # 2026-07-05
+RESTIC_SHA256="f415415624dcc452f2a02b8c33641791a8c6d6d3b65bbb3543fcf9a25151585c"
+if [ "$("$BIN_DIR/restic" version 2>/dev/null | awk '{print $2}')" != "$RESTIC_VERSION" ]; then
+  echo "installing restic $RESTIC_VERSION into .tools/bin"
+  verified_download \
+    "https://github.com/restic/restic/releases/download/v$RESTIC_VERSION/restic_${RESTIC_VERSION}_linux_amd64.bz2" \
+    "$RESTIC_SHA256" "$TOOLS_DIR/restic.bz2"
+  # Python's bz2, not bunzip2: the CI job image does not ship bzip2.
+  "$BIN_DIR/uv" run --no-project python -c \
+    "import bz2,shutil,sys; shutil.copyfileobj(bz2.open(sys.argv[1]), open(sys.argv[2],'wb'))" \
+    "$TOOLS_DIR/restic.bz2" "$BIN_DIR/restic"
+  chmod 755 "$BIN_DIR/restic"
+  rm -f "$TOOLS_DIR/restic.bz2"
+fi
+
 if ! "$BIN_DIR/osv-scanner" --version 2>/dev/null | grep -q "$OSV_SCANNER_VERSION"; then
   echo "installing osv-scanner $OSV_SCANNER_VERSION into .tools/bin"
   verified_download \
@@ -114,4 +130,5 @@ echo "  just:   $("$BIN_DIR/just" --version)"
 echo "  prek:   $("$BIN_DIR/prek" --version)"
 echo "  betterleaks: $("$BIN_DIR/betterleaks" version 2>/dev/null)"
 echo "  osv-scanner: $("$BIN_DIR/osv-scanner" --version 2>/dev/null | head -1)"
+echo "  restic: $("$BIN_DIR/restic" version 2>/dev/null | awk '{print $2}')"
 echo "  python: $("$BIN_DIR/uv" run python -c 'import sys; print(sys.version.split()[0])')"

@@ -115,7 +115,7 @@ What it delivered (runbook `docs/runbooks/ci.md`):
 - The **serving image rebuilt** from the current lock on a digest-pinned, patched base
   (0.1.3), rolled out with zero downtime; 2,000/2,000 scores identical
 
-### S5b.3 — Backups off the box, immutable, with a weekly restore drill *(expanded 2026-11-18, awaiting approval)*
+### S5b.3 — Backups off the box, immutable, with a weekly restore drill *(approved 2026-11-19, in progress)*
 
 **As the** owner of a box that was hacked once, **I want** GraphGuard's experiment history,
 catalogs, identities and secrets backed up off the box every night — encrypted, kept

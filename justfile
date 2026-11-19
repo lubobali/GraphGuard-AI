@@ -354,3 +354,22 @@ ci-sandbox:
         for r in toolchain lint format-check guards secrets-history deps-check test; do
           echo "== $r"; ./.tools/bin/just $r
         done'
+
+# --- S5b.3: backups ------------------------------------------------------------
+backup:
+    {{UV}} run python -m graphguard.ops.backup backup
+
+restore-check:
+    {{UV}} run python -m graphguard.ops.backup restore-check
+
+# Exit 1 if the last backup is older than 2 days, the last drill older than 8, or either failed.
+backup-status:
+    {{UV}} run python -m graphguard.ops.backup status
+
+# Install/refresh the two systemd timers from systemd/ (a system-wide install, approved in S5b.3).
+backup-install:
+    mkdir -p {{justfile_directory()}}/.tools/restic-cache {{justfile_directory()}}/.tools/uv-cache-backup {{justfile_directory()}}/private/backups
+    install -m 644 systemd/graphguard-backup.service systemd/graphguard-backup.timer systemd/graphguard-restore-check.service systemd/graphguard-restore-check.timer /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable --now graphguard-backup.timer graphguard-restore-check.timer
+    systemctl list-timers 'graphguard-*' --no-pager
