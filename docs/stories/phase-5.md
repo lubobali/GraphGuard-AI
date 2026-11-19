@@ -263,7 +263,14 @@ result demands it, as its own story; the Kafka consumer itself (Phase 6).
 
 Rolls up to: "p99 measured under budget there".
 
-## S5.5 — A never-seen account gets a defined, tested answer — and a broken store never looks like one *(approved 2026-11-19 "yes approve s5.5 do it on your own"; in progress)*
+## S5.5 — A never-seen account gets a defined, tested answer — and a broken store never looks like one ✅ done 2026-11-19
+
+> **Result (FINDING-014):** new accounts launder at 14-30× the base rate. One side new: the
+> model already ranks them high (`scored`). Both new: score ~0, none reached the queue →
+> `cold_policy = "review: both accounts new"` (Lubo's decision). Redis down → 503
+> "unavailable", empty → 503 "not loaded" (store marker), bad input → 422; drill: healthy
+> again 24 s after a Redis restart + refill. Image 0.1.4 rolled out with 0 errors under
+> load; 2,000/2,000 scores identical.
 
 **As an** investigator, **I want** a transaction from a brand-new account scored in a
 known, documented, *measured* way, and a broken or empty feature store to fail loudly,

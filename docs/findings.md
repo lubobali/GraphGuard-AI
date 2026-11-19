@@ -546,3 +546,37 @@ the busiest minute** of the 18 days.
   The HTTP endpoint stays for interactive use, where 150 tx/s is ample.
 - The options for the HTTP path itself (more CPU, Serve batching, a lean server instead of
   Ray — ADR 0001's decision would be revisited) are a decision for Lubo, not taken here.
+
+## FINDING-014 — New accounts launder at 14-30× the base rate; the model handles one new side, but is blind when both are new
+
+*S5.5, 2026-11-19, validation window only. Raw: `docs/analysis/s5.5-cold-accounts.json`.*
+
+By the serving definition the online store holds account states as of `train_end`; a side
+of a transaction is *cold* when its account has no history before then, and the scorer
+then uses all-zero history features.
+
+| Validation (1,015,300 tx) | Share | Laundering rate | Median score | Their launderers in the top-5,000 queue |
+|---|---|---|---|---|
+| Both sides known | 99.80% | 0.104% | 0.0002 | 23% |
+| Sender new | 0.098% | **1.50%** (14×) | 0.063 | **47%** |
+| Receiver new | 0.092% | **1.39%** (13×) | 0.005 | **38%** |
+| **Both new** | 0.006% (63 tx) | **3.17%** (30×) | **0.0008** | **0%** (0 of 2) |
+
+**What it means.** New accounts are rare but dirty. Where *one* side is new, the zero
+history is itself informative to the model — it scores those transactions far higher than
+warm traffic, and their launderers reach the queue twice as often. Where *both* are new,
+the model has nothing and scores near zero: a transaction between two never-seen accounts
+is treated as clean, and the two launderers among the 63 were both missed. The sample is
+small; the direction is not ambiguous.
+
+**Decision (Lubo, 2026-11-19).** Every response carries `cold_policy`. One side new:
+`scored: sender new` / `scored: receiver new` — the score stands. Both new:
+`review: both accounts new` — Phase 6's rules layer and Phase 7's queue put it in front of
+an investigator whatever the score (~27 a day at validation rates). A model that knows
+"new" as a feature, rather than reading zeros, is a Phase 8 retraining candidate.
+
+**Also fixed here.** An empty store (after a Redis restart, before the refill) used to
+make every account look new — 54 such answers were seen during the S5b.6 rotation. Now
+`store-load` writes a marker last; without it the scorer answers 503 "not loaded", and
+with Redis down 503 "unavailable", never a cold score. Drill: Redis stopped → 503 →
+restarted and refilled → healthy in 24 s; 2,000/2,000 scores identical after.

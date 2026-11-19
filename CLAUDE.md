@@ -359,6 +359,12 @@ install, 13 networks unchanged, Docker's 94 iptables rules intact, lubot.ai and
 git.lubot.ai still answering. iptables grew from 188 to 320 rules, all of it k3s's own
 `KUBE-*` chains.
 
+**The scorer's answers (S5.5, image 0.1.4).** 200 with a score and `cold_policy`
+(`warm` / `scored: sender new` / `scored: receiver new` / `review: both accounts new` —
+FINDING-014); **422** for missing or malformed input; **503** when Redis is down
+("unavailable") or has no store marker ("not loaded") — `/health` too. After any Redis
+restart the scorer stays 503 until `just store-load` (which writes the marker last).
+
 **The scorer pod is restricted (S5b.1).** Namespace `graphguard` enforces Pod Security
 `restricted` (`k8s/namespace.yaml`): non-root uid 10001, read-only root with `/tmp` as
 an `emptyDir`, no capabilities, seccomp, no service-account token. Egress is denied
@@ -450,7 +456,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 2 | Evaluation harness + frozen split + dumb baselines | **done** (2026-08-19) |
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
-| 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.6a-e done; S5.4, S5.5, S5.7 after Phase 5b |
+| 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.4-S5.6 done; S5.7 next |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |

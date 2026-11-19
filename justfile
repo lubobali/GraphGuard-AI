@@ -19,7 +19,7 @@ export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
 # -n 3 1,715 MB / 29 s, -n 2 1,195 MB / 34 s.
 XDIST := "-n 2 --dist=loadgroup"
 
-IMAGE_TAG := "0.1.3"
+IMAGE_TAG := "0.1.4"
 
 default:
     @just --list
