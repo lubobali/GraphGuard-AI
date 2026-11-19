@@ -88,6 +88,8 @@ bucket only. Everything lives in `/srv/graphguard`.
 full.
 
 **Ask before:** installing anything system-wide, or starting any container.
+**Box-wide changes** (Docker, nginx, firewall, reboots) go to the LuBot session first (agreed
+2026-11-19). When it reports its services re-bound, run `just edge-baseline`.
 
 Budget: ~4GB RAM, ~25GB disk. Box has 8 cores, ~19GB RAM available, ~96GB disk free.
 Keep it that way.
@@ -445,7 +447,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.6a-e done; S5.4, S5.5, S5.7 after Phase 5b |
-| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) waits for a window with the LuBot session |
+| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |

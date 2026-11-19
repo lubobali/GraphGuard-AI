@@ -51,7 +51,7 @@ from the internet but with work to do inside, for GraphGuard and for the box
 | S5b.2 | Supply chain: CI runner, pinned actions, secret scanning | only GraphGuard | low |
 | S5b.3 | Backups: MLflow off the box, with a tested restore | GraphGuard + a new S3 bucket | low, needs Lubo |
 | S5b.4 | k3s off the internet (no restart) + a front-door watchdog | GraphGuard + one INPUT jump | low |
-| S5b.4b | The full host firewall for the box | box-wide | **high**, with the LuBot session |
+| S5b.4b | ~~The full host firewall for the box~~ cancelled — binding + watchdog instead | — | — |
 | S5b.5 | One Unix user (or container) per job | GraphGuard | medium |
 | S5b.6 | Keys and secrets: rotation, the retired AWS key | GraphGuard + AWS | low, needs Lubo |
 | S5b.7 | MLflow server 2 → 3 (one major, matched client), after S5b.3's backups | GraphGuard | medium |
@@ -157,13 +157,13 @@ What it delivered (runbook `docs/runbooks/edge.md`):
   listener on purpose: both caught
 - The cloud firewall was confirmed to cover IPv6 as well as IPv4
 
-### S5b.4b — The box's full host firewall *(later, with the LuBot session)*
-A default-deny host firewall for the whole box, written with the LuBot session, applied in
-a planned window with an automatic undo, every app verified. Builds on S5b.4's chain,
-removal path and watchdog.
-
----
-
+### S5b.4b — The box's full host firewall — **cancelled 2026-11-19**
+Decided together with the LuBot session: a second, box-wide firewall would add real risk
+(Docker and k3s both manage the same rule tables) for almost no protection beyond what is
+already in place — the cloud firewall at the edge, GraphGuard's own drop rules for k3s
+(S5b.4), and the daily watchdog that fails if the cloud firewall changes or a new port
+listens publicly. Instead, each project binds its own services to localhost or the
+private network; the watchdog's baseline is re-recorded when that is done.
 
 ### S5b.5 — One user per job ✅ done 2026-11-19
 **As a** model-risk reviewer, **I want** each lakehouse job to run as its own unprivileged
