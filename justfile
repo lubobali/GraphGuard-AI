@@ -19,7 +19,7 @@ export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
 # -n 3 1,715 MB / 29 s, -n 2 1,195 MB / 34 s.
 XDIST := "-n 2 --dist=loadgroup"
 
-IMAGE_TAG := "0.1.4"
+IMAGE_TAG := "0.1.5"
 
 default:
     @just --list
@@ -351,7 +351,7 @@ ci-sandbox:
         set -e
         bash scripts/ci/isolation-probe.sh
         ./scripts/bootstrap.sh > /tmp/boot.log 2>&1 || { tail -20 /tmp/boot.log; exit 1; }
-        for r in toolchain lint format-check guards secrets-history deps-check test; do
+        for r in toolchain lint format-check guards secrets-history deps-check test startup-check; do
           echo "== $r"; ./.tools/bin/just $r
         done'
 
@@ -406,6 +406,23 @@ rotate-openfga:
 # Two short Redis restarts + refills; the scorer rolls with zero downtime in between.
 rotate-redis:
     {{UV}} run python -m graphguard.ops.rotate redis
+
+# --- S5.7: the model on S3 ------------------------------------------------------
+# CI's startup stage: import the app, load the model through the S3 path, score once.
+startup-check:
+    {{UV}} run --no-sync pytest -q -n 0 -p no:cacheprovider tests/serving/test_startup.py
+# Publish models/production as an immutable, content-addressed version; prints the two
+# lines to pin in k8s/rayservice.yaml. Same bytes again = no-op.
+model-publish:
+    {{UV}} run --no-sync python -m graphguard.serving.model_store publish
+
+# The scorer's read-only S3 key as a Kubernetes Secret, piped on stdin (never argv).
+k8s-model-secret:
+    {{UV}} run --no-sync python -m graphguard.serving.model_k8s secret | k3s kubectl apply -f -
+
+# The scorer's egress to S3: regenerate from AWS's published address ranges.
+k8s-s3-egress:
+    {{UV}} run --no-sync python -m graphguard.serving.model_k8s egress
 
 # --- S5b.7: MLflow 3 ------------------------------------------------------------
 # Rehearse an MLflow server upgrade on a restored backup (nothing live touched).

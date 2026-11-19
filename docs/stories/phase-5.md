@@ -1114,7 +1114,16 @@ features from Kafka (Phase 6); Spark (Phase 10); the security lockdown (Phase 5b
 - *marimo exposes a code-running web page* → 127.0.0.1 and a token only; memory-capped;
   runs as `reader`, which cannot see the test window
 
-## S5.7 — The running model is traceable to one artifact *(approved 2026-11-19 "yes approve s5.7 do it on your own"; in progress)*
+## S5.7 — The running model is traceable to one artifact ✅ done 2026-11-19
+
+> **Result:** the scorer (image 0.1.5, no model inside) downloads `xgb-ab9ee07e6bd8` from
+> S3 at startup and verifies it against the hash pinned in `k8s/rayservice.yaml`; `/health`
+> and every score report the version. Versions are immutable (AWS refuses overwrites —
+> twice, by policy and by S3); both keys proven least-privilege on the real bucket; the
+> scorer's egress is S3 only. Rolled out under load with 0 errors, 2,000/2,000 scores
+> identical; a wrong-hash drill: the new scorer refused, the old served 1,071 requests with
+> 0 errors. CI gained the startup stage it was promised (fake S3). Runbook
+> `docs/runbooks/models.md`.
 
 **As a** model-risk reviewer, **I want** the scorer to load its model from S3 at startup
 by an exact version, verify it byte for byte against a checksum pinned in git, refuse to

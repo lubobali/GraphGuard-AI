@@ -63,12 +63,10 @@ RUN ln -s /app/.venv/bin/ray /usr/local/bin/ray \
  && ln -s /app/.venv/bin/python /usr/local/bin/gg-python
 USER serve
 
-# The trained artifact. Baked in for now so the running version is traceable to
-# an image tag; Phase 5's S3 step replaces this with a pull at startup.
-COPY --chown=serve:serve models/production ./models/production
+# No model in the image (S5.7): the scorer downloads it from S3 at startup by the version
+# and hash pinned in k8s/rayservice.yaml, and refuses to start on any mismatch.
 
 ENV PATH="/app/.venv/bin:$PATH" \
-    GRAPHGUARD_BUNDLE=/app/models/production \
     GRAPHGUARD_REDIS_URL=redis://10.42.0.1:6380/0
 
 EXPOSE 8000

@@ -359,7 +359,12 @@ install, 13 networks unchanged, Docker's 94 iptables rules intact, lubot.ai and
 git.lubot.ai still answering. iptables grew from 188 to 320 rules, all of it k3s's own
 `KUBE-*` chains.
 
-**The scorer's answers (S5.5, image 0.1.4).** 200 with a score and `cold_policy`
+**The scorer's model (S5.7, image 0.1.5).** Downloaded from S3 at startup by the version
+and SHA-256 pinned in `k8s/rayservice.yaml`; any mismatch → it refuses to start (the old
+one keeps serving). New model: `just model-publish`, change those two lines, apply.
+Runbook `docs/runbooks/models.md`. The image carries no model.
+
+**The scorer's answers (S5.5).** 200 with a score and `cold_policy`
 (`warm` / `scored: sender new` / `scored: receiver new` / `review: both accounts new` —
 FINDING-014); **422** for missing or malformed input; **503** when Redis is down
 ("unavailable") or has no store marker ("not loaded") — `/health` too. After any Redis
@@ -423,8 +428,9 @@ Stood up in Phase 0, before any modelling code exists.
   LuBot failure mode)
 - CI installs with **uv from the committed lockfile** — same lockfile as the container
 - Unit and integration as separate stages
-- Startup check as its own stage: the serving app must import, **load the model from S3,
-  and answer one scoring request**
+- Startup check as its own stage (`just startup-check`, added in S5.7): the serving app
+  imports, **loads the model through the S3 path** (fake S3 in CI — no cloud key there),
+  verifies it against the pinned hash, and answers one scoring request
 
 **ML-specific, which LuBot does not need:**
 - **Determinism** — same seed + same data = byte-identical model
@@ -456,7 +462,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 2 | Evaluation harness + frozen split + dumb baselines | **done** (2026-08-19) |
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
-| 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.4-S5.6 done; S5.7 next |
+| 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
@@ -508,14 +514,15 @@ and caveats in `docs/model_comparison.md`, recorded as FINDING-007.
 Still open in Phase 4: GNNExplainer, minority-class F1 in `evaluate()`, and the
 Multi-PNA rematch (R-2). SageMaker is cut by R-2; S3 moves to Phase 5.
 
-**Phase 5 status — 2026-11-18.** Stories in `docs/stories/phase-5.md`. Done: S5.1
-(scorer back on k3s after 18 days of ImagePullBackOff), S5.2 (image pinned,
-`just k8s-check`, runbook), S5.3 (Ray kept and right-sized, dashboard locked by
-NetworkPolicy, ADR 0001; p99 7.6ms on k3s), S5.6a (the lakehouse; Redis now rebuilt
-from gold, 2,000/2,000 scores identical), S5.6b (S3 + DuckDB), S5.6c (Lakekeeper),
-S5.6d (Dex logins, OpenFGA grants, vended per-table S3 keys; ADR 0003), S5.6e (own
-feature store kept over Feast by measurement, ADR 0004; OpenLineage; marimo). Next:
-**Phase 5b — box security** (R-3, `docs/stories/phase-5b.md`), then S5.4, S5.5, S5.7.
+**Phase 5 gate — met 2026-11-19.** Stories in `docs/stories/phase-5.md`. A live scorer on
+k3s (Ray Serve, restricted pod), its model pulled from S3 at startup and verified against a
+hash pinned in git (S5.7); p99 measured open loop from inside the cluster — 13-15 ms at the
+stream's rates, 22 ms at 150 tx/s; at 200 tx/s the HTTP path saturates, and ~94% of its
+CPU is Ray Serve, not the model (FINDING-013 — so Phase 6's consumer scores in process);
+new accounts measured and given a rule (both new → review, FINDING-014); a broken or empty
+store answers 503, never a cold score (S5.5); the lakehouse, logins, grants and vended keys
+(S5.6a-e). Phase 5b hardened the box in between (`docs/stories/phase-5b.md`). Next:
+**Phase 6 — the stream**, starting with the scorer alert (PLAN.md).
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models

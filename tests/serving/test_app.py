@@ -52,6 +52,7 @@ def scorer(tmp_path):
     from graphguard.serving.service import ScoringService
 
     instance._bundle = ModelBundle.load(tmp_path / "bundle")
+    instance._model = {"bundle": instance._bundle, "version": "local", "sha256": None}
     store = InMemoryFeatureStore()
     store.set_marker({"accounts": 0})  # a loaded store in which A and B are simply new
     instance._service = ScoringService(bundle=instance._bundle, store=store)

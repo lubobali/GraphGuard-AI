@@ -959,6 +959,7 @@ name = "graphguard"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "boto3" },
     { name = "jinja2" },
     { name = "mlflow-skinny" },
     { name = "numpy" },
@@ -997,6 +998,7 @@ notebooks = [
 
 [package.metadata]
 requires-dist = [
+    { name = "boto3", specifier = ">=1.40" },
     { name = "cryptography", marker = "extra == 'dev'", specifier = ">=42" },
     { name = "duckdb", marker = "extra == 'lakehouse'", specifier = ">=1.4" },
     { name = "jinja2", specifier = ">=3.1" },

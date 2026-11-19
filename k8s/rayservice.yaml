@@ -60,7 +60,7 @@ spec:
                 sizeLimit: 1Gi
           containers:
             - name: ray-head
-              image: graphguard/serving:0.1.4
+              image: graphguard/serving:0.1.5
               imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false
@@ -86,8 +86,24 @@ spec:
                     secretKeyRef:
                       name: graphguard-redis
                       key: url
-                - name: GRAPHGUARD_BUNDLE
-                  value: "/app/models/production"
+                # S5.7: the model, by exact version, verified against this hash at
+                # startup (refuses to start on any mismatch). Change model = change
+                # these two lines (`just model-publish` prints them). Roll back = the
+                # previous two. The image carries no model.
+                - name: GRAPHGUARD_MODEL_VERSION
+                  value: "xgb-ab9ee07e6bd8"
+                - name: GRAPHGUARD_MODEL_SHA256
+                  value: "dbdce0cd8e0ca2b4d1b0d2b5e264398441ce65afcfdd28224e2f34e8ca8dc014"
+                # Read-only key for models/ only, from a Secret: `just k8s-model-secret`.
+                - name: AWS_ACCESS_KEY_ID
+                  valueFrom:
+                    secretKeyRef: {name: graphguard-model, key: AWS_ACCESS_KEY_ID}
+                - name: AWS_SECRET_ACCESS_KEY
+                  valueFrom:
+                    secretKeyRef: {name: graphguard-model, key: AWS_SECRET_ACCESS_KEY}
+                - name: AWS_REGION
+                  valueFrom:
+                    secretKeyRef: {name: graphguard-model, key: AWS_REGION}
               # Sized from measurement, not habit (S5.3, 2026-11-18): 1,920 MiB
               # idle, 1,965 MiB peak over 2,000 requests (cgroup memory.peak).
               # 2.5Gi leaves ~27% headroom; 3Gi was a guess. The request

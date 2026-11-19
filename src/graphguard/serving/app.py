@@ -13,6 +13,7 @@ from __future__ import annotations
 import datetime as dt
 import os
 import time
+from pathlib import Path
 
 import redis
 from ray import serve
@@ -27,6 +28,31 @@ from graphguard.serving.store import STORE_DOWN, RedisFeatureStore
 BUNDLE_DIR = os.environ.get("GRAPHGUARD_BUNDLE", str(REPO_ROOT / "models" / "production"))
 # In the pod the URL (with the scorer's credentials) comes from a Kubernetes Secret.
 REDIS_URL = os.environ.get("GRAPHGUARD_REDIS_URL")
+
+# S5.7: the model comes from S3 by an exact version, verified against a hash pinned in
+# k8s/rayservice.yaml. Without these (tests, a laptop) the local bundle is used.
+MODEL_VERSION = os.environ.get("GRAPHGUARD_MODEL_VERSION")
+MODEL_SHA256 = os.environ.get("GRAPHGUARD_MODEL_SHA256")
+MODEL_DIR = Path(os.environ.get("GRAPHGUARD_MODEL_DIR", "/tmp/model"))
+
+
+def load_model(bundle_dir: str = BUNDLE_DIR, version: str | None = None,
+               manifest_sha256: str | None = None, dest: Path | None = None) -> dict:  # fmt: skip
+    """The bundle this replica will serve, and what it is. From S3 when a version is
+    pinned: downloaded, verified file by file, and refused on any mismatch
+    (`ModelVerificationError` -- the replica never starts, the old one keeps serving)."""
+    version = version if version is not None else MODEL_VERSION
+    manifest_sha256 = manifest_sha256 if manifest_sha256 is not None else MODEL_SHA256
+    if not version:
+        return {"bundle": ModelBundle.load(bundle_dir), "version": "local", "sha256": None}
+    from graphguard.serving import model_store
+
+    if not manifest_sha256:
+        raise model_store.ModelVerificationError("a model version is pinned without its sha256")
+    target = (dest or MODEL_DIR) / version
+    model_store.fetch_verified(model_store.client(), version, manifest_sha256, target)
+    return {"bundle": ModelBundle.load(target), "version": version, "sha256": manifest_sha256}
+
 
 REQUIRED_FIELDS = (
     "from_account",
@@ -50,7 +76,8 @@ class Scorer:
         # Loaded once per replica at startup, not per request. The bundle
         # carries the feature order and encodings, so a replica cannot drift
         # from the model it is serving.
-        self._bundle = ModelBundle.load(bundle_dir)
+        self._model = load_model(bundle_dir)
+        self._bundle = self._model["bundle"]
         self._service = ScoringService(
             bundle=self._bundle, store=RedisFeatureStore(url=redis_url, user="scorer")
         )
@@ -107,12 +134,15 @@ class Scorer:
             "sender_staleness_seconds": response.sender_staleness_seconds,
             "receiver_staleness_seconds": response.receiver_staleness_seconds,
             "model_trained_on": self._bundle.trained_on,
+            "model_version": self._model["version"],
         }
 
     def _health(self) -> JSONResponse:
         why = self._readiness()
         body = {"status": "ok" if why is None else "unavailable",
-                "model_trained_on": self._bundle.trained_on}  # fmt: skip
+                "model_trained_on": self._bundle.trained_on,
+                "model_version": self._model["version"],
+                "model_sha256": self._model["sha256"]}  # fmt: skip
         if why:
             body["reason"] = why
         return JSONResponse(body, status_code=200 if why is None else 503)

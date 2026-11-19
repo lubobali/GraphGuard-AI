@@ -20,6 +20,8 @@ dependencies = [
   # container crash-looped on import. Declared explicitly rather than relying
   # on another package happening to pull it.
   "jinja2>=3.1",
+  # S5.7: the scorer downloads its model from S3 at startup (graphguard.serving.model_store).
+  "boto3>=1.40",
 ]
 
 [project.optional-dependencies]

@@ -80,3 +80,9 @@ jobs:
           GRAPHGUARD_SKIP_REDIS_TESTS: "1"
           GRAPHGUARD_SKIP_LAKEKEEPER_TESTS: "1"
         run: ./.tools/bin/just test
+
+      - name: Startup check (import, model from S3, one score)
+        # The serving app imports, loads its model through the S3 path -- pinned version,
+        # pinned hash, verified -- and answers one request; a wrong hash must stop it.
+        # Fake S3 (moto): CI holds no cloud key. The real bucket is proven on the box.
+        run: ./.tools/bin/just startup-check
