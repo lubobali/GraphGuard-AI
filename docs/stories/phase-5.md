@@ -1114,22 +1114,122 @@ features from Kafka (Phase 6); Spark (Phase 10); the security lockdown (Phase 5b
 - *marimo exposes a code-running web page* → 127.0.0.1 and a token only; memory-capped;
   runs as `reader`, which cannot see the test window
 
-## S5.7 — The running model is traceable to one artifact
+## S5.7 — The running model is traceable to one artifact *(expanded 2026-11-19, awaiting approval)*
 
-**As a** model-risk reviewer, **I want** the service to load its model from S3 at
-startup and report exactly which artifact it runs, **so that** every score can be tied
-to one versioned, checksummed model.
+**As a** model-risk reviewer, **I want** the scorer to load its model from S3 at startup
+by an exact version, verify it byte for byte against a checksum pinned in git, refuse to
+start on any mismatch, and report what it runs, **so that** every score can be tied to one
+immutable, versioned model — and a model change is a reviewed one-line commit, not an
+image rebuild.
 
-Acceptance criteria:
-- [ ] GraphGuard's **own** S3 bucket and IAM user scoped to that bucket only; nothing
-      belonging to `aws-job-streamer` is read or edited (Lubo approves before any AWS
-      resource is created)
-- [ ] At startup the service downloads the model bundle by version, verifies its
-      sha256, and refuses to start on a mismatch
-- [ ] `/health` reports model version and sha256
-- [ ] The CI startup stage imports the app, loads the model from S3, and answers one
-      scoring request
-- [ ] Credentials live outside git (k8s secret / `.secrets/`), never in the image
+### What we know (2026-11-19)
+
+| | |
+|---|---|
+| Today | the bundle (12 MB) is **copied into the scorer image** at build time (`Dockerfile`, `models/production`) |
+| So | a new model means a new image; nothing checks the pod holds the bundle git says; `/health` reports only "trained on <date>" |
+| Storage | GraphGuard's own bucket `graphguard-lakehouse-0dcd18` (versioned); the lakehouse lives under `lakehouse/`, and its orphan cleanup works per table location |
+| Pod egress | denied except DNS, Redis, Ray (S5b.1) — S3 is not reachable yet |
+| Keys | no AWS key is in k3s today |
+
+### Design
+
+- **An immutable, content-addressed bundle in S3:** `models/xgboost/<version>/` with
+  `model.json`, `metadata.json` and a `manifest.json` (sha256 and size of each file,
+  git sha, the training snapshot ids from MLflow). `<version>` = date + the first 12 hex of
+  the manifest's sha256. Published once by `just model-publish` with **S3 conditional
+  writes** (`If-None-Match: *`): a version can never be overwritten — the IAM policy
+  *requires* that header.
+- **Pinned in git:** `k8s/rayservice.yaml` names the version **and** the manifest's
+  sha256. At startup the scorer downloads the version to its `/tmp`, checks the manifest
+  against the pinned hash and every file against the manifest, and **raises if anything
+  differs** — the replica never serves, and the zero-downtime upgrade keeps the old one.
+- **Two narrow keys, typed in by Lubo** (`just secret-set`, never chat): a **publisher**
+  (put new versions under `models/`, conditional only; read; no delete) used on the host,
+  and a **reader** (get `models/*` only) given to the scorer as a Kubernetes Secret.
+  Neither reaches `lakehouse/` or any other bucket.
+- **Egress:** the scorer may reach S3 only — the us-east-1 S3 address ranges from AWS's
+  published `ip-ranges.json`, generated into the NetworkPolicy by a tested script
+  (`just k8s-s3-egress`), not "the whole internet on 443".
+- **The image loses the model:** model-agnostic serving image 0.1.5. A new model = publish
+  + change two lines in the manifest + zero-downtime roll. Rollback = the previous two lines.
+
+### Acceptance criteria
+
+**A. Publish**
+- [ ] `just model-publish` uploads the current production bundle as a new version; a second
+      publish of the same bytes is a no-op (same version); **given** an existing version,
+      **when** anything tries to overwrite it, **then** AWS refuses (live test, both via the
+      missing header and the policy)
+- [ ] The manifest names the git sha and the training snapshot ids (from the MLflow run)
+
+**B. Load and verify**
+- [ ] **Given** the pinned version and hash, the scorer downloads, verifies and serves;
+      `/health` reports `model_version`, `model_sha256`, `trained_on`; every score response
+      carries `model_version`
+- [ ] **Given** a wrong pinned hash, a tampered file, a missing file or S3 unreachable,
+      **then** the scorer refuses to start with a clear error — unit tests with a fake S3
+      (moto), and one live drill: a bad hash in a test roll → the new replica fails, the old
+      keeps serving, 0 errors
+- [ ] The CI startup stage: imports the app, loads the bundle **through the S3 path on a
+      fake S3**, verifies it, answers one scoring request (CI holds no cloud key — the live
+      S3 load is proven on the box)
+
+**C. Least privilege, proven**
+- [ ] Live tests: the reader key cannot list or read `lakehouse/`, cannot write anything;
+      the publisher cannot delete, cannot overwrite, cannot reach `lakehouse/`
+- [ ] The scorer's egress: S3 ranges only (unit test on the generated policy); from the pod,
+      S3 works and an arbitrary internet address times out
+- [ ] No key in the image, the manifest or git: the reader key lives in a Kubernetes Secret
+      (made by `just k8s-model-secret`, piped on stdin), both keys registered in
+      `secrets-status`
+
+**D. Rolled out the safe way**
+- [ ] Serving image 0.1.5 without the model; zero-downtime roll under a load loop (0 errors);
+      **2,000/2,000 scores identical**; `/health` shows the version
+- [ ] Runbook: publish, pin, roll, roll back; CLAUDE.md
+
+### Who
+
+| | Does |
+|---|---|
+| **Lubo** | approves; in the AWS console (copy-paste page, ~10 min): two IAM users with their policies; types both keys with `just secret-set` **in his own terminal** |
+| **GS** | everything else |
+| **LS** | nothing |
+
+### Definition of Done
+
+The scorer runs a model it downloaded from S3 by an exact version and verified against a
+hash pinned in git; it refuses to start on any mismatch (proven); versions are immutable
+(proven); both keys are least-privilege (proven); the image no longer carries a model;
+rolled out with zero errors and identical scores. Phase 5's "model pulled from S3 at
+startup" is met.
+
+### Tasks (in order)
+
+1. Copy-paste AWS page (two users, two policies); Lubo creates them and types the keys
+2. Tests first: manifest, verify (good / tampered / missing / wrong hash), conditional
+   publish (moto)
+3. `model-publish`; S3 loader in the scorer; `/health` and responses report the version
+4. Egress from AWS ranges; the Kubernetes Secret; live least-privilege tests
+5. Image 0.1.5; zero-downtime roll; 2,000-score check; bad-hash drill
+6. Runbook, CLAUDE.md; commit, push, CI
+
+**Estimate:** 5 story points, ~1 session. **Cost:** cents (12 MB per version).
+
+**Dependencies:** S5.5 ✅ (image 0.1.4), S5b.6 ✅ (`secret-set`, the registry). Lubo: approval
++ the console step.
+
+**Out of scope:** an MLflow model registry with aliases (the S3 version + git pin is the
+registry here; MLflow keeps the run that produced each version); automatic promotion
+(Phase 8's champion/challenger); signing bundles with a key (the git-pinned hash already
+ties the bytes to a reviewed commit).
+
+**Risks:** *AWS changes S3's address ranges* → regenerate; a blocked S3 fails startup loudly
+and the old replica keeps serving; *a broken publish* → versions are immutable and
+content-addressed, so a bad one is never silently replaced — publish a new one; *a
+key leaks* → the reader can only read model files; the publisher cannot delete or
+overwrite.
 
 Rolls up to: the plan's "model pulled from S3 at startup" requirement.
 
