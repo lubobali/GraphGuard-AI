@@ -50,7 +50,8 @@ from the internet but with work to do inside, for GraphGuard and for the box
 | **S5b.1** | Harden GraphGuard's own containers and pod | only GraphGuard | low |
 | S5b.2 | Supply chain: CI runner, pinned actions, secret scanning | only GraphGuard | low |
 | S5b.3 | Backups: MLflow off the box, with a tested restore | GraphGuard + a new S3 bucket | low, needs Lubo |
-| S5b.4 | k3s control plane off the public interface; second wall for the box | box-wide | **high**, with the LuBot session |
+| S5b.4 | k3s off the internet (no restart) + a front-door watchdog | GraphGuard + one INPUT jump | low |
+| S5b.4b | The full host firewall for the box | box-wide | **high**, with the LuBot session |
 | S5b.5 | One Unix user (or container) per job | GraphGuard | medium |
 | S5b.6 | Keys and secrets: rotation, the retired AWS key | GraphGuard + AWS | low, needs Lubo |
 | S5b.7 | MLflow server 2 → 3 (one major, matched client), after S5b.3's backups | GraphGuard | medium |
@@ -137,16 +138,24 @@ What it delivered (runbook `docs/runbooks/backups.md`):
   the live tables, which still load from S3
 - The repository password is also kept off the box, by Lubo
 
-### S5b.4 — k3s control plane and the box's second wall *(short until its turn)*
-**As the** owner, **I want** k3s's admin ports reachable from the box only, and a host
-firewall behind the Hetzner one, **so that** one mistake in the Hetzner console does not
-expose the box.
-- Current state (details: private audit, not in this public repo)
-- k3s flags (bind address, kubeconfig mode `600`) — needs a k3s **service restart**,
-  never `k3s-killall.sh`
-- Host firewall: planned with a rollback, applied by ONE session together with the
-  LuBot session, every app verified. Never by surprise
-- LuBot's own findings handed to the LuBot session, which fixes them (details: private audit, not in this public repo)
+### S5b.4 — k3s off the internet, and a watchdog on the front door *(expanded 2026-11-19, awaiting approval)*
+
+**As the** owner of a box whose only wall is one cloud-console setting, **I want** k3s's
+ports closed to the internet on the box itself and a daily check that the cloud firewall
+and the box's public listeners have not changed, **so that** one wrong click neither
+exposes the cluster nor goes unnoticed — **without stopping or restarting any app**.
+
+Covers: a few drop rules in GraphGuard's own chain for k3s's ports on the public interface
+only (no k3s restart; applied with a 5-minute automatic undo; removable in one command);
+a daily read-only watchdog (cloud firewall via a read-only API token, public listeners
+against a private baseline, our rules still present) with `just edge-status` failing
+loudly. Every site and service checked before and after. The full host firewall is
+**S5b.4b**, planned later together with the LuBot session. Details private until done.
+
+### S5b.4b — The box's full host firewall *(later, with the LuBot session)*
+A default-deny host firewall for the whole box, written with the LuBot session, applied in
+a planned window with an automatic undo, every app verified. Builds on S5b.4's chain,
+removal path and watchdog.
 
 ---
 
