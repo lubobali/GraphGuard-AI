@@ -9,7 +9,7 @@ restores the latest snapshot into a throwaway Postgres and proves it.
 | Tool | restic 0.19.1, pinned + checksum-verified in `scripts/bootstrap.sh` (`.tools/bin/restic`) |
 | Code | `src/graphguard/ops/backup.py`; timers in `systemd/` (`just backup-install`) |
 | Bucket | `graphguard-backups-0dcd18` (us-east-1), Object Lock Governance 30 d, versioned, noncurrent versions expire after 31 d |
-| Key | IAM user `graphguard-backup`: read/write objects; **denied** deleting versions, changing retention, or changing the bucket — `.secrets/backup-aws.env` |
+| Key | IAM user `graphguard-backup`, policy `graphguard-backup-s3` (below): write and read current objects, see the lock settings; **denied** deleting or even reading old versions, changing retention, or changing the bucket — `.secrets/backup-aws.env`. Proven live: `tests/ops/test_backup_live.py` (11 tests) |
 | Password | `.secrets/backup-restic-password` (600) **and Lubo's password manager** — without it, nothing can be restored |
 | Kept | every DB in `pg_access.SERVICES` (`pg_dump -Fc`) + roles, MLflow artifacts, row counts, `.secrets/`, `models/production/`, `private/` |
 | Not kept | lakehouse data (S3, versioned), Redis (`just store-load`), raw CSV (Kaggle) |
@@ -30,6 +30,15 @@ Read the error it prints, then the journal. Common: the bucket key changed (upda
 `.secrets/backup-aws.env`), Docker or Postgres down at 03:20 (the next night retries;
 `Persistent=true` catches up after downtime), a stale restic lock after a crash
 (`restic unlock` — only if no backup is running).
+
+## Proving it
+
+```
+uv run pytest -m integration tests/ops/test_backup_live.py   # the key cannot destroy history; lock = Governance 30 d
+```
+
+restic 0.19.1 writes to an Object Lock bucket without extra settings (it sends the
+checksum header AWS requires) — checked in S5b.3 before anything else.
 
 ## Setup (done once, 2026-11-19)
 
@@ -66,3 +75,41 @@ You need: the repository password (Lubo's password manager), the backup key
 5. Online store and scorer: `redis` up, `just store-load`, `just image-build` (or import),
    `just k8s-redis-secret`, `just k8s-deploy`. Check with `just k8s-check` and a score.
 6. `just backup-install` on the new box; `just backup-status` after the first night.
+
+## Policy `graphguard-backup-s3`
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid": "SeeTheBucket", "Effect": "Allow",
+     "Action": ["s3:GetBucketLocation", "s3:ListBucket"],
+     "Resource": "arn:aws:s3:::graphguard-backups-0dcd18"},
+    {"Sid": "SeeTheLockIsOn", "Effect": "Allow",
+     "Action": ["s3:GetBucketObjectLockConfiguration", "s3:GetBucketVersioning",
+                "s3:GetLifecycleConfiguration"],
+     "Resource": "arn:aws:s3:::graphguard-backups-0dcd18"},
+    {"Sid": "SeeEachBackupIsLocked", "Effect": "Allow",
+     "Action": "s3:GetObjectRetention",
+     "Resource": "arn:aws:s3:::graphguard-backups-0dcd18/*"},
+    {"Sid": "WriteAndReadBackups", "Effect": "Allow",
+     "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject",
+                "s3:AbortMultipartUpload", "s3:ListMultipartUploadParts"],
+     "Resource": "arn:aws:s3:::graphguard-backups-0dcd18/*"},
+    {"Sid": "NeverDestroyHistory", "Effect": "Deny",
+     "Action": ["s3:DeleteObjectVersion", "s3:BypassGovernanceRetention",
+                "s3:PutObjectRetention", "s3:PutObjectLegalHold",
+                "s3:PutBucketObjectLockConfiguration", "s3:PutBucketVersioning",
+                "s3:PutLifecycleConfiguration", "s3:PutBucketPolicy",
+                "s3:DeleteBucketPolicy", "s3:DeleteBucket"],
+     "Resource": ["arn:aws:s3:::graphguard-backups-0dcd18",
+                  "arn:aws:s3:::graphguard-backups-0dcd18/*"]}
+  ]
+}
+```
+
+Bucket: created **with Object Lock** (cannot be added later), default retention
+**Governance, Fixed, 30 days** (not "event hold": that never expires), versioning on, all
+public access blocked, SSE-S3. Lifecycle `graphguard-backups-cleanup`: noncurrent versions
+deleted after 31 days, expired delete markers and incomplete uploads after 1 day, **no
+action on current versions**.

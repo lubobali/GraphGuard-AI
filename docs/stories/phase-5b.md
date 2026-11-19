@@ -49,7 +49,7 @@ from the internet but with work to do inside, for GraphGuard and for the box
 |---|---|---|---|
 | **S5b.1** | Harden GraphGuard's own containers and pod | only GraphGuard | low |
 | S5b.2 | Supply chain: CI runner, pinned actions, secret scanning | only GraphGuard | low |
-| S5b.3 | Backups: MLflow off the box, with a tested restore | GraphGuard + a new B2 bucket | low, needs Lubo |
+| S5b.3 | Backups: MLflow off the box, with a tested restore | GraphGuard + a new S3 bucket | low, needs Lubo |
 | S5b.4 | k3s control plane off the public interface; second wall for the box | box-wide | **high**, with the LuBot session |
 | S5b.5 | One Unix user (or container) per job | GraphGuard | medium |
 | S5b.6 | Keys and secrets: rotation, the retired AWS key | GraphGuard + AWS | low, needs Lubo |
@@ -115,7 +115,7 @@ What it delivered (runbook `docs/runbooks/ci.md`):
 - The **serving image rebuilt** from the current lock on a digest-pinned, patched base
   (0.1.3), rolled out with zero downtime; 2,000/2,000 scores identical
 
-### S5b.3 — Backups off the box, immutable, with a weekly restore drill *(approved 2026-11-19, in progress)*
+### S5b.3 — Backups off the box, immutable, with a weekly restore drill ✅ done 2026-11-19
 
 **As the** owner of a box that was hacked once, **I want** GraphGuard's experiment history,
 catalogs, identities and secrets backed up off the box every night — encrypted, kept
@@ -123,11 +123,19 @@ immutable for 30 days, and restored automatically every week to prove it — **s
 dead disk, a bad migration or an attacker with root costs at most a day of work, never the
 project.
 
-Covers: a nightly restic backup to a new Object-Lock bucket through a backup-only key that
-cannot destroy history; a weekly drill that restores into a throwaway Postgres and compares
-row counts with live; `just backup-status` failing loudly when backups stop; a disaster
-rebuild runbook walked once. Needs one AWS console step from Lubo. The full story is
-private until done.
+What it delivered (runbook `docs/runbooks/backups.md`):
+- **Nightly** (03:20 UTC) restic backup of every service database, MLflow artifacts,
+  secrets, the production model and the private records, encrypted on the box, to a new
+  S3 bucket with **Object Lock (Governance, 30 days)**; ~13 MB, 4-5 s; time-based retention
+- A **backup-only key that cannot destroy history** — deleting or reading old versions,
+  shortening or bypassing the lock, changing the bucket: all denied, proven by 11 live tests
+- A **weekly drill** (Sundays) that restores into a throwaway offline Postgres and must
+  find exactly the backed-up row counts, secrets and model byte-equal; `just backup-status`
+  exits 1 when a backup is > 2 days or a drill > 8 days old or failed
+- Both run as **sandboxed, capped systemd timers** outside LuBot's night jobs
+- A **disaster rebuild** written and walked once: the restored catalog points at exactly
+  the live tables, which still load from S3
+- The repository password is also kept off the box, by Lubo
 
 ### S5b.4 — k3s control plane and the box's second wall *(short until its turn)*
 **As the** owner, **I want** k3s's admin ports reachable from the box only, and a host
@@ -152,8 +160,8 @@ goes looking for the builder's secret — the honest limit recorded in ADR 0003.
 ### S5b.6 — Keys and secrets *(short until its turn)*
 **As the** owner, **I want** every key on a rotation runbook and the retired S5.6b AWS
 key re-decided, **so that** no long-lived credential exists that nobody is watching.
-- The S5.6b key (`graphguard-lakehouse`) is active by Lubo's choice (accepted risk,
-  S5.6d): it is the one key that still reaches `sealed` directly on S3
+- The S5.6b key (`graphguard-lakehouse`) is kept by Lubo's choice (accepted risk,
+  S5.6d); its future is decided here (details: private)
 - Dex client secrets, OpenFGA key, DB passwords: rotation steps tested once
 
 ### S5b.7 — MLflow server 2 → 3 *(short until its turn)*

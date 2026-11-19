@@ -264,6 +264,22 @@ across engines can and cannot mean.
 
 ---
 
+## Backups (S5b.3, 2026-11-19)
+
+Nightly 03:20 UTC `graphguard-backup.timer`, Sundays 05:10 UTC
+`graphguard-restore-check.timer` (units in `systemd/`, `just backup-install`). restic
+0.19.1 (bootstrap) → bucket `graphguard-backups-0dcd18`, **Object Lock Governance 30
+days**, key `.secrets/backup-aws.env` (user `graphguard-backup`, cannot delete versions or
+touch the lock — `tests/ops/test_backup_live.py`), repository password
+`.secrets/backup-restic-password` **and in Lubo's password manager**. Code
+`src/graphguard/ops/backup.py`; the DB list comes from `pg_access.SERVICES`, so a new
+service DB is backed up automatically. `just backup | restore-check | backup-status`
+(exit 1 when stale or failed — run it with the other health checks). Disaster rebuild:
+`docs/runbooks/backups.md`. Never switch retention to count-based (`--keep-last`): an
+attacker can push real snapshots out by planting fakes.
+
+---
+
 ## k3s
 
 Installed 2026-08-27 for Phase 5 serving. Single node, named `graphguard`.
@@ -384,7 +400,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.6a-e done; S5.4, S5.5, S5.7 after Phase 5b |
-| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0 done (2026-11-18) |
+| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0-S5b.3 done (2026-11-19) |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
