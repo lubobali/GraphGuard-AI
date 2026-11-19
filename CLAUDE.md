@@ -264,6 +264,17 @@ across engines can and cannot mean.
 
 ---
 
+## The front door (S5b.4, 2026-11-19)
+
+k3s's ports are dropped on `eth0` (v4 + v6) in our own chain `GRAPHGUARD-EDGE`, one jump
+first in `INPUT`, matching the public interface only — `src/graphguard/ops/edge.py`,
+`graphguard-edge.service` (boot). Daily read-only watchdog `graphguard-edge-check.timer`
+(06:00 UTC): cloud firewall via `.secrets/hetzner-readonly.env` (Read-only token), public
+listeners vs `private/edge/baseline.json`, guard present. **`just edge-status`** with the
+other health checks. Remove: `just edge-remove`. A new public listener from another
+project is reported to its session, never changed by us; accept on purpose with
+`just edge-baseline`. Runbook `docs/runbooks/edge.md`.
+
 ## Backups (S5b.3, 2026-11-19)
 
 Nightly 03:20 UTC `graphguard-backup.timer`, Sundays 05:10 UTC
@@ -400,7 +411,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.6a-e done; S5.4, S5.5, S5.7 after Phase 5b |
-| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0-S5b.3 done (2026-11-19) |
+| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0-S5b.4 done (2026-11-19) |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |

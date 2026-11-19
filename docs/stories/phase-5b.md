@@ -138,19 +138,24 @@ What it delivered (runbook `docs/runbooks/backups.md`):
   the live tables, which still load from S3
 - The repository password is also kept off the box, by Lubo
 
-### S5b.4 — k3s off the internet, and a watchdog on the front door *(approved 2026-11-19, in progress)*
+### S5b.4 — k3s off the internet, and a watchdog on the front door ✅ done 2026-11-19
 
 **As the** owner of a box whose only wall is one cloud-console setting, **I want** k3s's
 ports closed to the internet on the box itself and a daily check that the cloud firewall
 and the box's public listeners have not changed, **so that** one wrong click neither
 exposes the cluster nor goes unnoticed — **without stopping or restarting any app**.
 
-Covers: a few drop rules in GraphGuard's own chain for k3s's ports on the public interface
-only (no k3s restart; applied with a 5-minute automatic undo; removable in one command);
-a daily read-only watchdog (cloud firewall via a read-only API token, public listeners
-against a private baseline, our rules still present) with `just edge-status` failing
-loudly. Every site and service checked before and after. The full host firewall is
-**S5b.4b**, planned later together with the LuBot session. Details private until done.
+What it delivered (runbook `docs/runbooks/edge.md`):
+- k3s's ports dropped on the public interface, IPv4 and IPv6, in GraphGuard's own chain —
+  **nothing restarted**; applied with a 5-minute automatic undo; re-applied at boot;
+  self-repairing; removable in one command
+- Before and after identical: every site, every container, the k3s pods, 2,000/2,000
+  scores, MLflow, Lakekeeper, Dex
+- A **daily read-only watchdog** — the cloud firewall (through a token proven unable to
+  write), the box's public listeners against a private baseline, the guard itself;
+  `just edge-status` exits 1 on any drift. Proven by breaking the guard and opening a
+  listener on purpose: both caught
+- The cloud firewall was confirmed to cover IPv6 as well as IPv4
 
 ### S5b.4b — The box's full host firewall *(later, with the LuBot session)*
 A default-deny host firewall for the whole box, written with the LuBot session, applied in
