@@ -31,6 +31,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from graphguard.config import REPO_ROOT
+from graphguard.config import secrets_dir as _secrets_dir
 
 IDENTITIES = ("admin", "builder", "trainer", "reader")
 SECRETS_DIR = REPO_ROOT / ".secrets"
@@ -68,12 +69,12 @@ def _read_env(path: Path) -> dict[str, str]:
     return out
 
 
-def identity_file(name: str, secrets_dir: Path = SECRETS_DIR) -> Path:
+def identity_file(name: str, secrets_dir: Path | None = None) -> Path:
     client_id(name)  # validates the name
-    return secrets_dir / f"identity-{name}.env"
+    return (secrets_dir or _secrets_dir()) / f"identity-{name}.env"
 
 
-def read_identity(name: str, secrets_dir: Path = SECRETS_DIR) -> Identity:
+def read_identity(name: str, secrets_dir: Path | None = None) -> Identity:
     path = identity_file(name, secrets_dir)
     if not path.exists():
         raise FileNotFoundError(f"{path} missing: run `just identity-secrets` first")

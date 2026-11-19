@@ -19,7 +19,9 @@ every tie; `strict_time_history_before` exists only so a test can show that.
 
 from __future__ import annotations
 
+import os
 import sys
+from pathlib import Path
 from urllib.parse import urlparse
 
 import duckdb
@@ -33,7 +35,8 @@ from graphguard.lakehouse.tables import GOLD_FEATURES, GOLD_LABELS, SILVER_TX
 MEMORY_LIMIT = "512MB"
 THREADS = 2
 EXTENSION_DIR = REPO_ROOT / ".tools" / "duckdb_extensions"
-SPILL_DIR = REPO_ROOT / "lakehouse" / "tmp" / "duckdb"
+# A job (S5b.5) spills into its own private /tmp instead.
+SPILL_DIR = Path(os.environ.get("GRAPHGUARD_SPILL_DIR", REPO_ROOT / "lakehouse" / "tmp" / "duckdb"))
 # What `just sql` shows. Bronze is left out on purpose: it is the raw CSV, test
 # window included, and the `reader` identity may not read it (governance.py).
 SQL_TABLES = (SILVER_TX, GOLD_FEATURES, GOLD_LABELS)

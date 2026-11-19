@@ -62,8 +62,15 @@ OpenFGA is pinned to 1.14, not the newest 1.22, because it is the version Lakeke
 - Rebuilding the catalog means a fresh bootstrap and re-registering tables from an
   export (done once here; no data moved). Ownership and grants come from
   `governance.py`, so they are rebuilt by one command.
-- **Honest limit:** every job runs as root on one box, so a job could read another
-  job's secret file. The boundary holds for a process that has only its own
-  credentials. Per-job Unix users or containers are Phase 5b work (S5b.5).
+- **Honest limit (closed for jobs by S5b.5, 2026-11-19):** jobs used to run as root, so a
+  job could read another job's secret file. Now each runs as its own user (`gg-builder`,
+  `gg-trainer`, `gg-reader`) in a sandboxed systemd unit that is handed only its own
+  credential and cannot see `.secrets/`, the other identities, Docker, k3s or — for
+  trainer and reader — the raw CSVs; proven from inside each job
+  (`tests/ops/test_jobs_live.py`). **What remains:** root can still read everything;
+  MLflow accepts unauthenticated writes from localhost until S5b.7; the retained S5.6b key
+  until S5b.6; the trainer still reads the raw ring list (`HI-Small_Patterns.txt`, joined
+  onto silver only) — moving it into the lakehouse with its test-window part in `sealed`
+  is a follow-up.
 - The final test-set evaluation will need an `evaluator` identity with a one-time
   grant on `sealed` — created only then (contract rule 4).

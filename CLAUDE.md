@@ -195,7 +195,7 @@ decision ADR 0002.
 bronze holds the test window — FINDING-011; `sealed` invisible), `admin` (setup).
 The policy is `src/graphguard/lakehouse/governance.py` — change access only there,
 then `just lakekeeper-init`. `open_catalog("<identity>")`: the REST catalog has no
-anonymous access. **Jobs hold no S3 key** (part 2): Lakekeeper vends each a 1-hour STS
+anonymous access. Since S5b.5 each job runs as its own user holding only its own identity. **Jobs hold no S3 key** (part 2): Lakekeeper vends each a 1-hour STS
 key per table, read-only unless it may write, none for bronze to trainer/reader. The
 only long-lived key is Lakekeeper's (`.secrets/lakekeeper-aws.env`, user
 `graphguard-lakekeeper`, which can only assume role `graphguard-lakekeeper-vending`).
@@ -263,6 +263,17 @@ source order** (`scan_in_source_order`); FINDING-009 explains why and what parit
 across engines can and cannot mean.
 
 ---
+
+## One user per job (S5b.5, 2026-11-19)
+
+`just lakehouse-build | build-artifacts | store-load | sql | notebook` run as
+`gg-builder` / `gg-trainer` / `gg-reader` in sandboxed systemd units
+(`src/graphguard/ops/jobs.py`), each handed only its own credential via
+`$CREDENTIALS_DIRECTORY` — `graphguard.config.secrets_dir()` is the one place code finds
+secrets. Jobs cannot see `.secrets/`, `private/`, Docker, k3s; trainer and reader cannot
+see the raw CSVs. A job that needs a new path gets **that path** in its profile, never
+the repo. Live proof: `tests/ops/test_jobs_live.py`. Admin setup and tests stay root.
+Runbook `docs/runbooks/job-users.md`.
 
 ## The front door (S5b.4, 2026-11-19)
 
@@ -411,7 +422,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.6a-e done; S5.4, S5.5, S5.7 after Phase 5b |
-| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0-S5b.4 done (2026-11-19) |
+| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0-S5b.5 done (2026-11-19) |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |

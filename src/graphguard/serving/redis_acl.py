@@ -28,6 +28,7 @@ import secrets
 from pathlib import Path
 
 from graphguard.config import REPO_ROOT
+from graphguard.config import secrets_dir as _secrets_dir
 
 SECRETS_DIR = REPO_ROOT / ".secrets"
 ENV_FILE = SECRETS_DIR / "redis.env"
@@ -103,16 +104,23 @@ def generate(secrets_dir: Path = SECRETS_DIR, chown: bool = True) -> list[Path]:
     passwords = {u: env[password_var(u)] for u in USERS}
     acl_file.write_text("\n".join(acl_lines(passwords)) + "\n")
     os.chmod(acl_file, 0o600)
+    # One file per user holding only that user's password: a job is handed its own (S5b.5).
+    for user in USERS:
+        own = secrets_dir / f"redis-{user}.env"
+        own.write_text(f"{password_var(user)}={passwords[user]}\n")
+        os.chmod(own, 0o600)
+        written.append(own)
     if chown:  # Redis runs as uid 999 in its container and must read the file
         os.chown(acl_file, REDIS_UID, REDIS_GID)
     written.append(acl_file)
     return written
 
 
-def password(user: str, secrets_dir: Path = SECRETS_DIR) -> str:
-    """A Redis user's password from `.secrets/redis.env`. Missing -> an error, never a
-    silent connection without auth."""
-    env_file = secrets_dir / ENV_FILE.name
+def password(user: str, secrets_dir: Path | None = None) -> str:
+    """A Redis user's password from `redis.env` in this process's secrets directory
+    (`.secrets/`, or only the job's own credentials under S5b.5). Missing -> an error,
+    never a silent connection without auth."""
+    env_file = (secrets_dir or _secrets_dir()) / ENV_FILE.name
     if not env_file.exists():
         raise FileNotFoundError(f"{env_file} missing: run `just redis-secrets`")
     env = _read_env(env_file)

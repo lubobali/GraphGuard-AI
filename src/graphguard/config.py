@@ -29,3 +29,15 @@ MLFLOW_EXPERIMENT = os.environ.get("GRAPHGUARD_EXPERIMENT", "graphguard")
 
 # Fixed everywhere a random choice is made. Reproducibility rule.
 SEED = 42
+
+
+def secrets_dir() -> Path:
+    """Where this process finds its secrets (S5b.5).
+
+    A job started by `graphguard.ops.jobs` runs as its own user and gets only its own
+    credentials, handed in by systemd at `$CREDENTIALS_DIRECTORY`; it cannot see
+    `.secrets/` at all. Everything else (root, tests, admin) reads `.secrets/`.
+    """
+    if creds := os.environ.get("CREDENTIALS_DIRECTORY"):
+        return Path(creds)
+    return REPO_ROOT / ".secrets"

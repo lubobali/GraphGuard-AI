@@ -113,11 +113,11 @@ measure-staleness:
 
 # Train the production model, save the bundle, fill the online store.
 build-artifacts:
-    {{UV}} run python -m graphguard.serving.build_artifacts
+    {{UV}} run --no-sync python -m graphguard.ops.jobs run build-artifacts
 
 # CSV -> bronze -> silver (+ sealed) -> gold, as new Iceberg snapshots (S5.6a).
 lakehouse-build:
-    {{UV}} run python -m graphguard.lakehouse.build
+    {{UV}} run --no-sync python -m graphguard.ops.jobs run lakehouse-build
 
 # --- the lakehouse catalog: Lakekeeper (S5.6c) --------------------------------
 # Start only Lakekeeper (migrate first). --no-deps: never restarts MLflow or Redis.
@@ -154,12 +154,12 @@ lakekeeper-status:
 # Ad-hoc SQL over the lakehouse with DuckDB (read-only views, capped at 512MB).
 #   just sql "select count(*) from silver_transactions"
 sql query="":
-    {{UV}} run python -m graphguard.lakehouse.sql "{{query}}"
+    {{UV}} run --no-sync python -m graphguard.ops.jobs run sql "{{query}}"
 
 # Fill Redis from gold.account_features_asof. No retraining. In place: the store
 # is never empty mid-reload.
 store-load:
-    {{UV}} run python -m graphguard.lakehouse.store_load
+    {{UV}} run --no-sync python -m graphguard.ops.jobs run store-load
 
 # End-to-end scoring latency against real Redis and the real model.
 measure-latency:
@@ -285,7 +285,7 @@ feast-test: feast-sync
 # token in the printed URL, capped at 1 GB (headless run peaked at 591 MB). Not a
 # service: Ctrl-C stops it. From a laptop: ssh -L 2718:127.0.0.1:2718 <box>.
 notebook:
-    systemd-run --scope -q -p MemoryMax=1G -p MemorySwapMax=0 {{UV}} run marimo edit notebooks/lakehouse.py --host 127.0.0.1 --port 2718 --headless
+    {{UV}} run --no-sync python -m graphguard.ops.jobs run notebook
 
 # --- S5b.1: Redis users ---------------------------------------------------------
 # Passwords (once, never rotated by accident) + the ACL file Redis loads at start.
@@ -373,6 +373,16 @@ backup-install:
     systemctl daemon-reload
     systemctl enable --now graphguard-backup.timer graphguard-restore-check.timer
     systemctl list-timers 'graphguard-*' --no-pager
+
+# --- S5b.5: one user per job ---------------------------------------------------
+# The jobs above run as gg-builder / gg-trainer / gg-reader (graphguard.ops.jobs).
+job-users-install:
+    install -d -m 755 /etc/sysusers.d
+    install -m 644 systemd/graphguard-sysusers.conf /etc/sysusers.d/graphguard.conf
+    systemd-sysusers /etc/sysusers.d/graphguard.conf
+    chgrp -R gg-trainer models/production && chmod 2775 models/production
+    chgrp -R gg-jobs lakehouse/lineage notebooks && chmod 2775 lakehouse/lineage notebooks
+    mkdir -p lakehouse/tmp && chgrp gg-builder lakehouse/tmp && chmod 2770 lakehouse/tmp
 
 # --- S5b.4: the front door ------------------------------------------------------
 # Print the commands `edge-apply` would run (nothing changes).

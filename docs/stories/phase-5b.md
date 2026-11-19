@@ -165,17 +165,22 @@ removal path and watchdog.
 ---
 
 
-### S5b.5 — One user per job *(expanded 2026-11-19, awaiting approval)*
+### S5b.5 — One user per job ✅ done 2026-11-19
 **As a** model-risk reviewer, **I want** each lakehouse job to run as its own unprivileged
 user that is handed only its own credential, **so that** "trainer cannot read the test
 set" holds even against a trainer process that goes looking — the honest limit recorded in
 ADR 0003.
 
-Covers: three system users; each job a capped, sandboxed systemd unit that receives only
-its own credential (systemd `LoadCredential`) and cannot see other jobs' secrets, the raw
-data (trainer, reader), Docker or k3s; live tests from inside each job proving it; same
-outputs as before (row counts, a byte-identical model, 2,000/2,000 scores). No app
-restarted. Details private until done.
+What it delivered (runbook `docs/runbooks/job-users.md`):
+- Three system users (no shell, no home, no other groups); every lakehouse job runs as
+  its own, in a capped, sandboxed systemd unit handed **only its own credential**
+- No job can see other jobs' secrets, Docker or k3s; trainer and reader cannot see the raw
+  CSVs — **proven from inside each job** by 10 live tests (as trainer: no builder login
+  possible, `sealed` and bronze refused, silver still readable)
+- Same results as before: all five tables with identical row counts after a rebuild as
+  the builder, a **byte-identical model** retrained as the trainer, **2,000/2,000 scores
+  identical** after a reload as the reader; caps set from measured peaks
+- ADR 0003's honest limit closed for jobs, with what remains written down
 
 ### S5b.6 — Keys and secrets *(short until its turn)*
 **As the** owner, **I want** every key on a rotation runbook and the retired S5.6b AWS
