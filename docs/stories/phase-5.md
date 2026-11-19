@@ -164,20 +164,94 @@ monitoring dashboards (Phase 8).
 - *Upgrading breaks KubeRay compatibility* → check the KubeRay/Ray version matrix first;
   the current image stays in Docker as the rollback
 
-## S5.4 — p99 measured on k3s, not just on the laptop path
+## S5.4 — p99 measured on k3s, under realistic load, on the locked system *(expanded 2026-11-19, awaiting approval)*
 
-**As a** hiring manager reading the repo, **I want** the latency number measured on
-the real k3s deployment, **so that** "p99 under 50ms" is a fact about production, not
-about a dev setup.
+**As a** hiring manager reading the repo, **I want** the latency number measured on the
+real k3s deployment, at the load the stream will bring and beyond, by a method that
+cannot flatter it, **so that** "p99 under 50 ms" is a fact about production, not about a
+dev setup.
 
-Acceptance criteria:
-- [ ] Given 2,000 real validation transactions, when sent through the k3s service,
-      then p50 / p95 / p99 are reported and **p99 < 50ms**
-- [ ] Measured through the cluster network path the stream will use, warm-up excluded
-      and stated
-- [ ] The number and how it was measured are recorded (findings or MLflow), next to
-      the earlier 7.71ms outside k3s
-- [ ] The CI latency assertion still exists and still fails the build above budget
+### What we know (2026-11-19)
+
+| | |
+|---|---|
+| Earlier numbers | p99 7.71 ms over HTTP outside k3s; 7.83 / 7.57 ms through the k3s service (S5.3) — **one client, one request at a time, from the host** |
+| What changed since | all of Phase 5b: restricted pod, egress policy, Redis with logins, a new Ray cluster after the password rotation |
+| The tool | `just measure-latency` times the service **in-process** (real Redis + model, no network, no Ray) — useful for the breakdown, not the headline |
+| **CI** | **no latency assertion exists** — CLAUDE.md says one does. A gap, fixed here |
+| Load to expect | 5.6 tx/s on average, 13.5 tx/s in a busy minute (p99), **187 tx/s in the busiest minute** of the 18 days |
+| Scorer | 2 Serve replicas × 0.5 CPU on a head pod capped at 2 CPU / 2,560 MiB |
+
+### Why the old number is not enough
+
+One request at a time measures an idle server. The stream sends many at once, and a
+closed-loop client (send, wait, send) hides queueing: when the server stalls, the client
+stops sending, and the stall never shows in the percentiles (*coordinated omission*). A
+senior number is measured **open-loop**: requests leave on a fixed schedule whatever the
+server does, and latency counts from when each request **should** have left.
+
+### Acceptance criteria
+
+**A. The method**
+- [ ] A load generator runs **inside the cluster** — a short-lived pod in the `graphguard`
+      namespace (restricted, capped, its own egress rule to the scorer only) calling the
+      scorer's Service by name: the path Phase 6's stream consumer will use. The same run
+      from the host is reported beside it
+- [ ] **Open-loop**, fixed arrival rate, latency measured from the intended send time
+      (no coordinated omission); real validation transactions in time order
+- [ ] Rates **10, 50, 200 tx/s** (≈ busy-minute, ~4× busy-minute, above the busiest
+      minute), then stepped up until p99 crosses 50 ms — that point is the **capacity**
+- [ ] Each rate: 15 s warm-up (excluded, stated), 60 s measured, **3 repetitions**;
+      reported as the median of the three with the spread
+
+**B. The result**
+- [ ] **Given** 200 tx/s in the cluster, **then p99 < 50 ms**, with no errors
+- [ ] Reported per rate: p50 / p95 / p99 / p99.9 / max, errors, timeouts, the
+      cold-account rate (feeds S5.5), the scorer pod's CPU and memory
+- [ ] A **breakdown**: in-process service time (Redis + features + model) vs end to end —
+      the difference is network + Ray Serve; the biggest share is named
+- [ ] Written up as a finding (`docs/findings.md`) and logged to MLflow with the raw
+      numbers as an artifact, next to the earlier 7.71 ms and how that differed
+
+**C. CI guards it**
+- [ ] A latency test in CI: the scoring service in-process (fake store, a small model
+      built in the test), **p99 of feature assembly + inference under a stated share of
+      the budget** — CI cannot run k3s, so it guards the code path; the k3s number guards
+      the system. CLAUDE.md corrected to say exactly that
+- [ ] Proven to fail: a deliberate slowdown in the test makes it red, then removed
+
+**D. The box stays safe**
+- [ ] Load runs at a quiet hour, capped, ≤ ~15 minutes in total; LuBot sites and
+      containers checked before and after; the run stops early if the box's load or a
+      LuBot health check goes bad
+- [ ] Nothing else changes: same image, same replicas — if the result says "resize",
+      that is written down and done as its own step, not mid-measurement
+
+### Definition of Done
+
+p99 on the locked k3s system, measured open-loop from inside the cluster at 10 / 50 / 200
+tx/s, under 50 ms at 200 tx/s; the capacity point known; the breakdown says where the time
+goes; the finding and MLflow run record it; CI fails the build if the code path gets slow.
+
+### Tasks (in order)
+
+1. The CI latency test first (and see it fail on purpose)
+2. Load generator: open-loop, intended-time latency, unit-tested on a fake slow server
+   (it must report the stall a closed-loop client would hide)
+3. The pod manifest (restricted, capped, egress to the scorer only); a dry run at 10 tx/s
+4. The real runs (quiet hour, LuBot checks); in-process breakdown
+5. Finding, MLflow run, CLAUDE.md; commit, push, CI
+
+**Estimate:** 3 story points, ~1 session. **Cost:** none.
+
+**Dependencies:** S5.3 ✅, Phase 5b ✅ (measure the locked system). Feeds S5.5 (cold rate).
+
+**Out of scope:** autoscaling, more replicas, a faster model — any of these only if the
+result demands it, as its own story; the Kafka consumer itself (Phase 6).
+
+**Risks:** *the load hurts LuBot* → capped generator, short runs, quiet hour, abort rule;
+*a flattering number* → open-loop, in-cluster, repeated, raw data kept; *a flaky CI test*
+→ it guards compute only, with a budget share far above the measured time.
 
 Rolls up to: "p99 measured under budget there".
 
