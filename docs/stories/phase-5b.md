@@ -203,9 +203,15 @@ What it delivered (runbook `docs/runbooks/secrets.md`):
   breaks them; a backup and the restore drill passed after the last rotation
 - Cloud-console keys kept by decision (a demo project); recorded as an accepted risk
 
-### S5b.7 — MLflow server 2 → 3 *(short until its turn)*
-**As an** ML engineer, **I want** the MLflow server on a current, supported 3.x release
-with the client on the same major, **so that** the experiment record stays maintained and
-every client call works. A database migration, so it comes after S5b.3 (backups with a
-tested restore): dump, upgrade, compare every experiment and run, roll back if any differ.
+### S5b.7 — MLflow server 2 → 3 *(expanded 2026-11-19, awaiting approval)*
+**As an** ML engineer, **I want** the MLflow server on a current 3.x release matched to the
+client, migrated through a rehearsal on a restored copy with a tested way back, and
+requiring a login, **so that** the experiment record stays readable for years, every client
+call works, and only the jobs that should write runs can.
 
+Covers: a rebuilt server image (digest-pinned, hash-locked, scanned) at the same version as
+the client, with a test that fails if they ever drift; the database migration rehearsed on
+a restored backup and the rollback proven before the live switch; MLflow's built-in login
+with one user per caller (the training job gets its credential like its catalog identity);
+a byte-identical model logged through it. GraphGuard only; MLflow down for minutes during
+the switch. Details private until done.
