@@ -42,6 +42,11 @@ def _passwords() -> dict[str, str]:
         "openfga": gov["OPENFGA_DB_PASSWORD"],
         "lakehouse": _env("lakehouse.env")["LAKEHOUSE_DB_PASSWORD"],
         "graphguard": _env("mlflow.env")["MLFLOW_DB_PASSWORD"],  # the superuser
+        "mlflow_auth": next(  # MLflow's login store (S5b.7): its line in the pgpass file
+            ln.split(":", 4)[4]
+            for ln in (SECRETS / "mlflow-pgpass").read_text().splitlines()
+            if ln.split(":")[2:4] == ["mlflow_auth", "mlflow_auth"]
+        ),
     }
 
 

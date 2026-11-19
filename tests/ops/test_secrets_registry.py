@@ -83,3 +83,12 @@ def test_set_env_values_keeps_other_lines_mode_and_inode(tmp_path):
 )
 def test_typed_keys_are_validated_before_anything_is_written(pattern, good, bad):
     assert pattern.match(good) and not pattern.match(bad)
+
+
+def test_the_mlflow_auth_config_holds_no_secret_after_setup():
+    from graphguard.ops.mlflow_auth import ini_text
+
+    steady = ini_text(None)
+    assert "admin_password" not in steady and "default_permission = NO_PERMISSIONS" in steady
+    assert "postgresql+psycopg2://mlflow_auth@" in steady  # no password in the URI
+    assert "admin_password = x" in ini_text("x")  # only for the very first start

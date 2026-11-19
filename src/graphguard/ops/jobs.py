@@ -67,12 +67,13 @@ JOBS: dict[str, Job] = {
             "build-artifacts",
             "gg-trainer",
             ("-m", "graphguard.serving.build_artifacts"),
-            ("identity-trainer.env",),
+            ("identity-trainer.env", "mlflow-trainer.env"),
             memory="2560M",  # measured peak 2,042 MiB (2026-11-19)
             writes=("lakehouse/lineage", "models/production"),
             # The ring list, joined onto silver (train + validation) only. The CSVs stay
             # hidden. Moving the ring list into the lakehouse is a follow-up.
             raw_allowed=("HI-Small_Patterns.txt",),
+            extra={"GRAPHGUARD_MLFLOW_USER": "trainer"},
         ),
         Job(
             "store-load",

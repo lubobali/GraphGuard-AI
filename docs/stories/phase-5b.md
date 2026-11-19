@@ -203,15 +203,25 @@ What it delivered (runbook `docs/runbooks/secrets.md`):
   breaks them; a backup and the restore drill passed after the last rotation
 - Cloud-console keys kept by decision (a demo project); recorded as an accepted risk
 
-### S5b.7 — MLflow server 2 → 3 *(expanded 2026-11-19, awaiting approval)*
+### S5b.7 — MLflow server 2 → 3 ✅ done 2026-11-19
 **As an** ML engineer, **I want** the MLflow server on a current 3.x release matched to the
 client, migrated through a rehearsal on a restored copy with a tested way back, and
 requiring a login, **so that** the experiment record stays readable for years, every client
 call works, and only the jobs that should write runs can.
 
-Covers: a rebuilt server image (digest-pinned, hash-locked, scanned) at the same version as
-the client, with a test that fails if they ever drift; the database migration rehearsed on
-a restored backup and the rollback proven before the live switch; MLflow's built-in login
-with one user per caller (the training job gets its credential like its catalog identity);
-a byte-identical model logged through it. GraphGuard only; MLflow down for minutes during
-the switch. Details private until done.
+What it delivered (runbook `docs/runbooks/mlflow.md`):
+- MLflow **3.17.2 on server and client**, with a test that fails the build if they drift;
+  the server image rebuilt on a pinned base with every package installed by hash
+- A reusable **upgrade rehearsal** (`just mlflow-rehearse`): a fresh backup restored into a
+  throwaway database, migrated, every run compared with the live server, an artifact
+  downloaded, and the rollback proven — it caught two problems before the live switch
+  (a database-driver change in SQLAlchemy 2.1, and MLflow 3's host-name protection)
+- The live switch: **20 seconds of downtime, 196 runs, 0 differences**; the call that
+  failed under the old version mismatch now works
+- **Less memory than before** (563 → 354 MiB): one web worker, and MLflow 3's background
+  job system — 7 extra processes for features we do not use — switched off
+- **A login**: anonymous refused; one user per caller (the training job gets its login
+  from systemd, like its catalog identity); no job can delete runs; proven by live tests;
+  the login database is access-controlled, backed up and drilled like the others
+- The end-to-end proof: retrained as the training job through its login — a
+  **byte-identical model**, recorded in MLflow as made by `trainer`

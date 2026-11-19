@@ -68,7 +68,7 @@ services:
     build:
       context: .
       dockerfile: docker/mlflow.Dockerfile
-    image: graphguard/mlflow:2.19.0
+    image: graphguard/mlflow:3.17.2
     container_name: graphguard-mlflow
     restart: unless-stopped
     depends_on:
@@ -78,21 +78,32 @@ services:
       mlflow server
       --host 0.0.0.0
       --port 5000
-      --backend-store-uri postgresql://mlflow_app@mlflow-db:5432/mlflow
+      --backend-store-uri postgresql+psycopg2://mlflow_app@mlflow-db:5432/mlflow
       --artifacts-destination /mlflow/artifacts
       --serve-artifacts
-      --workers 2
-    # 2 web workers, not the default 4: one user, and each worker holds a full copy
-    # of MLflow (4 workers idled at 730 MiB of private memory, S5b.1).
+      --workers 1
+      --app-name basic-auth
+    # S5b.7 (MLflow 3): ONE web worker -- one user; measured 346 MiB with 1, 543 with 2.
+    # `postgresql+psycopg2://`: SQLAlchemy 2.1 would otherwise pick the psycopg 3 driver,
+    # which the image does not ship (the rehearsal caught it).
     # MLflow's own role (not the superuser), and no password in the command line:
     # libpq reads it from a 600 pgpass file owned by the container's uid (S5b.1).
+    # The CSRF key for the login's forms (S5b.7): from .secrets/, never from this file.
+    env_file: .secrets/mlflow-server.env
     environment:
       PGPASSFILE: /run/secrets/mlflow-pgpass
+      # MLflow 3 starts a background job system (a runner + 6 Huey workers, ~227 MiB
+      # each) for GenAI features GraphGuard does not use. Off: 1.0 GiB -> 0.35 GiB.
+      MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
+      # The login (S5b.7): users live in their own database; the file holds no secret
+      # after first start (graphguard.ops.mlflow_auth).
+      MLFLOW_AUTH_CONFIG_PATH: /run/secrets/mlflow-auth.ini
     ports:
       - "127.0.0.1:5010:5000"
     volumes:
       - mlflow-artifacts:/mlflow/artifacts
       - ./.secrets/mlflow-pgpass:/run/secrets/mlflow-pgpass:ro
+      - ./.secrets/mlflow-auth.ini:/run/secrets/mlflow-auth.ini:ro
     read_only: true
     tmpfs:
       - /tmp:size=256m,uid=10001,gid=10001

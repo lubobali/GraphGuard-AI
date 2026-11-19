@@ -24,7 +24,6 @@ import secrets
 import subprocess
 import sys
 import time
-import urllib.request
 from collections.abc import Callable
 from dataclasses import dataclass
 from urllib.parse import quote
@@ -74,6 +73,19 @@ def with_url_password(url: str, password: str) -> str:
 def pgpass_with_password(line: str, password: str) -> str:
     host, port, db, user, _ = line.strip().split(":", 4)
     return f"{host}:{port}:{db}:{user}:{password}"
+
+
+def pgpass_set(text: str, db: str, user: str, password: str) -> str:
+    """Change only the line for (db, user); every other line stays (pure, tested)."""
+    out, hit = [], 0
+    for line in text.splitlines():
+        parts = line.split(":", 4)
+        if len(parts) == 5 and parts[2] == db and parts[3] == user:
+            line, hit = pgpass_with_password(line, password), hit + 1
+        out.append(line)
+    if hit != 1:
+        raise ValueError(f"pgpass: {hit} lines for {db}/{user}, want exactly 1")
+    return "\n".join(out) + "\n"
 
 
 # --- the box ------------------------------------------------------------------------------
@@ -134,9 +146,11 @@ def _until(check: Callable[[], object], what: str, seconds: int = 90) -> None:
 
 # --- health checks: the holder really works with the new secret -------------------------
 def mlflow_ok() -> None:
-    url = "http://127.0.0.1:5010/api/2.0/mlflow/experiments/search?max_results=1"
-    with urllib.request.urlopen(url, timeout=10) as r:
-        assert r.status == 200 and "experiments" in json.load(r)
+    from graphguard.ops.mlflow_auth import call, credentials
+
+    auth = credentials("admin") if (SECRETS / "mlflow-admin.env").exists() else None
+    got = call("GET", "/api/2.0/mlflow/experiments/search?max_results=1", None, auth)
+    assert "experiments" in got
 
 
 def catalog_ok() -> None:
@@ -178,13 +192,21 @@ class RolePlan:
     check: Callable[[], None]  # prove the holder works
 
 
-def _write_mlflow_app(pw: str) -> None:
-    reg.set_env_values(SECRETS / "mlflow-app.env", {"MLFLOW_APP_DB_PASSWORD": pw})
+def _pgpass_update(db: str, user: str, pw: str) -> None:
     with open(SECRETS / "mlflow-pgpass", "r+") as h:  # in place: owned by MLflow's uid
-        line = h.read()
+        text = h.read()
         h.seek(0)
         h.truncate(0)
-        h.write(pgpass_with_password(line, pw) + "\n")
+        h.write(pgpass_set(text, db, user, pw))
+
+
+def _write_mlflow_app(pw: str) -> None:
+    reg.set_env_values(SECRETS / "mlflow-app.env", {"MLFLOW_APP_DB_PASSWORD": pw})
+    _pgpass_update("mlflow", "mlflow_app", pw)
+
+
+def _write_mlflow_auth(pw: str) -> None:
+    _pgpass_update("mlflow_auth", "mlflow_auth", pw)
 
 
 def _write_lakekeeper(pw: str) -> None:
@@ -209,6 +231,9 @@ def _plan(role: str) -> RolePlan:
     plans = {
         "mlflow_app": lambda: RolePlan(
             "mlflow_app", ["mlflow-app.env", "mlflow-pgpass"], _write_mlflow_app,
+            lambda: _restart("mlflow"), mlflow_ok),
+        "mlflow_auth": lambda: RolePlan(
+            "mlflow_auth", ["mlflow-pgpass"], _write_mlflow_auth,
             lambda: _restart("mlflow"), mlflow_ok),
         "lakekeeper": lambda: RolePlan(
             "lakekeeper", ["lakekeeper.env"], _write_lakekeeper,
@@ -263,6 +288,11 @@ def rotate_pg(role: str) -> None:
 def _old_pg_password(role: str) -> str:
     return {
         "mlflow_app": lambda: _env("mlflow-app.env")["MLFLOW_APP_DB_PASSWORD"],
+        "mlflow_auth": lambda: next(
+            ln.split(":", 4)[4]
+            for ln in (SECRETS / "mlflow-pgpass").read_text().splitlines()
+            if ln.split(":")[2:4] == ["mlflow_auth", "mlflow_auth"]
+        ),
         "lakekeeper": lambda: re.search(
             r"://[^:]+:([^@]*)@", _env("lakekeeper.env")["LAKEKEEPER__PG_DATABASE_URL_WRITE"]
         ).group(1),

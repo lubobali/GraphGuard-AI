@@ -148,12 +148,12 @@ The old per-job `apt-get` (~7 s of every job) is gone: git and curl are in the j
 
 | | |
 |---|---|
-| MLflow UI | `127.0.0.1:5010` (localhost only - tunnel over ssh) |
+| MLflow UI | `127.0.0.1:5010` (localhost only - tunnel over ssh); **MLflow 3.17.2, login required** (S5b.7) |
 | MLflow Postgres | `127.0.0.1:5434` |
 | Compose project | `graphguard` |
 | Network | `graphguard-net` |
 | Volumes | `graphguard-mlflow-db-data`, `graphguard-mlflow-artifacts` |
-| Memory caps | MLflow 640M (2 workers), Postgres 256M — sized from measured peaks (S5b.1) |
+| Memory caps | MLflow 640M (1 worker, job system off: 354 MiB), Postgres 256M — measured |
 
 Ports 5000, 5432 and 5433 were already taken on this host, which is why these
 are 5010 and 5434. **Credentials live in `.secrets/`** - gitignored, `chmod 600`,
@@ -263,6 +263,18 @@ source order** (`scan_in_source_order`); FINDING-009 explains why and what parit
 across engines can and cannot mean.
 
 ---
+
+## MLflow 3 and its login (S5b.7, 2026-11-19)
+
+Server and client are both **3.17.2** — `tests/test_mlflow_version.py` fails if the image,
+`docker/mlflow-requirements.txt` (hash-locked) and `uv.lock` disagree. Upgrades go through
+`just mlflow-rehearse` first (runbook `docs/runbooks/mlflow.md`). **Login required:**
+`admin` (Lubo: `just mlflow-admin-password` in his own terminal), `trainer`
+(build-artifacts, via systemd), `research` (root scripts, tests); code logs in through
+`graphguard.tracking.use_login()`. Grants in `src/graphguard/ops/mlflow_auth.py`.
+Backend URIs must say `postgresql+psycopg2://`. **Never run a bare `uv sync`** — it strips
+the extras; use `./scripts/bootstrap.sh` or `uv sync --extra dev --extra gnn --extra
+lakehouse --extra notebooks --locked`.
 
 ## Secrets (S5b.6, 2026-11-19)
 
@@ -433,7 +445,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.6a-e done; S5.4, S5.5, S5.7 after Phase 5b |
-| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0-S5b.6 done (2026-11-19) |
+| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) waits for a window with the LuBot session |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |

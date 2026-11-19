@@ -28,6 +28,7 @@ SERVICES: dict[str, tuple[str, str]] = {
     "lakekeeper": ("lakekeeper", NETWORK),
     "lakekeeper_s56c": ("lakekeeper", NETWORK),  # the S5.6c rollback catalog
     "dex": ("dex", NETWORK),
+    "mlflow_auth": ("mlflow_auth", NETWORK),  # MLflow's login store (S5b.7)
     "openfga": ("openfga", NETWORK),
     "lakehouse": ("lakehouse", GATEWAY),  # host-side SQL-catalog rollback only
 }

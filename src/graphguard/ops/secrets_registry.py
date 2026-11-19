@@ -54,6 +54,18 @@ REGISTRY: dict[str, Secret] = {
     # Generated on the box.
     "mlflow.env": S("Postgres superuser (admin, backups)", "just rotate-pg superuser", BOX_DAYS),
     "mlflow-app.env": S("MLflow (role mlflow_app)", "just rotate-pg mlflow_app", BOX_DAYS),
+    "mlflow-auth.ini": S(
+        "MLflow login config (holds no secret after the first start)",
+        "just mlflow-auth-setup rewrites it",
+        None,
+        owner_uid=10001,
+    ),
+    "mlflow-server.env": S("MLflow (CSRF key)", "just rotate-mlflow-users", BOX_DAYS),
+    "mlflow-admin.env": S("Lubo, MLflow UI", "just rotate-mlflow-users (admin: UI)", BOX_DAYS),
+    "mlflow-trainer.env": S("build-artifacts (gg-trainer)", "just rotate-mlflow-users", BOX_DAYS),
+    "mlflow-research.env": S(
+        "Phase 2-4 scripts, tracking tests", "just rotate-mlflow-users", BOX_DAYS
+    ),
     "mlflow-pgpass": S(
         "MLflow (PGPASSFILE)", "just rotate-pg mlflow_app", BOX_DAYS, owner_uid=10001
     ),

@@ -73,3 +73,12 @@ def test_during_a_redis_rotation_a_user_has_both_passwords_and_nothing_more():
     digests = [w for w in scorer.split() if w.startswith("#")]
     assert len(digests) == 2 and "old" not in scorer and "new" not in scorer
     assert "+@all" not in scorer and "-@all" in scorer
+
+
+def test_pgpass_changes_only_its_own_line():
+    text = "h:5432:mlflow:mlflow_app:a\nh:5432:mlflow_auth:mlflow_auth:b\n"
+    assert rot.pgpass_set(text, "mlflow_auth", "mlflow_auth", "new") == (
+        "h:5432:mlflow:mlflow_app:a\nh:5432:mlflow_auth:mlflow_auth:new\n"
+    )
+    with pytest.raises(ValueError):
+        rot.pgpass_set(text, "nope", "nope", "x")

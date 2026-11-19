@@ -68,7 +68,7 @@ OpenFGA is pinned to 1.14, not the newest 1.22, because it is the version Lakeke
   credential and cannot see `.secrets/`, the other identities, Docker, k3s or — for
   trainer and reader — the raw CSVs; proven from inside each job
   (`tests/ops/test_jobs_live.py`). **What remains:** root can still read everything;
-  MLflow accepts unauthenticated writes from localhost until S5b.7; the retained S5.6b key
+  MLflow required no login until S5b.7 (now closed: one login per caller); the retained S5.6b key
   until S5b.6; the trainer still reads the raw ring list (`HI-Small_Patterns.txt`, joined
   onto silver only) — moving it into the lakehouse with its test-window part in `sealed`
   is a follow-up.

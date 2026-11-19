@@ -1001,7 +1001,7 @@ requires-dist = [
     { name = "duckdb", marker = "extra == 'lakehouse'", specifier = ">=1.4" },
     { name = "jinja2", specifier = ">=3.1" },
     { name = "marimo", marker = "extra == 'notebooks'", specifier = ">=0.25.2,<0.26" },
-    { name = "mlflow-skinny", specifier = ">=2.19" },
+    { name = "mlflow-skinny", specifier = "==3.17.2" },
     { name = "moto", extras = ["s3", "server"], marker = "extra == 'dev'", specifier = ">=5.0" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "openlineage-python", marker = "extra == 'lakehouse'", specifier = ">=1.55,<1.56" },
@@ -1626,9 +1626,10 @@ wheels = [
 
 [[package]]
 name = "mlflow-skinny"
-version = "3.15.1"
+version = "3.17.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "anyio" },
     { name = "cachetools" },
     { name = "click" },
     { name = "cloudpickle" },
@@ -1650,9 +1651,9 @@ dependencies = [
     { name = "typing-extensions" },
     { name = "uvicorn" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/7e/d7/f71b2607ef378b8481a1cea08463a6025b9ca831b4607afc16c75df57872/mlflow_skinny-3.15.1.tar.gz", hash = "sha256:8c53c85bf0fe6e9ba8aa72f6b8675c774d1ff55b00735a5cd33a510803905237", size = 3035284, upload-time = "2026-08-03T09:29:35.266Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/26/b0/efbc07a721df135c681dd9f29ecb44b42e9664125f82a41168bc38240ed8/mlflow_skinny-3.17.2.tar.gz", hash = "sha256:5f2a0812d019a8f517a58f1377922f75af4f42832be30c8f1441005b51288596", size = 3488534, upload-time = "2026-10-21T02:07:10.993Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/f3/9e/4e8138583321f6dfbaa35360f46056b4ecc06d505d130c03a5d81aec5620/mlflow_skinny-3.15.1-py3-none-any.whl", hash = "sha256:b62056806d0afc425e8948233a3646b0b3af504702ff3b334b6395f48b22b832", size = 3613028, upload-time = "2026-08-03T09:29:33.54Z" },
+    { url = "https://files.pythonhosted.org/packages/e9/57/f1071a3f1aa2898d4fec13c359405c996a8f1c6786ebfff062144504076a/mlflow_skinny-3.17.2-py3-none-any.whl", hash = "sha256:31be9190494212ccd94774170fd06f6fe04d209aae3923eefd16f9bf7830d63c", size = 4110991, upload-time = "2026-10-21T02:07:08.589Z" },
 ]
 
 [[package]]

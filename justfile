@@ -407,6 +407,27 @@ rotate-openfga:
 rotate-redis:
     {{UV}} run python -m graphguard.ops.rotate redis
 
+# --- S5b.7: MLflow 3 ------------------------------------------------------------
+# Rehearse an MLflow server upgrade on a restored backup (nothing live touched).
+mlflow-rehearse new="graphguard/mlflow:3.17.2" old="graphguard/mlflow:2.19.0":
+    {{UV}} run --no-sync python -m graphguard.ops.mlflow_upgrade rehearse {{new}} {{old}}
+
+# The login: users, grants, auth database (idempotent).
+mlflow-auth-setup:
+    {{UV}} run --no-sync python -m graphguard.ops.mlflow_auth setup
+
+rotate-mlflow-users:
+    {{UV}} run --no-sync python -m graphguard.ops.mlflow_auth rotate
+
+# Lubo's MLflow UI password -- run it in YOUR terminal, never paste it into chat.
+mlflow-admin-password:
+    @{{UV}} run --no-sync python -m graphguard.ops.mlflow_auth admin-password
+
+# Server requirements with hashes, 14-day rule (then rebuild the image).
+mlflow-requirements version:
+    printf 'mlflow[auth]=={{version}}\npsycopg2-binary\n' > /tmp/gg-mlflow-req.in
+    {{UV}} pip compile /tmp/gg-mlflow-req.in --python-version 3.12 --python-platform x86_64-manylinux_2_28 --exclude-newer "$(date -u -d '14 days ago' +%Y-%m-%dT00:00:00Z)" --generate-hashes --no-header --quiet -o docker/mlflow-requirements.txt
+
 # --- S5b.4: the front door ------------------------------------------------------
 # Print the commands `edge-apply` would run (nothing changes).
 edge-dry-run:
