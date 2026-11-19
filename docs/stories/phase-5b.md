@@ -182,12 +182,18 @@ What it delivered (runbook `docs/runbooks/job-users.md`):
   identical** after a reload as the reader; caps set from measured peaks
 - ADR 0003's honest limit closed for jobs, with what remains written down
 
-### S5b.6 — Keys and secrets *(short until its turn)*
-**As the** owner, **I want** every key on a rotation runbook and the retired S5.6b AWS
-key re-decided, **so that** no long-lived credential exists that nobody is watching.
-- The S5.6b key (`graphguard-lakehouse`) is kept by Lubo's choice (accepted risk,
-  S5.6d); its future is decided here (details: private)
-- Dex client secrets, OpenFGA key, DB passwords: rotation steps tested once
+### S5b.6 — Keys and secrets *(expanded 2026-11-19, awaiting approval)*
+**As the** owner, **I want** every GraphGuard secret listed with who holds it and how to
+rotate it, a check that fails when one is overdue, unknown or loosely permissioned, each
+kind rotated once for real, and the retired S5.6b key re-decided, **so that** no long-lived
+credential exists that nobody is watching — and a rotation is a rehearsed command.
+
+Covers: a secrets registry in code + `just secrets-status` (fails on overdue, untracked or
+wrongly permissioned secrets); `just secret-set` so keys are typed into the box, never
+pasted into chat; one real rotation of every kind (Redis with zero downtime, each
+Postgres role, the Dex client secrets, the OpenFGA key, the AWS and cloud keys with a
+two-key overlap, the backup repository password); the S5.6b key retired if Lubo agrees.
+GraphGuard containers only. Details private until done.
 
 ### S5b.7 — MLflow server 2 → 3 *(short until its turn)*
 **As an** ML engineer, **I want** the MLflow server on a current, supported 3.x release
