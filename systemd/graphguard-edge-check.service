@@ -1,0 +1,19 @@
+# GraphGuard edge watchdog (S5b.4): read-only. Installed by `just edge-install`.
+[Unit]
+Description=GraphGuard edge check (cloud firewall, public listeners, our guard)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/graphguard
+Environment=UV_CACHE_DIR=/srv/graphguard/.tools/uv-cache-backup
+ExecStart=/srv/graphguard/.tools/bin/uv run --no-sync python -m graphguard.ops.edge check
+TimeoutStartSec=5min
+MemoryMax=256M
+Nice=10
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/srv/graphguard/private/edge /srv/graphguard/.tools/uv-cache-backup

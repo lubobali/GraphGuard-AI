@@ -138,7 +138,7 @@ What it delivered (runbook `docs/runbooks/backups.md`):
   the live tables, which still load from S3
 - The repository password is also kept off the box, by Lubo
 
-### S5b.4 — k3s off the internet, and a watchdog on the front door *(expanded 2026-11-19, awaiting approval)*
+### S5b.4 — k3s off the internet, and a watchdog on the front door *(approved 2026-11-19, in progress)*
 
 **As the** owner of a box whose only wall is one cloud-console setting, **I want** k3s's
 ports closed to the internet on the box itself and a daily check that the cloud firewall

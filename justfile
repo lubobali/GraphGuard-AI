@@ -373,3 +373,40 @@ backup-install:
     systemctl daemon-reload
     systemctl enable --now graphguard-backup.timer graphguard-restore-check.timer
     systemctl list-timers 'graphguard-*' --no-pager
+
+# --- S5b.4: the front door ------------------------------------------------------
+# Print the commands `edge-apply` would run (nothing changes).
+edge-dry-run:
+    {{UV}} run python -m graphguard.ops.edge dry-run
+
+# Apply the guard with a 5-minute automatic undo; `just edge-confirm` keeps it.
+edge-apply:
+    systemd-run --unit=graphguard-edge-undo --on-active=5min --working-directory={{justfile_directory()}} {{justfile_directory()}}/.tools/bin/uv run --no-sync python -m graphguard.ops.edge remove
+    {{UV}} run python -m graphguard.ops.edge apply
+    @echo "auto-undo in 5 minutes unless: just edge-confirm"
+
+edge-confirm:
+    systemctl stop graphguard-edge-undo.timer
+    @echo "kept"
+
+edge-remove:
+    {{UV}} run python -m graphguard.ops.edge remove
+
+# Exit 1 if the last check failed or is older than 2 days, or the guard is missing.
+edge-status:
+    {{UV}} run python -m graphguard.ops.edge status
+
+edge-check:
+    {{UV}} run python -m graphguard.ops.edge check
+
+# Accept today's cloud rules and public listeners as the baseline (private/edge/).
+edge-baseline:
+    {{UV}} run python -m graphguard.ops.edge baseline
+
+edge-install:
+    mkdir -p {{justfile_directory()}}/private/edge {{justfile_directory()}}/.tools/uv-cache-backup
+    chmod 700 {{justfile_directory()}}/private/edge
+    install -m 644 systemd/graphguard-edge.service systemd/graphguard-edge-check.service systemd/graphguard-edge-check.timer /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable graphguard-edge.service
+    systemctl enable --now graphguard-edge-check.timer

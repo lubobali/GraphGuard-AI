@@ -1,0 +1,11 @@
+# Daily at 06:00 UTC: outside LuBot's 00:10-00:50 and 04:30 jobs.
+[Unit]
+Description=GraphGuard edge check, daily
+
+[Timer]
+OnCalendar=*-*-* 06:00:00 UTC
+RandomizedDelaySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

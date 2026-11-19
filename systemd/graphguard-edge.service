@@ -1,0 +1,23 @@
+# GraphGuard edge guard (S5b.4): k3s's ports dropped on the public interface only.
+# Installed by `just edge-install`; source of truth is this file. Removal: `just edge-remove`.
+[Unit]
+Description=GraphGuard edge guard (k3s ports closed to the internet)
+After=network-online.target k3s.service docker.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/srv/graphguard
+Environment=UV_CACHE_DIR=/srv/graphguard/.tools/uv-cache-backup
+ExecStart=/srv/graphguard/.tools/bin/uv run --no-sync python -m graphguard.ops.edge apply
+ExecStop=/srv/graphguard/.tools/bin/uv run --no-sync python -m graphguard.ops.edge remove
+MemoryMax=256M
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+ReadWritePaths=/srv/graphguard/.tools/uv-cache-backup
+
+[Install]
+WantedBy=multi-user.target
