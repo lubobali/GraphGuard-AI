@@ -491,6 +491,13 @@ protected" document a reviewer can read.
 
 ### Phase 6 — The stream
 
+> **Decided 2026-11-19 (S5.4, FINDING-013):** the stream consumer scores **in its own
+> process** (or in micro-batches), not through an HTTP call to the scorer per transaction.
+> Our scoring code costs ~0.6 ms of CPU per transaction; the Ray Serve HTTP hop costs ~10
+> ms and caps the HTTP path at ~150-175 tx/s on 2 CPU. Kafka absorbs bursts (the busiest
+> minute is 187 tx/s). The HTTP endpoint stays for interactive use. Lubo chose this over
+> more CPU or replacing Ray Serve.
+
 - **First: the scorer alert.** Once the stream depends on the scorer, an outage must
   reach a human. `just k8s-check` on a cron, an **email only on state change**
   (healthy↔broken), runbook `docs/runbooks/scorer-down.md`. Moved here from S5.2; Phase

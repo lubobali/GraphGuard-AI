@@ -164,15 +164,15 @@ monitoring dashboards (Phase 8).
 - *Upgrading breaks KubeRay compatibility* → check the KubeRay/Ray version matrix first;
   the current image stays in Docker as the rollback
 
-## S5.4 — p99 measured on k3s, under realistic load, on the locked system *(measured 2026-11-19 — one criterion failed: p99 at 200 tx/s; decision open)*
+## S5.4 — p99 measured on k3s, under realistic load, on the locked system ✅ done 2026-11-19 (one criterion failed and kept; resolved by design in Phase 6)
 
 > **Result (FINDING-013):** open loop from inside k3s, p99 **13-15 ms at 10-50 tx/s**,
 > **22 ms at 150 tx/s**; at **200 tx/s the scorer saturates** (2 CPU used) and p99 is
 > **5-10 s**, with zero errors. Capacity 150-175 tx/s. Our own code costs 0.6 ms of CPU per
 > request; ~94% of the scorer's CPU is Ray Serve's HTTP path. The criterion
-> "p99 < 50 ms at 200 tx/s" is **failed and kept**, not lowered. What to do about it (an
-> in-process stream consumer in Phase 6, more CPU, Serve batching, or a leaner server) is
-> Lubo's decision. CI's latency guard now exists; CLAUDE.md corrected.
+> "p99 < 50 ms at 200 tx/s" is **failed and kept**, not lowered. **Lubo's decision (2026-11-19):** the Phase 6
+> stream consumer scores in process, so the stream never pays the HTTP hop; the HTTP
+> endpoint stays for interactive use at up to ~150 tx/s (PLAN.md, Phase 6). CI's latency guard now exists; CLAUDE.md corrected.
 
 **As a** hiring manager reading the repo, **I want** the latency number measured on the
 real k3s deployment, at the load the stream will bring and beyond, by a method that
@@ -263,23 +263,90 @@ result demands it, as its own story; the Kafka consumer itself (Phase 6).
 
 Rolls up to: "p99 measured under budget there".
 
-## S5.5 — A never-seen account gets a defined, tested answer
+## S5.5 — A never-seen account gets a defined, tested answer — and a broken store never looks like one *(expanded 2026-11-19, awaiting approval)*
 
 **As an** investigator, **I want** a transaction from a brand-new account scored in a
-known, documented way, **so that** new accounts — which arrive constantly — are never
-an error and never silently treated as "known clean".
+known, documented, *measured* way, and a broken or empty feature store to fail loudly,
+**so that** new accounts — which arrive constantly — are never an error, never silently
+treated as "known clean", and never confused with an outage.
 
-Acceptance criteria:
-- [ ] Given an account with no stored features, when scored, then the response is
-      successful, says `cold = true` for that side, and the score uses the documented
-      fallback
-- [ ] Given both accounts are cold, the same holds for both
-- [ ] Given a warm account, `cold = false` (already observed — now asserted)
-- [ ] Given Redis is unreachable, the service **fails loudly** (error / unhealthy), and
-      does not quietly report every account as cold — found during S5.1: a cold answer
-      and a broken store must never look the same
-- [ ] Covered by a unit test and an integration test against real Redis
-- [ ] The cold-account rate in the S5.4 run is reported
+### What we know (2026-11-19, checked on the live code)
+
+| Case | Today |
+|---|---|
+| Redis **down** | the request raises (good) — but **`/health` still answers "ok"** |
+| Redis **up but empty** (after a restart, before `store-load`) | every account is "cold": **indistinguishable from a new account**. Seen live: 54 such answers during the S5b.6 Redis rotation |
+| A **new account** | features are all zeros and the model scores it **0.0000** — it has learned "no history = innocent", so a new account is treated as **known clean**. Nobody has measured whether that is true |
+| Missing fields | answered with HTTP 200 and an `error` key — a client that only checks the status thinks it got a score |
+| Cold rate in the S5.4 runs | 0.2-0.7% of account sides |
+
+### Acceptance criteria
+
+**A. Measure the cold path before defining it (validation only — rule 4)**
+- [ ] On the validation window, by the serving definition (store as of `train_end`): the
+      share of transactions with a cold sender / receiver / both, the **laundering rate**
+      among them vs warm, and the scores the model gives them
+- [ ] **Given** the numbers, **then** a written decision: if cold transactions launder at a
+      rate the zero-feature score hides, the documented fallback is *not* "score as zeros
+      and trust it" — the response marks them for a rule (Phase 6's rules layer) or the
+      queue (Phase 7), and the investigator sees why. A finding records the numbers either way
+- [ ] No retraining and no test-set access in this story; a model-side fix (e.g. features
+      that know "new") is noted for Phase 8 if the numbers call for it
+
+**B. A defined answer for a new account**
+- [ ] **Given** an account with no stored features, **then** HTTP 200, `sender_cold` /
+      `receiver_cold` true for that side, the score from the documented fallback, and a
+      `cold_policy` field naming the rule that applies (from A)
+- [ ] Both sides cold: the same for both. A warm account: `cold = false` (asserted)
+
+**C. A broken store never looks like a new account**
+- [ ] `store-load` writes a **store marker** (snapshot id, account count, loaded at) last,
+      after every account; the scorer checks it
+- [ ] **Given** Redis down, **then** a scoring request gets **HTTP 503** "feature store
+      unavailable" and `/health` answers **503** — never a cold score
+- [ ] **Given** Redis up but **empty or half-loaded** (no marker, or a marker from a
+      different load), **then** the same: 503 "feature store not loaded"
+- [ ] Missing or malformed fields: **HTTP 422** with the field names, not 200
+- [ ] The health check is cheap (one round trip, cached for a second) and does **not**
+      make Ray restart replicas in a loop during a Redis outage — readiness, not liveness
+- [ ] Unit tests (fake store: down, empty, marker mismatch, warm, cold) and integration
+      tests against real Redis (a test database, never the live one)
+
+**D. Rolled out the safe way**
+- [ ] Serving image 0.1.4 (same base digest + current lock), zero-downtime RayService
+      upgrade; **2,000/2,000 scores identical** for warm accounts after; the cold answers
+      carry the new fields
+- [ ] Live drill: Redis stopped for a moment (GraphGuard's own container) → the scorer
+      returns 503 and `/health` 503 → Redis back + `store-load` → healthy, scores identical.
+      Measured: how long until healthy
+- [ ] The cold-account rate per rate is already in S5.4's results; reported here with A's
+
+### Definition of Done
+
+The cold path is measured on validation and its policy written down from the numbers; a
+new account gets a defined, flagged answer; Redis down or empty gives 503 and an unhealthy
+`/health`, never a cold score; bad input gives 422; all proven by unit, integration and a
+live drill; rolled out with zero downtime and identical scores.
+
+### Tasks (in order)
+
+1. A: the validation numbers for cold vs warm; the finding; the policy decision
+   (shown to Lubo before it is coded, if it changes what investigators see)
+2. Tests first: down / empty / marker / cold / warm / 422
+3. Store marker in `store-load`; readiness in the scorer; status codes
+4. Image 0.1.4, zero-downtime rollout, 2,000-score check
+5. The live drill; docs; commit, push, CI
+
+**Estimate:** 3 story points, ~1 session. **Cost:** none.
+
+**Dependencies:** S5.4 ✅ (cold rate). Feeds Phase 6's rules layer and Phase 7's queue.
+
+**Out of scope:** retraining or new model features (Phase 8, if A calls for it); the stream
+consumer itself (Phase 6) — it will reuse the same readiness check in process.
+
+**Risks:** *the drill disturbs something* → only GraphGuard's Redis, seconds, scores
+checked after; *a readiness check that flaps* → cached, one round trip, tested;
+*the policy hides a real gap* → numbers first, decision written, Lubo sees it.
 
 Rolls up to: "the cold-account path tested rather than assumed".
 
