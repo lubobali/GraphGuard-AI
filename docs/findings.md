@@ -496,3 +496,53 @@ to fail when the bad pattern is put back.
 
 **Results stand.** The Phase 3 numbers came from this code running on the box, logged
 to MLflow; what was missing was the published copy, not the experiment.
+
+## FINDING-013 — p99 holds to 150 tx/s on k3s; at 200 tx/s the scorer saturates, and 94% of its CPU is Ray Serve, not the model
+
+*S5.4, 2026-11-19. Raw numbers: `docs/perf/s5.4-latency.json`; MLflow experiment
+`graphguard-perf`.*
+
+**How it was measured.** Open loop — each request leaves on a fixed schedule and its
+latency counts from when it was *due*, so a stall cannot hide (no coordinated omission).
+From a load-generator pod inside k3s, calling the scorer's Service by name: the path the
+Phase 6 stream will use. 2,000 real validation transactions in time order; 15 s warm-up
+excluded; 60 s measured; 3 repetitions per rate (the host run beside each for comparison).
+On the locked system (after Phase 5b), image `serving:0.1.3`, 2 Serve replicas on a head pod
+capped at 2 CPU.
+
+| tx/s | p50 | p99 (3 runs) | p99.9 | errors | scorer CPU |
+|---|---|---|---|---|---|
+| 10 | 7.4 ms | 13.3 – 13.8 ms | ≤ 17.8 ms | 0 | 0.23 cores |
+| 50 | 6.8 ms | 12.3 – 14.8 ms | ≤ 19.3 ms | 0 | 0.66 |
+| 75 *(1 short run)* | 6.2 ms | 10.7 ms | — | 0 | 0.79 |
+| 100 *(1 short run)* | 5.8 ms | 12.6 ms | — | 0 | 0.94 |
+| 150 *(1 short run)* | 6.6 ms | **21.8 ms** | — | 0 | 1.47 |
+| 200 | 1.2 – 6.6 **s** | **4.7 – 9.9 s** | ≤ 10.0 s | 0 | **1.96 (cap 2)** |
+
+The data's own load: 5.6 tx/s on average, 13.5 tx/s in a busy minute (p99), **187 tx/s in
+the busiest minute** of the 18 days.
+
+**What it means.**
+- At every rate the stream sustains on average and in a busy minute, **p99 is 13-15 ms**,
+  well inside 50 ms. The earlier 7.7 ms (one request at a time, from the host) was the p50
+  of an idle server; the honest p99 under load is about twice that.
+- **Capacity is 150-175 tx/s.** Past it, requests queue and latency jumps from milliseconds
+  to seconds — with zero errors, which is exactly what a closed-loop test would have missed.
+- **The cost is not the model.** Our own code (one Redis round trip, feature assembly,
+  XGBoost) costs **0.6 ms of CPU** and p99 3.8 ms in process, single-threaded as in the pod.
+  In the pod each request costs **~10 ms of CPU**: about 94% is Ray Serve's HTTP proxy,
+  routing and serialisation.
+- Side finding: on the host, XGBoost spread one-row predictions across all 8 cores — 65 ms
+  of CPU per request and *slower* (p50 10.3 ms). The pod is single-threaded (Ray sets the
+  thread count from the replica's CPU), so production was not affected; the host-side tools
+  now pin one thread.
+
+**Consequences.**
+- The S5.4 acceptance criterion "p99 < 50 ms at 200 tx/s" is **not met**. It is recorded as
+  failed, not lowered.
+- For Phase 6: the stream should not pay an HTTP + Ray Serve hop per transaction. A
+  consumer that scores in process (or in micro-batches) costs ~0.6 ms of CPU per
+  transaction — hundreds of times the headroom — and Kafka absorbs a busiest-minute burst.
+  The HTTP endpoint stays for interactive use, where 150 tx/s is ample.
+- The options for the HTTP path itself (more CPU, Serve batching, a lean server instead of
+  Ray — ADR 0001's decision would be revisited) are a decision for Lubo, not taken here.

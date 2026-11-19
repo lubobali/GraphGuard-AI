@@ -75,3 +75,16 @@ def test_extra_features_are_ignored(bundle):
 def test_scoring_a_frame_uses_the_saved_order(bundle):
     df = pl.DataFrame({"c": [3.0], "b": [2.0], "a": [1.0]})
     assert bundle.score_frame(df).shape == (1,)
+
+
+def test_a_loaded_bundle_predicts_single_threaded(tmp_path):
+    # FINDING-013: one row across 8 threads cost ~100x the CPU and was slower.
+    import numpy as np
+    import xgboost as xgb
+
+    from graphguard.serving.model_bundle import ModelBundle
+
+    X = np.random.default_rng(0).random((50, 2))
+    m = xgb.XGBClassifier(n_estimators=2).fit(X, (X[:, 0] > 0.5).astype(int))
+    ModelBundle(m, ("a", "b"), {}, "t").save(tmp_path)
+    assert ModelBundle.load(tmp_path).model.get_params()["n_jobs"] == 1

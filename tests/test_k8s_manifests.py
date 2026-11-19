@@ -55,3 +55,25 @@ def test_egress_is_denied_by_default_and_opened_only_for_dns_redis_and_ray():
     assert ports == [53, 53, 6379]  # DNS (udp+tcp) and Redis; nothing else by port
     cidrs = [b["ipBlock"]["cidr"] for r in rules for b in r["to"] if "ipBlock" in b]
     assert cidrs == ["172.25.0.0/16"] and "0.0.0.0/0" not in cidrs
+
+
+def test_the_load_generator_pod_is_restricted_capped_and_reaches_only_the_scorer():
+    from graphguard.serving.perf_k8s import LABEL, job_manifest
+
+    job = job_manifest("x", [10], 1, 1, 1)
+    pod = job["spec"]["template"]["spec"]
+    (c,) = pod["containers"]
+    assert pod["automountServiceAccountToken"] is False
+    assert pod["securityContext"]["runAsNonRoot"] is True
+    assert pod["securityContext"]["seccompProfile"]["type"] == "RuntimeDefault"
+    assert c["securityContext"] == {
+        "allowPrivilegeEscalation": False,
+        "readOnlyRootFilesystem": True,
+        "capabilities": {"drop": ["ALL"]},
+    }
+    assert c["resources"]["limits"] == {"cpu": "1", "memory": "256Mi"}
+    (np,) = _docs("loadgen-networkpolicy.yaml")
+    assert np["spec"]["podSelector"]["matchLabels"] == {"app": LABEL}
+    assert np["spec"]["policyTypes"] == ["Egress"]
+    ports = [p["port"] for rule in np["spec"]["egress"] for p in rule["ports"]]
+    assert sorted(ports) == [53, 53, 8000]  # DNS and the scorer, nothing else

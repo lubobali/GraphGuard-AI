@@ -56,6 +56,10 @@ class ModelBundle:
 
         model = xgb.XGBClassifier()
         model.load_model(directory / MODEL_FILE)
+        # One thread: serving predicts one row at a time, and spreading a single row across
+        # every core costs ~100x the CPU and is slower (FINDING-013). The pod was already
+        # single-threaded (Ray sets it from the replica's CPU); now every caller is.
+        model.set_params(n_jobs=1)
 
         return cls(
             model=model,

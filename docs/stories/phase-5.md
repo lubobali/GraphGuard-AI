@@ -164,7 +164,15 @@ monitoring dashboards (Phase 8).
 - *Upgrading breaks KubeRay compatibility* → check the KubeRay/Ray version matrix first;
   the current image stays in Docker as the rollback
 
-## S5.4 — p99 measured on k3s, under realistic load, on the locked system *(expanded 2026-11-19, awaiting approval)*
+## S5.4 — p99 measured on k3s, under realistic load, on the locked system *(measured 2026-11-19 — one criterion failed: p99 at 200 tx/s; decision open)*
+
+> **Result (FINDING-013):** open loop from inside k3s, p99 **13-15 ms at 10-50 tx/s**,
+> **22 ms at 150 tx/s**; at **200 tx/s the scorer saturates** (2 CPU used) and p99 is
+> **5-10 s**, with zero errors. Capacity 150-175 tx/s. Our own code costs 0.6 ms of CPU per
+> request; ~94% of the scorer's CPU is Ray Serve's HTTP path. The criterion
+> "p99 < 50 ms at 200 tx/s" is **failed and kept**, not lowered. What to do about it (an
+> in-process stream consumer in Phase 6, more CPU, Serve batching, or a leaner server) is
+> Lubo's decision. CI's latency guard now exists; CLAUDE.md corrected.
 
 **As a** hiring manager reading the repo, **I want** the latency number measured on the
 real k3s deployment, at the load the stream will bring and beyond, by a method that

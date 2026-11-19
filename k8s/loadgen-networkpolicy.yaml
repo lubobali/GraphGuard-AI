@@ -1,0 +1,30 @@
+# S5.4: the latency load generator (graphguard.serving.perf_k8s) may reach the scorer's
+# Serve port and DNS -- nothing else. The namespace denies all other egress by default.
+# The scorer already accepts TCP 8000 from inside the cluster (allow-scoring-port).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-loadgen-egress
+  namespace: graphguard
+spec:
+  podSelector:
+    matchLabels:
+      app: graphguard-loadgen
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    - to:
+        - podSelector:
+            matchLabels:
+              ray.io/node-type: head
+      ports:
+        - {protocol: TCP, port: 8000}

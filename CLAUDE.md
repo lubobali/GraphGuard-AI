@@ -428,7 +428,11 @@ Stood up in Phase 0, before any modelling code exists.
 - **Metamorphic tests** — ×10 every amount and the ranking should hold; rename an account
   and nothing changes
 - **Train/serve parity** — same transaction through batch and online paths, asserted
-- **Latency budget in CI** — p99 under 50ms is an assertion that fails the build
+- **Latency budget in CI** — the build fails if feature assembly + inference (production-sized
+  model, in process) passes 10 ms at p99, a fixed share of the 50 ms budget
+  (`tests/serving/test_latency_budget.py`, added in S5.4 — before that the assertion was
+  promised here but did not exist). The end-to-end p99 is measured on k3s, open loop, by
+  `python -m graphguard.serving.perf_k8s run` (FINDING-013); CI cannot run k3s
 - **`evaluate()` is tested first.** If it is wrong, every result in the project is wrong
   and nothing downstream would reveal it
 
