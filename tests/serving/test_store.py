@@ -119,3 +119,29 @@ def test_get_many_returns_a_state_per_requested_account(store):
     assert got["A"].n_sent == 7
     assert got["B"].n_sent == 7
     assert got["MISSING"] is None
+
+
+# --- the store marker (S5.5): "completely loaded" is a fact the scorer can check -------
+def test_a_never_loaded_store_is_not_ready_and_a_marked_one_is(store):
+    assert store.readiness() == "feature store not loaded"
+    store.set_marker({"accounts": 3, "as_of": "2022-09-06T00:00:00"})
+    assert store.readiness() is None
+    assert store.marker()["accounts"] == "3"
+
+
+def test_pruning_after_a_reload_keeps_the_marker(store):
+    if isinstance(store, InMemoryFeatureStore):
+        pytest.skip("the marker key only exists in Redis")
+    store.put(_state("A"))
+    store.set_marker({"accounts": 1})
+    store.prune_except({"A"})
+    assert store.readiness() is None and store.get("A") is not None
+
+
+def test_an_unreachable_redis_reports_down_quickly():
+    import time
+
+    s = RedisFeatureStore(url="redis://127.0.0.1:1/0", namespace="test-nowhere")
+    t = time.perf_counter()
+    assert s.readiness() == "feature store unavailable"
+    assert time.perf_counter() - t < 3  # the 2 s timeout, not a hang

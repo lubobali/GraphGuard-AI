@@ -263,7 +263,7 @@ result demands it, as its own story; the Kafka consumer itself (Phase 6).
 
 Rolls up to: "p99 measured under budget there".
 
-## S5.5 — A never-seen account gets a defined, tested answer — and a broken store never looks like one *(expanded 2026-11-19, awaiting approval)*
+## S5.5 — A never-seen account gets a defined, tested answer — and a broken store never looks like one *(approved 2026-11-19 "yes approve s5.5 do it on your own"; in progress)*
 
 **As an** investigator, **I want** a transaction from a brand-new account scored in a
 known, documented, *measured* way, and a broken or empty feature store to fail loudly,

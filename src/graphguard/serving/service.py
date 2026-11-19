@@ -42,6 +42,20 @@ class ScoringResponse:
     receiver_cold: bool
     sender_staleness_seconds: float | None
     receiver_staleness_seconds: float | None
+    cold_policy: str = "warm"
+
+
+# What a score means when the store has never seen an account (S5.5, FINDING-014, measured
+# on validation). One new side: the model already ranks these higher than warm traffic and
+# their launderers reach the top-5000 queue more often (47% / 38% vs 23%) -- the score
+# stands. Both sides new: laundering at 30x the base rate, the score is ~0 and none reached
+# the queue -- the score cannot be trusted, so the transaction is sent to review.
+COLD_POLICY = {
+    (False, False): "warm",
+    (True, False): "scored: sender new",
+    (False, True): "scored: receiver new",
+    (True, True): "review: both accounts new",
+}
 
 
 class ScoringService:
@@ -49,6 +63,10 @@ class ScoringService:
         self._bundle = bundle
         self._store = store
         self._currency_map = bundle.category_maps.get("payment_currency", {})
+
+    @property
+    def store(self) -> FeatureStore:
+        return self._store
 
     @staticmethod
     def _staleness(state: AccountState, at: dt.datetime) -> float | None:
@@ -87,4 +105,5 @@ class ScoringService:
             receiver_cold=receiver.is_cold,
             sender_staleness_seconds=self._staleness(sender, request.timestamp),
             receiver_staleness_seconds=self._staleness(receiver, request.timestamp),
+            cold_policy=COLD_POLICY[(sender.is_cold, receiver.is_cold)],
         )

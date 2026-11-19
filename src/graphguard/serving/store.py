@@ -54,6 +54,14 @@ class FeatureStore(Protocol):
     def get_many(self, accounts: list[str]) -> dict[str, AccountState | None]: ...
     def put(self, state: AccountState) -> None: ...
     def put_many(self, states: list[AccountState]) -> None: ...
+    def set_marker(self, info: dict[str, str]) -> None: ...
+    def marker(self) -> dict[str, str] | None: ...
+    def readiness(self) -> str | None: ...
+
+
+MARKER = "!store"  # not a valid account id: accounts are alphanumeric
+STORE_DOWN = "feature store unavailable"
+STORE_NOT_LOADED = "feature store not loaded"
 
 
 def _encode(state: AccountState) -> dict[str, str]:
@@ -98,6 +106,18 @@ class InMemoryFeatureStore:
 
     def __init__(self) -> None:
         self._data: dict[str, dict[str, str]] = {}
+        self._marker: dict[str, str] | None = None
+
+    def set_marker(self, info: dict[str, str]) -> None:
+        self._marker = {k: str(v) for k, v in info.items()}
+
+    def marker(self) -> dict[str, str] | None:
+        return self._marker
+
+    def readiness(self) -> str | None:
+        # Unit tests fill it with put() and expect it to serve; an empty one with no
+        # marker is the "never loaded" case.
+        return None if (self._marker or self._data) else STORE_NOT_LOADED
 
     def get(self, account: str) -> AccountState | None:
         raw = self._data.get(account)
@@ -130,7 +150,10 @@ class RedisFeatureStore:
         # GRAPHGUARD_REDIS_URL (the scorer pod: its URL comes from a Kubernetes
         # Secret) beats the default, which logs in as `user` with its own password.
         url = url or os.environ.get("GRAPHGUARD_REDIS_URL") or redis_url(0, user)
-        self._client = redis.Redis.from_url(url, decode_responses=True)
+        # Timeouts: a hung Redis must fail a request in ~2 s, not hold it forever.
+        self._client = redis.Redis.from_url(
+            url, decode_responses=True, socket_timeout=2, socket_connect_timeout=2
+        )
         self._ns = namespace
 
     def _key(self, account: str) -> str:
@@ -138,6 +161,27 @@ class RedisFeatureStore:
 
     def ping(self) -> bool:
         return bool(self._client.ping())
+
+    # --- the store marker (S5.5) ----------------------------------------------------------
+    # Written by `store-load` after every account, so "no marker" means "never completely
+    # loaded" -- after a Redis restart, before the refill finishes. Inside the `acct`
+    # pattern (the users' ACL allows only that), under a name no account can have.
+    def _marker_key(self) -> str:
+        return f"{self._ns}:acct:{MARKER}"
+
+    def set_marker(self, info: dict[str, str]) -> None:
+        self._client.hset(self._marker_key(), mapping={k: str(v) for k, v in info.items()})
+
+    def marker(self) -> dict[str, str] | None:
+        return self._client.hgetall(self._marker_key()) or None
+
+    def readiness(self) -> str | None:
+        """None when ready to serve; otherwise why not. One round trip."""
+        try:
+            raw = self._client.hgetall(self._marker_key())
+        except (redis.ConnectionError, redis.TimeoutError):
+            return STORE_DOWN
+        return None if raw else STORE_NOT_LOADED
 
     def get(self, account: str) -> AccountState | None:
         raw = self._client.hgetall(self._key(account))
@@ -189,7 +233,7 @@ class RedisFeatureStore:
         cursor = 0
         while True:
             cursor, keys = self._client.scan(cursor, match=f"{prefix}*", count=5000)
-            stale = [k for k in keys if k[len(prefix) :] not in keep]
+            stale = [k for k in keys if k[len(prefix) :] not in keep and k[len(prefix) :] != MARKER]
             if stale:
                 removed += self._client.delete(*stale)
             if cursor == 0:

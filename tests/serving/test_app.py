@@ -52,7 +52,9 @@ def scorer(tmp_path):
     from graphguard.serving.service import ScoringService
 
     instance._bundle = ModelBundle.load(tmp_path / "bundle")
-    instance._service = ScoringService(bundle=instance._bundle, store=InMemoryFeatureStore())
+    store = InMemoryFeatureStore()
+    store.set_marker({"accounts": 0})  # a loaded store in which A and B are simply new
+    instance._service = ScoringService(bundle=instance._bundle, store=store)
     return instance
 
 
@@ -82,8 +84,8 @@ def test_valid_payload_returns_a_score(scorer):
 def test_missing_field_is_reported_not_defaulted(scorer, field):
     payload = _payload()
     del payload[field]
-    assert "error" in scorer._score(payload)
-    assert field in scorer._score(payload)["error"]
+    status, body = _http(scorer._score(payload))
+    assert status == 422 and field in body["error"]  # S5.5: never a 200 with an error inside
 
 
 @pytest.mark.unit
@@ -103,3 +105,106 @@ def test_string_numbers_are_accepted(scorer):
     """Real callers send JSON, and JSON numbers arrive as strings often enough."""
     out = scorer._score(_payload(amount_paid="100.0", amount_received="100.0"))
     assert 0.0 <= out["score"] <= 1.0
+
+
+def _http(out):
+    """(status, body) for both a plain dict (200) and a JSONResponse."""
+    import json
+
+    if isinstance(out, dict):
+        return 200, out
+    return out.status_code, json.loads(out.body)
+
+
+class _DownStore:
+    """Redis unreachable: every call raises like redis-py does."""
+
+    def readiness(self):
+        from graphguard.serving.store import STORE_DOWN
+
+        return STORE_DOWN
+
+    def get_many(self, accounts):
+        import redis
+
+        raise redis.ConnectionError("down")
+
+
+def _with_store(scorer, store):
+    from graphguard.serving.service import ScoringService
+
+    scorer._service = ScoringService(bundle=scorer._bundle, store=store)
+    scorer._ready_cache = None
+    return scorer
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("over", "why"),
+    [({"amount_paid": "lots"}, "malformed"), ({"timestamp": "yesterday"}, "malformed")],
+)
+def test_malformed_fields_are_422(scorer, over, why):
+    status, body = _http(scorer._score(_payload(**over)))
+    assert status == 422 and why in body["error"]
+
+
+@pytest.mark.unit
+def test_redis_down_is_503_never_a_cold_score(scorer):
+    _with_store(scorer, _DownStore())
+    status, body = _http(scorer._score(_payload()))
+    assert status == 503 and body["error"] == "feature store unavailable"
+    assert "score" not in body
+    assert _http(scorer._health())[0] == 503
+
+
+@pytest.mark.unit
+def test_an_empty_never_loaded_store_is_503_never_all_cold(scorer):
+    _with_store(scorer, InMemoryFeatureStore())  # no marker, no accounts: a Redis restart
+    status, body = _http(scorer._score(_payload()))
+    assert status == 503 and body["error"] == "feature store not loaded"
+    h_status, h_body = _http(scorer._health())
+    assert h_status == 503 and h_body["reason"] == "feature store not loaded"
+
+
+@pytest.mark.unit
+def test_a_loaded_store_is_healthy(scorer):
+    status, body = _http(scorer._health())
+    assert status == 200 and body["status"] == "ok"
+
+
+@pytest.mark.unit
+def test_redis_failing_mid_request_is_503_and_marks_the_store_down(scorer):
+    class _FlakyStore(InMemoryFeatureStore):
+        def get_many(self, accounts):
+            import redis
+
+            raise redis.TimeoutError("slow")
+
+    store = _FlakyStore()
+    store.set_marker({"accounts": 0})
+    _with_store(scorer, store)
+    assert _http(scorer._score(_payload()))[0] == 503
+    assert scorer._readiness() == "feature store unavailable"  # cached: no retry storm
+
+
+@pytest.mark.unit
+def test_both_new_accounts_are_sent_to_review(scorer):
+    _, body = _http(scorer._score(_payload()))
+    assert body["sender_cold"] and body["receiver_cold"]
+    assert body["cold_policy"] == "review: both accounts new"
+
+
+@pytest.mark.unit
+def test_readiness_is_checked_at_most_once_a_second(scorer):
+    calls = []
+
+    class _Counting(InMemoryFeatureStore):
+        def readiness(self):
+            calls.append(1)
+            return None
+
+    store = _Counting()
+    _with_store(scorer, store)
+    for _ in range(50):
+        scorer._score(_payload())
+    assert len(calls) == 1

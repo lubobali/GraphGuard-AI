@@ -1,0 +1,62 @@
+{
+ "window": [
+  "2022-09-06T13:34:00",
+  "2022-09-08T16:09:00"
+ ],
+ "measured_at": "2026-11-19T05:10:21+00:00",
+ "validation_transactions": 1015300,
+ "groups": [
+  {
+   "group": "both cold",
+   "n": 63,
+   "laundering": 2,
+   "share": 6.205062543090713e-05,
+   "laundering_rate": 0.031746031746031744
+  },
+  {
+   "group": "receiver cold",
+   "n": 934,
+   "laundering": 13,
+   "share": 0.0009199251452772579,
+   "laundering_rate": 0.013918629550321198
+  },
+  {
+   "group": "sender cold",
+   "n": 998,
+   "laundering": 15,
+   "share": 0.0009829607012705605,
+   "laundering_rate": 0.01503006012024048
+  },
+  {
+   "group": "warm",
+   "n": 1013305,
+   "laundering": 1053,
+   "share": 0.9980350635280213,
+   "laundering_rate": 0.0010391737926882824
+  }
+ ],
+ "scores": {
+  "both cold": {
+   "median_score": 0.000809,
+   "median_score_launderers": 0.001227
+  },
+  "receiver cold": {
+   "median_score": 0.004962,
+   "median_score_launderers": 0.178017
+  },
+  "sender cold": {
+   "median_score": 0.06342,
+   "median_score_launderers": 0.110318
+  },
+  "warm": {
+   "median_score": 0.000171,
+   "median_score_launderers": 0.024674
+  }
+ },
+ "recall_in_top_5000": {
+  "both cold": 0.0,
+  "receiver cold": 0.3846,
+  "sender cold": 0.4667,
+  "warm": 0.2286
+ }
+}

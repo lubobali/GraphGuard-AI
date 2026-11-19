@@ -33,6 +33,13 @@ def load_store_from_gold(catalog: Catalog, store, as_of: dt.datetime) -> int:
     states = states_from_frame(frame, as_of)
     store.put_many(list(states.values()))
     store.prune_except(set(states))
+    # Last: "the store is completely loaded" (S5.5). After a Redis restart the marker is
+    # gone, so the scorer answers 503 until this line runs -- never a cold score.
+    store.set_marker({
+        "as_of": as_of.isoformat(),
+        "accounts": len(states),
+        "loaded_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+    })  # fmt: skip
     return len(states)
 
 

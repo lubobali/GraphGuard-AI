@@ -182,3 +182,19 @@ def test_staleness_is_store_age_not_account_recency():
     svc = ScoringService(bundle=bundle, store=store)
     out = svc.score(_request(sender="OLD_ACTIVITY", receiver="OLD_ACTIVITY"))
     assert out.sender_staleness_seconds == pytest.approx(3600, abs=1)
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("sender", "receiver", "policy"),
+    [
+        ("WARM", "WARM", "warm"),
+        ("NEW", "WARM", "scored: sender new"),
+        ("WARM", "NEW", "scored: receiver new"),
+        ("NEW", "NEW2", "review: both accounts new"),
+    ],
+)
+def test_cold_policy_names_the_rule_for_each_case(service, sender, receiver, policy):
+    r = service.score(_request(sender=sender, receiver=receiver))
+    assert r.cold_policy == policy
+    assert r.sender_cold == (sender != "WARM") and r.receiver_cold == (receiver != "WARM")
