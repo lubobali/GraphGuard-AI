@@ -182,18 +182,26 @@ What it delivered (runbook `docs/runbooks/job-users.md`):
   identical** after a reload as the reader; caps set from measured peaks
 - ADR 0003's honest limit closed for jobs, with what remains written down
 
-### S5b.6 — Keys and secrets *(expanded 2026-11-19, awaiting approval)*
+### S5b.6 — Keys and secrets ✅ done 2026-11-19 (slim scope)
 **As the** owner, **I want** every GraphGuard secret listed with who holds it and how to
-rotate it, a check that fails when one is overdue, unknown or loosely permissioned, each
-kind rotated once for real, and the retired S5.6b key re-decided, **so that** no long-lived
-credential exists that nobody is watching — and a rotation is a rehearsed command.
+rotate it, a check that fails when one is overdue, unknown or loosely permissioned, and
+each on-box kind rotated once for real, **so that** no credential exists that nobody is
+watching — and a rotation is a rehearsed command.
 
-Covers: a secrets registry in code + `just secrets-status` (fails on overdue, untracked or
-wrongly permissioned secrets); `just secret-set` so keys are typed into the box, never
-pasted into chat; one real rotation of every kind (Redis with zero downtime, each
-Postgres role, the Dex client secrets, the OpenFGA key, the AWS and cloud keys with a
-two-key overlap, the backup repository password); the S5.6b key retired if Lubo agrees.
-GraphGuard containers only. Details private until done.
+What it delivered (runbook `docs/runbooks/secrets.md`):
+- A **registry of every secret** in code and **`just secrets-status`**, which fails on
+  overdue, untracked, missing or wrongly permissioned secrets — its first run found a
+  leftover duplicate, now removed
+- **`just secret-set`**: console keys are typed into the box with hidden input, never
+  pasted into chat
+- **Every on-box kind rotated once, for real**, each proven by its holder and rolled back
+  automatically on failure: six Postgres roles (sent as SCRAM verifiers, never plain), the
+  four Dex client secrets (old ones proven refused), the OpenFGA key, and the three Redis
+  users — measured under load: two sub-second blips at the Redis restarts, and **zero
+  errors while the scorer rolled** onto the new password; 2,000/2,000 scores identical
+- Backups now read the database password from the secrets folder, so a rotation never
+  breaks them; a backup and the restore drill passed after the last rotation
+- Cloud-console keys kept by decision (a demo project); recorded as an accepted risk
 
 ### S5b.7 — MLflow server 2 → 3 *(short until its turn)*
 **As an** ML engineer, **I want** the MLflow server on a current, supported 3.x release

@@ -115,23 +115,36 @@ def restic(*args: str, capture: bool = False) -> subprocess.CompletedProcess:
     )
 
 
-def _psql(
-    db: str, sql: str, container: str = PG_CONTAINER, pw_env: str = "POSTGRES_PASSWORD"
-) -> str:
-    out = subprocess.run(
-        [
+def superuser_env() -> dict[str, str]:
+    """The Postgres superuser password from `.secrets/mlflow.env`, as PGPASSWORD for a
+    `docker exec -e PGPASSWORD` (name only on the command line). Read from the file, not
+    the container's environment, so a rotated password works without recreating it."""
+    env = dict(os.environ)
+    env["PGPASSWORD"] = _read_env(SECRETS / "mlflow.env")["MLFLOW_DB_PASSWORD"]
+    return env
+
+
+def _pg(container: str, script: str) -> tuple[list[str], dict[str, str] | None]:
+    """`docker exec` for a psql/pg_dump script: the live Postgres gets the password
+    from `.secrets/`; a throwaway drill Postgres uses its own environment."""
+    if container == PG_CONTAINER:
+        return [
             "docker",
             "exec",
+            "-e",
+            "PGPASSWORD",
             container,
             "sh",
             "-c",
-            f'PGPASSWORD="${pw_env}" psql -U "$POSTGRES_USER" -d {db} -Atc "{sql}"',
-        ],
-        check=True,
-        text=True,
-        capture_output=True,
-    )
-    return out.stdout.strip()
+            script,
+        ], superuser_env()
+    cmd = ["docker", "exec", container, "sh", "-c", f'PGPASSWORD="$POSTGRES_PASSWORD" {script}']
+    return cmd, None
+
+
+def _psql(db: str, sql: str, container: str = PG_CONTAINER) -> str:
+    cmd, env = _pg(container, f'psql -U "$POSTGRES_USER" -d {db} -Atc "{sql}"')
+    return subprocess.run(cmd, env=env, check=True, text=True, capture_output=True).stdout.strip()
 
 
 def table_counts(container: str = PG_CONTAINER) -> dict[str, dict[str, int]]:
@@ -148,31 +161,11 @@ def dump_all(out: Path) -> None:
     row counts at this moment."""
     for db in databases():
         with open(out / f"{db}.dump", "wb") as f:
-            subprocess.run(
-                [
-                    "docker",
-                    "exec",
-                    PG_CONTAINER,
-                    "sh",
-                    "-c",
-                    f'PGPASSWORD="$POSTGRES_PASSWORD" pg_dump -U "$POSTGRES_USER" -Fc {db}',
-                ],
-                check=True,
-                stdout=f,
-            )
+            cmd, env = _pg(PG_CONTAINER, f'pg_dump -U "$POSTGRES_USER" -Fc {db}')
+            subprocess.run(cmd, env=env, check=True, stdout=f)
     with open(out / "globals.sql", "wb") as f:
-        subprocess.run(
-            [
-                "docker",
-                "exec",
-                PG_CONTAINER,
-                "sh",
-                "-c",
-                'PGPASSWORD="$POSTGRES_PASSWORD" pg_dumpall -U "$POSTGRES_USER" --globals-only',
-            ],
-            check=True,
-            stdout=f,
-        )
+        cmd, env = _pg(PG_CONTAINER, 'pg_dumpall -U "$POSTGRES_USER" --globals-only')
+        subprocess.run(cmd, env=env, check=True, stdout=f)
     with open(out / "mlflow-artifacts.tar", "wb") as f:
         subprocess.run(
             ["docker", "exec", MLFLOW_CONTAINER, "tar", "-C", "/mlflow", "-cf", "-", "artifacts"],

@@ -68,14 +68,18 @@ def password_var(user: str) -> str:
     return f"GG_REDIS_{user.upper()}_PASSWORD"
 
 
-def acl_lines(passwords: dict[str, str]) -> list[str]:
-    """The ACL file's lines. Pure, so the security rules are testable."""
+def acl_lines(passwords: dict[str, str | list[str]]) -> list[str]:
+    """The ACL file's lines. Pure, so the security rules are testable.
+
+    A user may have two passwords for the length of a rotation (S5b.6): the old one
+    keeps working while every client moves to the new one."""
     lines = ["user default off resetpass resetkeys resetchannels -@all"]
     for user, (commands, pattern) in USERS.items():
-        digest = hashlib.sha256(passwords[user].encode()).hexdigest()
+        pws = passwords[user] if isinstance(passwords[user], list) else [passwords[user]]
+        digests = " ".join(f"#{hashlib.sha256(p.encode()).hexdigest()}" for p in pws)
         allowed = " ".join(f"+{c}" for c in commands)
         lines.append(
-            f"user {user} on resetpass #{digest} resetkeys ~{pattern} resetchannels -@all {allowed}"
+            f"user {user} on resetpass {digests} resetkeys ~{pattern} resetchannels -@all {allowed}"
         )
     return lines
 

@@ -384,6 +384,29 @@ job-users-install:
     chgrp -R gg-jobs lakehouse/lineage notebooks && chmod 2775 lakehouse/lineage notebooks
     mkdir -p lakehouse/tmp && chgrp gg-builder lakehouse/tmp && chmod 2770 lakehouse/tmp
 
+# --- S5b.6: secrets -------------------------------------------------------------
+# Exit 1 if a secret is overdue, untracked, missing, or has the wrong mode/owner.
+secrets-status:
+    {{UV}} run python -m graphguard.ops.secrets_registry status
+
+# Type a console key into the box (hidden input). Never paste keys into chat.
+secret-set name:
+    {{UV}} run python -m graphguard.ops.secrets_registry set {{name}}
+
+# Rotate one Postgres role: mlflow_app | lakekeeper | dex | openfga | lakehouse | superuser
+rotate-pg role:
+    {{UV}} run python -m graphguard.ops.rotate pg {{role}}
+
+rotate-identities:
+    {{UV}} run python -m graphguard.ops.rotate identities
+
+rotate-openfga:
+    {{UV}} run python -m graphguard.ops.rotate openfga
+
+# Two short Redis restarts + refills; the scorer rolls with zero downtime in between.
+rotate-redis:
+    {{UV}} run python -m graphguard.ops.rotate redis
+
 # --- S5b.4: the front door ------------------------------------------------------
 # Print the commands `edge-apply` would run (nothing changes).
 edge-dry-run:

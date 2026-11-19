@@ -264,6 +264,17 @@ across engines can and cannot mean.
 
 ---
 
+## Secrets (S5b.6, 2026-11-19)
+
+Every `.secrets/` file is registered in `src/graphguard/ops/secrets_registry.py`;
+**`just secrets-status`** (with the other health checks) fails on overdue, untracked,
+missing or wrongly permissioned secrets — a new secret file needs a registry entry.
+**Never ask Lubo to paste a key into chat:** he types it in his own terminal with
+`just secret-set <file>`. Rotate on-box secrets with `just rotate-pg <role>`,
+`rotate-identities`, `rotate-openfga`, `rotate-redis` (each proves the holder works and
+rolls back on failure), then `just backup`. Runbook `docs/runbooks/secrets.md`.
+Cloud-console keys are kept by Lubo's decision (accepted risk, private record).
+
 ## One user per job (S5b.5, 2026-11-19)
 
 `just lakehouse-build | build-artifacts | store-load | sql | notebook` run as
@@ -422,7 +433,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 3 | Tabular baseline (XGBoost), built to actually win | **done** (2026-08-20) |
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **in progress** — S5.1-S5.3, S5.6a-e done; S5.4, S5.5, S5.7 after Phase 5b |
-| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0-S5b.5 done (2026-11-19) |
+| 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **in progress** — S5b.0-S5b.6 done (2026-11-19) |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |

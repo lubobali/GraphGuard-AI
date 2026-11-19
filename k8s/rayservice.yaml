@@ -35,6 +35,11 @@ spec:
         num-cpus: "2"
         dashboard-host: "0.0.0.0"
       template:
+        metadata:
+          annotations:
+            # Bumped by `just rotate-redis` (S5b.6): a new value makes KubeRay roll the
+            # scorer onto the new Redis password with a zero-downtime upgrade.
+            graphguard.ai/redis-secret-rev: "20261119031550"
         spec:
           # S5b.1: the scorer never talks to the Kubernetes API, so it gets no token.
           automountServiceAccountToken: false
