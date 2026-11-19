@@ -44,6 +44,12 @@ REGISTRY: dict[str, Secret] = {
         "Lakekeeper (vending)", "AWS IAM console, two-key overlap", CONSOLE_DAYS
     ),
     "backup-aws.env": S("backup timer", "AWS IAM console, two-key overlap", CONSOLE_DAYS),
+    "models-publisher-aws.env": S(
+        "just model-publish (host)", "AWS IAM console, two-key overlap", CONSOLE_DAYS
+    ),
+    "models-reader-aws.env": S(
+        "scorer (via k8s Secret graphguard-model)", "AWS IAM console, two-key overlap", CONSOLE_DAYS
+    ),
     "hetzner-readonly.env": S(
         "edge watchdog", "Hetzner console: new token, delete old", CONSOLE_DAYS
     ),
@@ -199,11 +205,14 @@ def _ask(prompt: str, pattern: re.Pattern) -> str:
 
 
 def secret_set(name: str) -> None:
-    if name in {"backup-aws.env", "lakekeeper-aws.env", "aws.env"}:
+    if name in {"backup-aws.env", "lakekeeper-aws.env", "aws.env", "models-publisher-aws.env",
+                "models-reader-aws.env"}:  # fmt: skip
         values = {
             "AWS_ACCESS_KEY_ID": _ask("AWS access key id", AWS_ID),
             "AWS_SECRET_ACCESS_KEY": _ask("AWS secret access key", AWS_SECRET),
         }
+        if name.startswith("models-"):
+            values["AWS_REGION"] = "us-east-1"
     elif name == "hetzner-readonly.env":
         values = {"HETZNER_TOKEN": _ask("Hetzner API token", HETZNER)}
     else:

@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import os
 import sys
-import time
+import uuid
 from dataclasses import dataclass, field
 
 from graphguard.config import RAW_DIR, REPO_ROOT
@@ -154,7 +154,7 @@ def unit_args(job: Job, args: list[str], raw_files: list[str], env: dict[str, st
     if job.writes:
         props["ReadWritePaths"] = " ".join(str(REPO_ROOT / w) for w in job.writes)
     cmd = ["systemd-run", "--wait", "--collect", "--quiet", "--pty" if job.pty else "--pipe",
-           f"--unit=gg-job-{job.name}-{int(time.time())}"]  # fmt: skip
+           f"--unit=gg-job-{job.name}-{uuid.uuid4().hex[:12]}"]  # fmt: skip
     for k, v in props.items():
         cmd += ["-p", f"{k}={v}"]
     for c in job.credentials:

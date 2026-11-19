@@ -120,3 +120,14 @@ def test_jobs_spill_and_find_git_inside_their_sandbox():
     assert env["GRAPHGUARD_SPILL_DIR"].startswith("/tmp/")  # PrivateTmp, not the repo
     assert env["GIT_CONFIG_KEY_0"] == "safe.directory"
     assert env["GIT_CONFIG_VALUE_0"] == str(REPO_ROOT)  # this repo only
+
+
+def test_two_runs_of_one_job_get_different_unit_names():
+    # Found by S5.7's pre-commit: names built from the current second collided when two
+    # runs of the same job started together (parallel tests, or two `just sql` at once).
+    def unit(cmd):
+        return next(a for a in cmd if a.startswith("--unit="))
+
+    job = jobs.JOBS["sql"]
+    names = {unit(jobs.unit_args(job, [], RAW, {})) for _ in range(50)}
+    assert len(names) == 50

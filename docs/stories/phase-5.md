@@ -1114,7 +1114,7 @@ features from Kafka (Phase 6); Spark (Phase 10); the security lockdown (Phase 5b
 - *marimo exposes a code-running web page* → 127.0.0.1 and a token only; memory-capped;
   runs as `reader`, which cannot see the test window
 
-## S5.7 — The running model is traceable to one artifact *(expanded 2026-11-19, awaiting approval)*
+## S5.7 — The running model is traceable to one artifact *(approved 2026-11-19 "yes approve s5.7 do it on your own"; in progress)*
 
 **As a** model-risk reviewer, **I want** the scorer to load its model from S3 at startup
 by an exact version, verify it byte for byte against a checksum pinned in git, refuse to
