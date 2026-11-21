@@ -155,7 +155,7 @@ The old per-job `apt-get` (~7 s of every job) is gone: git and curl are in the j
 | Compose project | `graphguard` |
 | Network | `graphguard-net` |
 | Volumes | `graphguard-mlflow-db-data`, `graphguard-mlflow-artifacts` |
-| Memory caps | MLflow 640M (1 worker, job system off: 354 MiB), Postgres 256M — measured |
+| Memory caps | MLflow 640M (1 worker, job system off: 354 MiB), Postgres 256M, Redis 448M (S6.3) — measured |
 
 Ports 5000, 5432 and 5433 were already taken on this host, which is why these
 are 5010 and 5434. **Credentials live in `.secrets/`** - gitignored, `chmod 600`,
@@ -167,7 +167,8 @@ service uses it), `.secrets/mlflow-app.env` + `mlflow-pgpass` MLflow's own role
 users' passwords.
 
 **Data services (S5b.1, runbook `docs/runbooks/data-services.md`).** Redis: users
-`scorer` / `loader` / `tests` with only the commands each uses, default user off, rules
+`scorer` / `loader` / `stream` (S6.3) / `tests` with only the commands each uses, nobody
+with scripting, default user off, rules
 in `src/graphguard/serving/redis_acl.py` (`just redis-secrets`); the scorer's URL is
 the Kubernetes Secret `graphguard-redis` (`just k8s-redis-secret`) — never put it in
 the manifest. A Redis restart empties the store: `just store-load`. Postgres: each
@@ -216,6 +217,7 @@ Lakekeeper REST catalog, governance, Feast).
 | `gold.account_features_asof` | account states as of `train_end`, by the serving definition |
 | `gold.labels` | labels + `label_known_at` (null until Phase 6's label-delay policy) |
 | `gold.account_recent_sends` | each send in the 24 h before `train_end` — the stream's seed for the 24 h count (S6.2) |
+| `gold.account_edges` | every (from, to) pair seen before `train_end` — the stream's seed for distinct counts (S6.3) |
 
 ```
 just lakehouse-build   # CSV -> Iceberg on S3, ~35s, peak ~1.3GB, keeps last 5 snapshots, cleans orphans
@@ -312,6 +314,18 @@ listeners vs `private/edge/baseline.json`, guard present. **`just edge-status`**
 other health checks. Remove: `just edge-remove`. A new public listener from another
 project is reported to its session, never changed by us; accept on purpose with
 `just edge-baseline`. Runbook `docs/runbooks/edge.md`.
+
+## Live features for the stream (S6.3, 2026-11-21)
+
+`src/graphguard/stream/updater.py`: each event returns both accounts' state **before** it,
+then applies it — one writer, the batch computed in Python (`plan()`, pure), written in
+**one MULTI/EXEC**. No Lua (S5b.1 stands; ADR 0005). Redis keys `gg:acct:*` (+ watermark
+`wm`), `gg:edge:*` (seen pairs), `gg:win:*` (24 h send times), `gg:ev:*` (pending
+before-states, 6 h). **`just store-load` resets the stream to the snapshot** (seed from
+`gold.account_recent_sends` + `gold.account_edges`). Proof: the whole validation window
+(1,015,300 events) equals training on every feature (`tests/stream/test_full_replay_real.py`,
+slow; `python -m graphguard.stream.proof --redis URL` for a throwaway Redis — never the live
+one). Redis: 320mb data / 448m cap, measured.
 
 ## The scorer alert (S6.1, 2026-11-21)
 
@@ -478,7 +492,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
-| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015) done |
+| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015), S6.3 live features (ADR 0005) done |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |

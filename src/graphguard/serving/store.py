@@ -159,6 +159,11 @@ class RedisFeatureStore:
     def _key(self, account: str) -> str:
         return f"{self._ns}:acct:{account}"
 
+    @property
+    def client(self) -> redis.Redis:
+        """The same connection, for the stream's seed (S6.3) -- one login, one user."""
+        return self._client
+
     def ping(self) -> bool:
         return bool(self._client.ping())
 

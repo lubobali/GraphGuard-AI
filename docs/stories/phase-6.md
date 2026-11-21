@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1 and S6.2 done; S6.3 next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.3 done; S6.4 next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -198,20 +198,63 @@ scorer still healthy, LuBot sites 200, docs updated.
 Out of scope: the live updater itself (S6.3), the edge set for distinct counts (S6.3),
 rolling a new scorer image (only if the 2,000-score check finds a difference worth it).
 
-## S6.3 — Live features, proven before Kafka exists
+## S6.3 — Live features, proven before Kafka exists ✅ done 2026-11-21
 
-**As** the stream, **I want** one atomic update per transaction that returns both
-accounts' features *before* the event and then applies it, **so that** live features stay
-exactly equal to training forever.
+**As** the stream, **I want** every transaction to return both accounts' features *before*
+it and then apply it, atomically, **so that** live features stay exactly equal to training
+forever.
 
-- One Redis Function per event: per-account watermark `(timestamp, source_row)` so a
-  repeat changes nothing; one global edge set for distinct counterparties (975k pairs,
-  compact encoding); per-sender 24 h window; a pending record for crash recovery.
-- `noeviction` and real headroom in Redis; memory measured with `MEMORY USAGE`.
-- **The parity test:** replay all ~1M validation events through the updater (no Kafka),
-  compare every feature of every row with `graph.py` — **zero mismatches**. Plus: every
-  event twice, shuffled same-minute ties, a crash in the middle, the 24 h edge. A sample
-  version runs in CI, the full one as `slow`.
+**Design decision (changes the research's suggestion):** no Redis Function / Lua. S5b.1
+banned scripting on purpose (RediShell, CVE-2025-49844) and that stays. Instead: **one
+writer** (one consumer, one partition), which reads the state it needs, computes a whole
+micro-batch in Python (same float64 arithmetic as training), and writes it in **one
+`MULTI/EXEC`** — all or nothing. A new Redis user `stream` gets only the plain commands it
+uses. A lease that stops a second writer comes with the consumer (S6.6).
+
+Redis layout (namespace `gg`): `acct:{a}` hash (today's fields + `wm`, the last applied
+`(timestamp, source_row)`); `edge:{shard}` sets of `from→to` pairs (16,384 shards, compact
+encoding) for distinct counts; `win:{a}` sorted set of the sender's sends in the last 24 h
+(score = time), trimmed as time moves; `ev:{source_row}` the before-features of an applied
+event (6 h TTL, deleted once the decision is stored) for crash recovery and repeats.
+
+Acceptance criteria:
+- [x] **The full proof:** start from the `train_end` seed (states, recent sends, edges),
+      replay all ~1.0M validation events through the updater in micro-batches, compare
+      every history feature of every row with training (`graph.py`) — **zero mismatches**.
+      Runs on a throwaway capped Redis (offline, no published port besides loopback).
+- [x] **Repeats change nothing:** an event delivered twice returns the same before-features
+      and applies once (unit + live).
+- [x] **Crash between Redis and Postgres:** the event comes back, Redis says "already
+      applied" and hands back the stored before-features — same score.
+- [x] **Late events are refused, not applied:** an event older than an account's watermark
+      and not a known repeat → status `late`, state untouched (counted; S6.5 injects them).
+- [x] **Same-minute ties and the 24 h edge** in unit tests (shuffled arrival inside a batch
+      is re-ordered by `(timestamp, source_row)`; a send exactly 24 h earlier is out).
+- [x] **Seed:** `gold.account_edges` (distinct pairs before `train_end`) written by
+      `just lakehouse-build`; `just store-load` loads accounts + windows + edges and clears
+      old `edge:`/`win:`/`ev:` keys; the scorer's view is unchanged.
+- [x] **Least privilege:** Redis user `stream` — only `HGETALL HSET SMISMEMBER SADD ZCOUNT
+      ZADD ZREMRANGEBYSCORE GET SET DEL MULTI EXEC PING` on `gg:acct:* gg:edge:* gg:win:*
+      gg:ev:*`; still nobody has `EVAL`/`FUNCTION`; loader gains `SADD ZADD` on the new
+      patterns. Live ACL tests prove it.
+- [x] **Memory measured** (`INFO memory`, `MEMORY USAGE` samples) after seeding and after the
+      full replay; Redis cap raised only if needed, with headroom kept (`noeviction` stays).
+- [x] Speed measured: events/s through the updater (target ≫ 187/s, the busiest minute).
+
+**Done 2026-11-21** (ADR 0005). Full validation replay: 1,015,300 events, **0 mismatches** on
+every feature — memory store 9,734 ev/s, real Redis (throwaway copy) 6,038 ev/s (32× the
+busiest minute). Redis 224 MB data / 303 MiB resident at peak → live Redis raised to 320mb
+data / 448m cap (was 200mb / 256m), recreated twice with alert paused, reloaded in 22 s each
+time. 14 unit tests (mutations caught: inclusive window, wrong edges, money off by 1e-9) + 3
+live tests (Redis ≡ memory, repeats, acks) + live ACL tests for `stream`. Seed tables
+`gold.account_edges` (936,359 pairs) + recent sends live; `store-load` now resets the
+stream. The research's Lua design was replaced (scripting stays banned).
+
+Definition of Done: proofs green, `just check` + `just ci-sandbox` green, live store reloaded
+with the new seed, scorer healthy throughout, LuBot sites 200, ADR 0005 (no scripting;
+single writer + MULTI/EXEC), docs updated.
+
+Out of scope: Kafka (S6.4), the consumer loop and Postgres (S6.6), the writer lease (S6.6).
 
 ## S6.4 — Kafka on the box, hardened and measured
 

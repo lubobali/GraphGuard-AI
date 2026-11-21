@@ -108,6 +108,7 @@ REGISTRY: dict[str, Secret] = {
     "redis-scorer.env": S("scorer (via k8s Secret)", "just rotate-redis", BOX_DAYS),
     "redis-loader.env": S("store-load", "just rotate-redis", BOX_DAYS),
     "redis-tests.env": S("live tests", "just rotate-redis", BOX_DAYS),
+    "redis-stream.env": S("stream consumer (S6.3+)", "just rotate-redis", BOX_DAYS),
     "redis-users.acl": S("Redis (hashes only)", "just rotate-redis", BOX_DAYS, owner_uid=10379),
 }
 

@@ -68,7 +68,7 @@ def test_the_manifest_carries_the_rev_annotation():
 
 
 def test_during_a_redis_rotation_a_user_has_both_passwords_and_nothing_more():
-    pw = {"scorer": ["old", "new"], "loader": "l", "tests": "t"}
+    pw = {"scorer": ["old", "new"], "loader": "l", "stream": "s", "tests": "t"}
     (scorer,) = [line for line in acl_lines(pw) if line.startswith("user scorer")]
     digests = [w for w in scorer.split() if w.startswith("#")]
     assert len(digests) == 2 and "old" not in scorer and "new" not in scorer

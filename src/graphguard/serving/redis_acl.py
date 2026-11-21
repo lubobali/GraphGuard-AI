@@ -6,8 +6,9 @@ The store's code uses five commands -- PING, HGETALL, HSET, SCAN, DEL (pipelines
 plain command batches) -- plus SELECT for the tests' own database. So:
 
     scorer   read accounts:           PING HGETALL          on gg:acct:*
-    loader   fill and prune:          PING HGETALL HSET SCAN DEL   on gg:acct:*
-    tests    the same, test keys:     ... + SELECT          on test-*
+    loader   fill and prune:  PING HGETALL HSET SCAN DEL SADD ZADD  on gg:{acct,edge,win,ev}:*
+    stream   the single writer (S6.3): plain reads/writes + MULTI/EXEC  on the same keys
+    tests    all of the above:        ... + SELECT          on test-*
     default  OFF (an unauthenticated client can do nothing)
 
 Nobody gets scripting (EVAL/FUNCTION: RediShell, CVE-2025-49844), admin commands,
@@ -39,10 +40,16 @@ REDIS_UID, REDIS_GID = 10379, 10379
 
 READ = ("ping", "hgetall", "client|setinfo")
 WRITE = (*READ, "hset", "scan", "del")
-USERS: dict[str, tuple[tuple[str, ...], str]] = {
-    "scorer": (READ, "gg:acct:*"),
-    "loader": (WRITE, "gg:acct:*"),
-    "tests": ((*WRITE, "select"), "test-*"),
+# S6.3: the stream's single writer -- reads what it needs, writes one MULTI/EXEC per batch.
+# Plain commands only: still no scripting for anyone (RediShell, CVE-2025-49844).
+STREAM = ("ping", "client|setinfo", "hgetall", "hset", "smismember", "sadd", "zcount", "zadd",
+          "zremrangebyscore", "get", "set", "del", "multi", "exec", "discard")  # fmt: skip
+LIVE = ("gg:acct:*", "gg:edge:*", "gg:win:*", "gg:ev:*")
+USERS: dict[str, tuple[tuple[str, ...], tuple[str, ...]]] = {
+    "scorer": (READ, ("gg:acct:*",)),
+    "loader": ((*WRITE, "sadd", "zadd"), LIVE),
+    "stream": (STREAM, LIVE),
+    "tests": (tuple(dict.fromkeys((*WRITE, *STREAM, "select"))), ("test-*",)),
 }
 NEVER = (
     "eval",
@@ -78,8 +85,9 @@ def acl_lines(passwords: dict[str, str | list[str]]) -> list[str]:
         pws = passwords[user] if isinstance(passwords[user], list) else [passwords[user]]
         digests = " ".join(f"#{hashlib.sha256(p.encode()).hexdigest()}" for p in pws)
         allowed = " ".join(f"+{c}" for c in commands)
+        keys = " ".join(f"~{p}" for p in pattern)
         lines.append(
-            f"user {user} on resetpass {digests} resetkeys ~{pattern} resetchannels -@all {allowed}"
+            f"user {user} on resetpass {digests} resetkeys {keys} resetchannels -@all {allowed}"
         )
     return lines
 
@@ -105,6 +113,14 @@ def generate(secrets_dir: Path = SECRETS_DIR, chown: bool = True) -> list[Path]:
                 f.write(f"{password_var(user)}={secrets.token_urlsafe(32)}\n")
         written.append(env_file)
     env = _read_env(env_file)
+    # A user added later (S6.3: stream) gets a password; existing ones are never rotated here.
+    missing = [u for u in USERS if not env.get(password_var(u))]
+    if missing:
+        with env_file.open("a") as f:
+            for user in missing:
+                f.write(f"{password_var(user)}={secrets.token_urlsafe(32)}\n")
+        written.append(env_file)
+        env = _read_env(env_file)
     passwords = {u: env[password_var(u)] for u in USERS}
     acl_file.write_text("\n".join(acl_lines(passwords)) + "\n")
     os.chmod(acl_file, 0o600)

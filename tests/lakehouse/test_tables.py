@@ -16,12 +16,14 @@ import pytest
 from graphguard.lakehouse.schemas import (
     BronzeTransactions,
     GoldAccountFeatures,
+    GoldEdges,
     GoldLabels,
     GoldRecentSends,
     SilverTransactions,
 )
 from graphguard.lakehouse.tables import (
     BRONZE_TX,
+    GOLD_EDGES,
     GOLD_FEATURES,
     GOLD_LABELS,
     GOLD_RECENT_SENDS,
@@ -32,9 +34,11 @@ from graphguard.lakehouse.tables import (
     expire_old_snapshots,
     read_account_states,
     read_account_states_at_snapshot,
+    read_edges,
     read_recent_sends,
     validation_stream,
     write_bronze,
+    write_gold_edges,
     write_gold_features,
     write_gold_labels,
     write_gold_recent_sends,
@@ -85,6 +89,7 @@ def _build(cat, raw):
     write_silver(cat, boundaries=(TRAIN_END, VAL_END), tail_cutoff=TAIL)
     write_gold_features(cat, as_of=TRAIN_END)
     write_gold_recent_sends(cat, as_of=TRAIN_END)
+    write_gold_edges(cat, as_of=TRAIN_END)
     write_gold_labels(cat)
 
 
@@ -218,6 +223,7 @@ def test_each_layer_satisfies_its_contract(cat, raw):
     GoldAccountFeatures.validate(_read(cat, GOLD_FEATURES))
     GoldLabels.validate(_read(cat, GOLD_LABELS))
     GoldRecentSends.validate(_read(cat, GOLD_RECENT_SENDS))
+    GoldEdges.validate(_read(cat, GOLD_EDGES))
 
 
 def test_the_gold_contract_rejects_a_negative_count():
@@ -336,3 +342,9 @@ def test_rows_outside_validation_are_refused():
         df = pl.DataFrame({"timestamp": [bad]})
         with pytest.raises(StreamBoundsError):
             assert_in_validation(df, (TRAIN_END, VAL_END))
+
+
+def test_gold_edges_hold_every_pair_seen_before_train_end_once(cat, raw):
+    _build(cat, raw)
+    got = read_edges(cat, as_of=TRAIN_END)
+    assert sorted(got.iter_rows()) == [("A", "B"), ("A", "C"), ("B", "A"), ("C", "B")]

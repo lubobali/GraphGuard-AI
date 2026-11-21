@@ -34,7 +34,47 @@ def test_the_scorer_can_only_read_accounts():
 
 
 def test_the_loader_gets_exactly_what_store_load_uses():
-    assert _allowed(_user("loader")) == {"ping", "hgetall", "hset", "scan", "del", "client|setinfo"}
+    # S6.3: it also seeds the stream's edge sets and 24 h windows
+    assert _allowed(_user("loader")) == {
+        "ping",
+        "hgetall",
+        "hset",
+        "scan",
+        "del",
+        "client|setinfo",
+        "sadd",
+        "zadd",
+    }
+    for pattern in ("~gg:acct:*", "~gg:edge:*", "~gg:win:*", "~gg:ev:*"):
+        assert pattern in _user("loader").split()
+
+
+def test_the_stream_writer_gets_only_plain_commands_on_its_keys():
+    line = _user("stream")
+    assert _allowed(line) == {
+        "ping",
+        "client|setinfo",
+        "hgetall",
+        "hset",
+        "smismember",
+        "sadd",
+        "zcount",
+        "zadd",
+        "zremrangebyscore",
+        "get",
+        "set",
+        "del",
+        "multi",
+        "exec",
+        "discard",
+    }
+    patterns = {t for t in line.split() if t.startswith("~")}
+    assert patterns == {"~gg:acct:*", "~gg:edge:*", "~gg:win:*", "~gg:ev:*"}
+
+
+def test_the_scorer_still_reads_accounts_only():
+    patterns = {t for t in _user("scorer").split() if t.startswith("~")}
+    assert patterns == {"~gg:acct:*"}
 
 
 def test_tests_are_confined_to_test_keys():

@@ -8,10 +8,11 @@ locked down like every GraphGuard container (`tests/test_compose_hardening.py`).
 | | |
 |---|---|
 | Image | `redis:7.4.x-alpine`, pinned by digest |
-| Users | `scorer` (read accounts), `loader` (fill/prune), `tests` (test keys, db 15); the default user is **off** |
+| Users | `scorer` (read accounts), `loader` (fill/prune + the stream's seed), `stream` (the stream's single writer, S6.3: plain commands + MULTI/EXEC, no scripting), `tests` (test keys, db 15); the default user is **off** |
 | Rules | `src/graphguard/serving/redis_acl.py` → `.secrets/redis-users.acl` (SHA-256 hashes only), loaded at start |
 | Passwords | `.secrets/redis.env` (600); the scorer's URL is the Kubernetes Secret `graphguard-redis` |
-| Data | none on disk by design — a restart empties it; `just store-load` refills from gold in ~14 s |
+| Data | none on disk by design — a restart empties it; `just store-load` refills accounts **and resets the stream's state** (windows, seen pairs, watermarks) from gold in ~22 s |
+| Memory | 320mb of data, 448m container cap, `noeviction` — measured peak 224 MB / 303 MiB after a full validation replay (S6.3) |
 
 ```
 just redis-secrets      # create missing passwords (never overwrites) + rewrite the ACL file

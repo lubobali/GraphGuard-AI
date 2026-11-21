@@ -133,7 +133,11 @@ services:
     container_name: graphguard-redis
     restart: unless-stopped
     # The online feature store. 515,080 accounts at roughly 200 bytes each is
-    # about 100MB, so 256MB leaves headroom.
+    # about 100MB. Since S6.3 it also holds the stream's state (24 h send windows,
+    # ~936k seen pairs, pending events): ~70MB more, and in-place reloads fragment
+    # memory. Measured (S6.3, full ~1M-event replay on a throwaway copy): 224MB of
+    # data at peak, 303MiB resident (fragmentation 1.38) -- so 320mb of data under a
+    # 448m container cap.
     #
     # noeviction rather than allkeys-lru on purpose: silently evicting an
     # account turns it into a cold account, the model scores it on zeros, and
@@ -146,7 +150,7 @@ services:
     # It holds SHA-256 hashes; passwords live in .secrets/redis.env.
     command: >
       redis-server
-      --maxmemory 200mb
+      --maxmemory 320mb
       --maxmemory-policy noeviction
       --save ""
       --appendonly no
@@ -174,7 +178,7 @@ services:
       - "10.42.0.1:6380:6379"
     networks:
       - graphguard
-    mem_limit: 256m
+    mem_limit: 448m
     logging:
       driver: json-file
       options:

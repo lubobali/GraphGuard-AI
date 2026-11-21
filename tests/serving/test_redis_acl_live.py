@@ -51,7 +51,7 @@ def test_the_scorer_reads_accounts_but_cannot_write():
         c.scan(0)
 
 
-@pytest.mark.parametrize("user", ["scorer", "loader", "tests"])
+@pytest.mark.parametrize("user", ["scorer", "loader", "tests", "stream"])
 def test_nobody_can_run_scripts_or_admin_commands(user):
     c = _client(user, db=15 if user == "tests" else 0)
     for call in (
@@ -80,3 +80,11 @@ def test_the_loader_cannot_touch_test_or_other_keys():
     c = _client("loader")
     with pytest.raises(redis.exceptions.NoPermissionError):
         c.hset("other:thing", "x", "1")
+
+
+def test_the_stream_writer_cannot_scan_flush_or_touch_test_keys():
+    c = _client("stream")
+    for call in (lambda: c.scan(0), lambda: c.hset("test-x:acct:y", "n", "1"),
+                 lambda: c.hset("other:thing", "x", "1")):  # fmt: skip
+        with pytest.raises(redis.exceptions.NoPermissionError):
+            call()

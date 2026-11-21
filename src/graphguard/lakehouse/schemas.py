@@ -49,6 +49,17 @@ GoldRecentSends = pa.DataFrameSchema(
     name="gold_recent_sends",
 )
 
+GoldEdges = pa.DataFrameSchema(
+    {
+        "from_account": pa.Column(pl.String, nullable=False),
+        "to_account": pa.Column(pl.String, nullable=False),
+        "as_of": pa.Column(pl.Datetime, nullable=False),
+    },
+    strict=True,
+    unique=["from_account", "to_account", "as_of"],
+    name="gold_edges",
+)
+
 GoldLabels = pa.DataFrameSchema(
     {
         # The transaction key: the row's position in the source file.

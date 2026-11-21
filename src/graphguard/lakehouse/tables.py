@@ -6,6 +6,7 @@
                               final report (guarded, see test_set_touch_check)
     gold.account_features_asof  each account's state as of a time
     gold.account_recent_sends   each send in the 24 h before that time (the stream's seed)
+    gold.account_edges          every (from, to) pair seen before that time (the stream's seed)
     gold.labels               labels, plus when each became known (Phase 6)
 
 Every table is Iceberg format v2. Writes are whole-table (or whole-`as_of`)
@@ -48,13 +49,14 @@ _SEALED_TX = "sealed.transactions"
 GOLD_FEATURES = "gold.account_features_asof"
 GOLD_LABELS = "gold.labels"
 GOLD_RECENT_SENDS = "gold.account_recent_sends"
+GOLD_EDGES = "gold.account_edges"
 
 # Tables whose snapshot ids a training run records. The sealed table is
 # deliberately absent: a training run must not even know which version of it exists.
 TRACKED_TABLES = (BRONZE_TX, SILVER_TX, GOLD_FEATURES, GOLD_LABELS)
 # Snapshot upkeep (expire + orphans) covers these too. The stream's seed is not a training
 # input, so a training run does not record it.
-MAINTAINED_TABLES = (*TRACKED_TABLES, GOLD_RECENT_SENDS)
+MAINTAINED_TABLES = (*TRACKED_TABLES, GOLD_RECENT_SENDS, GOLD_EDGES)
 
 # Every row keeps its position in the source file. The dataset has no
 # transaction id, so this is the transaction key -- and it preserves the source
@@ -230,6 +232,22 @@ def write_gold_recent_sends(catalog: Catalog, as_of: dt.datetime) -> int:
     return frame.height
 
 
+def write_gold_edges(catalog: Catalog, as_of: dt.datetime) -> int:
+    """Every distinct (from, to) pair before `as_of`: the stream's distinct counts start
+    from these (S6.3). Replaces this `as_of`."""
+    from graphguard.stream.updater import edges_frame
+
+    frame = edges_frame(scan_in_source_order(catalog, SILVER_TX), as_of).with_columns(
+        pl.lit(as_of).cast(pl.Datetime("us")).alias("as_of")
+    )
+    table = _table(catalog, GOLD_EDGES, frame)
+    if table.current_snapshot() is None:
+        table.append(_arrow(frame))
+    else:
+        table.overwrite(_arrow(frame), overwrite_filter=EqualTo("as_of", as_of.isoformat()))
+    return frame.height
+
+
 def write_gold_labels(catalog: Catalog) -> None:
     labels = (
         _scan(catalog, SILVER_TX)
@@ -275,6 +293,16 @@ def read_recent_sends(catalog: Catalog, as_of: dt.datetime) -> pl.DataFrame:
         .filter(pl.col("as_of") == as_of)
         .drop("as_of")
         .sort("account", "timestamp", maintain_order=True)
+        .collect()
+    )
+
+
+def read_edges(catalog: Catalog, as_of: dt.datetime) -> pl.DataFrame:
+    return (
+        _scan(catalog, GOLD_EDGES)
+        .filter(pl.col("as_of") == as_of)
+        .drop("as_of")
+        .sort("from_account", "to_account")
         .collect()
     )
 
