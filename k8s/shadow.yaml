@@ -30,7 +30,7 @@ spec:
           secret: {secretName: graphguard-shadow, defaultMode: 0440}
       containers:
         - name: shadow
-          image: graphguard/serving:0.1.10
+          image: graphguard/serving:0.1.11
           imagePullPolicy: IfNotPresent
           command: ["/app/.venv/bin/python", "-m", "graphguard.stream.shadow"]
           securityContext:

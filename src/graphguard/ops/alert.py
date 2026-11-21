@@ -195,6 +195,32 @@ def status_problems(state: dict | None, now: dt.datetime) -> list[str]:
     return out
 
 
+# --- the stream's judgement (pure, S6.11) ------------------------------------------------
+STALL = dt.timedelta(minutes=10)  # consumer position unchanged this long, with work waiting
+LAG_LIMIT = 200_000  # records waiting (~18 min of the busiest real minute)
+
+
+def stream_problems(prev: dict | None, hwm: int | None, committed: int | None,
+                    now: dt.datetime) -> tuple[list[str], dict]:  # fmt: skip
+    """Stalled or falling behind? `hwm` = Kafka's end of `transactions`, `committed` = where
+    the consumer will resume (Postgres). Returns problems and the state to keep."""
+    if hwm is None:
+        return ["stream: cannot read Kafka's position"], prev or {}
+    lag = max(0, hwm - (committed or 0)) if committed is not None else hwm
+    prev = prev or {}
+    changed_at = prev.get("changed_at") if prev.get("committed") == committed else now.isoformat()
+    lags = (prev.get("lags", []) + [lag])[-3:]
+    state = {"committed": committed, "changed_at": changed_at, "lags": lags, "lag": lag}
+    problems = []
+    if lag > 0 and changed_at and now - dt.datetime.fromisoformat(changed_at) >= STALL:
+        minutes = int((now - dt.datetime.fromisoformat(changed_at)).total_seconds() // 60)
+        problems.append(f"stream stalled: the consumer has not moved for {minutes} min "
+                        f"({lag:,} records waiting)")  # fmt: skip
+    if lag > LAG_LIMIT and len(lags) == 3 and lags[0] < lags[1] < lags[2]:
+        problems.append(f"stream falling behind: {lag:,} records waiting and growing")
+    return problems, state
+
+
 # --- the probe's judgement (pure) ----------------------------------------------------
 def assess_health(code: int | None, body: str) -> list[str]:
     if code is None:
@@ -293,9 +319,34 @@ def _deliver(email: Email) -> str | None:
     return None
 
 
+def probe_stream() -> tuple[int | None, int | None]:
+    """Kafka's end of `transactions` (monitor login) and the consumer's stored position."""
+    try:
+        from confluent_kafka import Consumer, TopicPartition
+
+        from graphguard.stream import db
+        from graphguard.stream import kafka_admin as ka
+
+        c = Consumer({**ka.client_config("monitor"), "group.id": "graphguard-monitor"})
+        _, hwm = c.get_watermark_offsets(TopicPartition("transactions", 0), timeout=10)
+        c.close()
+    except Exception:  # noqa: BLE001 -- reported as a problem by stream_problems
+        return None, None
+    try:
+        with db.connect() as conn, conn.cursor() as cur:
+            cur.execute("SELECT next_offset FROM consumer_offsets WHERE grp='graphguard-consumer' "
+                        "AND topic='transactions' AND part=0")  # fmt: skip
+            row = cur.fetchone()
+    except Exception:  # noqa: BLE001
+        return hwm, None
+    return hwm, row[0] if row else None
+
+
 def check(now: dt.datetime) -> int:
-    problems = k8s_health.collect_problems() + probe_health()
-    state, email = step(load_state() or initial_state(), problems, now)
+    prior = load_state() or initial_state()
+    stream, stream_state = stream_problems(prior.get("stream"), *probe_stream(), now)
+    problems = k8s_health.collect_problems() + probe_health() + stream
+    state, email = step({**prior, "stream": stream_state}, problems, now)
     if email:
         error = _deliver(email)
         state = mark_failed(state, error) if error else mark_sent(state, email, now)

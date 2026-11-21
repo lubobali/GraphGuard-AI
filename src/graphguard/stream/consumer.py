@@ -61,6 +61,7 @@ class Decision:
     features: tuple[float, ...]
     rules: tuple[str, ...] = ()
     alert: bool = False
+    arrived_at: dt.datetime | None = None  # when Kafka received it (S6.11: decision latency)
 
     def alert_payload(self) -> str:
         return json.dumps({"event_id": self.event_id, "event_time": self.event_time.isoformat(),
@@ -121,6 +122,15 @@ class ReorderBuffer:
         return None if last is None else last + 1
 
 
+def _arrival(record) -> dt.datetime | None:
+    """Kafka's own arrival stamp (LogAppendTime on our topics), as naive UTC."""
+    stamp = getattr(record, "timestamp", None)
+    if not callable(stamp):
+        return None
+    kind, ms = stamp()
+    return dt.datetime.fromtimestamp(ms / 1000, dt.UTC).replace(tzinfo=None) if ms > 0 else None
+
+
 def _topic(record) -> str:
     topic = getattr(record, "topic", None)
     return topic() if callable(topic) else TOPIC
@@ -145,6 +155,7 @@ class Consumer:
         self.last_offset: int | None = None
         self.currency = model.category_maps.get("payment_currency", {})
         self.counts = {"decided": 0, "repeats": 0, "late": 0, "malformed": 0}
+        self._arrivals: dict[int, dt.datetime | None] = {}
 
     def step(self, records) -> None:
         released, dead, labels = [], [], []
@@ -161,6 +172,7 @@ class Consumer:
                 dead.append(_dead(None, r.offset(), f"malformed: {e}", r.value()))
                 self.counts["malformed"] += 1
                 continue
+            self._arrivals[t.event_id] = _arrival(r)
             released += self.buffer.push((t.timestamp, t.event_id), (t, r.offset()), r.offset())
         self._process(released, dead)
         if labels:
@@ -239,7 +251,8 @@ class Consumer:
                          COLD_POLICY[(b.sender.is_cold, b.receiver.is_cold)],
                          self.info["version"], self.info["sha256"] or "",
                          tuple(float(row[c]) for c in cols), rules=fired,
-                         alert=R.priority(float(s), fired) >= self.th.alert_priority)
+                         alert=R.priority(float(s), fired) >= self.th.alert_priority,
+                         arrived_at=self._arrivals.pop(t.event_id, None))
             )  # fmt: skip
         outbox = [
             {"topic": "decisions", "key": str(d.event_id), "payload": d.payload(cols)}
@@ -274,7 +287,7 @@ def only_new_dead_letters(outbox: list[dict], inserted_offsets: set[int]) -> lis
 # --- Postgres ----------------------------------------------------------------------------
 _INSERT_DECISIONS = (
     "INSERT INTO decisions (event_id, seq, event_time, from_account, to_account, amount_paid, "
-    "score, cold_policy, rules, alert, model_version, model_sha256, features) "
+    "score, cold_policy, rules, alert, model_version, model_sha256, features, arrived_at) "
     "VALUES %s ON CONFLICT (event_id) DO NOTHING"
 )
 
@@ -339,6 +352,7 @@ class PostgresSink:
                             d.model_version,
                             d.model_sha256,
                             list(d.features),
+                            d.arrived_at,
                         )
                         for d in decisions
                     ],

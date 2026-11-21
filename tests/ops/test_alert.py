@@ -207,10 +207,45 @@ def test_unit_is_sandboxed_and_gets_its_keys_as_credentials():
     assert "/srv/graphguard/.secrets" in svc["InaccessiblePaths"]
     text = (REPO_ROOT / "systemd" / "graphguard-alert.service").read_text()
     creds = [line for line in text.splitlines() if line.startswith("LoadCredential=")]
-    assert len(creds) == 2
-    assert any("alerts-aws.env" in c for c in creds) and any("alerts-mail.env" in c for c in creds)
+    names = {c.split("=", 1)[1].split(":", 1)[0] for c in creds}
+    assert names == {"alerts-aws.env", "alerts-mail.env", "kafka-monitor.env", "stream-db.env"}
 
 
 def test_timer_runs_every_five_minutes():
     timer = _unit("graphguard-alert.timer")["Timer"]
     assert timer["OnUnitActiveSec"] == "5min"
+
+
+# --- the stream (S6.11) ------------------------------------------------------------------
+def _stream(seq, start=None):
+    """Feed (hwm, committed) pairs every 5 minutes; return the problems of each check."""
+    state, out, now = start, [], T0
+    for hwm, committed in seq:
+        problems, state = alert.stream_problems(state, hwm, committed, now)
+        out.append(problems)
+        now += STEP
+    return out
+
+
+def test_an_idle_stream_is_fine():
+    assert _stream([(1000, 1000)] * 10) == [[]] * 10
+
+
+def test_a_consumer_that_keeps_moving_is_fine_even_with_lag():
+    assert all(p == [] for p in _stream([(5000, 1000 + 100 * i) for i in range(10)]))
+
+
+def test_a_stuck_consumer_with_work_waiting_is_reported_after_ten_minutes():
+    out = _stream([(5000, 1000)] * 4)
+    assert out[:2] == [[], []] and "stalled" in out[2][0]
+
+
+def test_lag_that_keeps_growing_past_the_limit_is_reported():
+    seq = [(300_000 + 10_000 * i, 50_000 + 1000 * i) for i in range(4)]
+    out = _stream(seq)
+    assert any("falling behind" in p for p in out[-1])
+
+
+def test_kafka_unreadable_is_a_problem():
+    (problems,) = _stream([(None, None)])
+    assert "cannot read Kafka" in problems[0]

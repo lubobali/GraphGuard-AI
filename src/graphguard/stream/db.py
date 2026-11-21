@@ -48,6 +48,8 @@ CREATE TABLE IF NOT EXISTS decisions (
     features        double precision[] NOT NULL,
     decided_at      timestamptz NOT NULL DEFAULT now()
 );
+-- S6.11: when Kafka received the transaction -> decision latency = decided_at - arrived_at.
+ALTER TABLE decisions ADD COLUMN IF NOT EXISTS arrived_at timestamp;
 CREATE TABLE IF NOT EXISTS feature_sets (
     version     text PRIMARY KEY,
     names       text[] NOT NULL

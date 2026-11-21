@@ -20,5 +20,8 @@ NoNewPrivileges=yes
 # Its two secrets arrive as credentials; the rest of .secrets/ and private/ stay hidden.
 LoadCredential=alerts-aws.env:/srv/graphguard/.secrets/alerts-aws.env
 LoadCredential=alerts-mail.env:/srv/graphguard/.secrets/alerts-mail.env
+# S6.11: the stream's position -- Kafka (describe-only login) and the consumer's stored offset.
+LoadCredential=kafka-monitor.env:/srv/graphguard/.secrets/kafka-monitor.env
+LoadCredential=stream-db.env:/srv/graphguard/.secrets/stream-db.env
 InaccessiblePaths=/srv/graphguard/.secrets /srv/graphguard/private/security /srv/graphguard/private/secrets
 ReadWritePaths=/srv/graphguard/private/alerts /srv/graphguard/.tools/uv-cache-backup

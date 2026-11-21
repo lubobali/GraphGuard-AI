@@ -54,7 +54,9 @@ services:
     networks:
       - graphguard
     # S5b.1: measured peak 98 MiB (catalogs + MLflow); was 512m.
-    mem_limit: 256m
+    # 256m until S6.11: at 211 MiB with the stream writing (decisions, shadow, outbox) it
+    # was too close for an overnight run of ~1M decisions. Measured, then raised.
+    mem_limit: 384m
     logging:
       driver: json-file
       options:
