@@ -41,6 +41,7 @@ def _passwords() -> dict[str, str]:
         "dex": gov["DEX_DB_PASSWORD"],
         "openfga": gov["OPENFGA_DB_PASSWORD"],
         "lakehouse": _env("lakehouse.env")["LAKEHOUSE_DB_PASSWORD"],
+        "stream_app": _env("stream-db.env")["STREAM_DB_PASSWORD"],  # the stream (S6.6)
         "graphguard": _env("mlflow.env")["MLFLOW_DB_PASSWORD"],  # the superuser
         "mlflow_auth": next(  # MLflow's login store (S5b.7): its line in the pgpass file
             ln.split(":", 4)[4]

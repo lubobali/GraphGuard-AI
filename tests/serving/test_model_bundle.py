@@ -88,3 +88,14 @@ def test_a_loaded_bundle_predicts_single_threaded(tmp_path):
     m = xgb.XGBClassifier(n_estimators=2).fit(X, (X[:, 0] > 0.5).astype(int))
     ModelBundle(m, ("a", "b"), {}, "t").save(tmp_path)
     assert ModelBundle.load(tmp_path).model.get_params()["n_jobs"] == 1
+
+
+@pytest.mark.unit
+def test_scoring_many_rows_gives_exactly_the_single_row_scores(bundle):
+    # The stream scores micro-batches (S6.6); every number must equal the scorer's.
+    import random
+
+    rng = random.Random(0)
+    rows = [{c: rng.uniform(0, 100) for c in bundle.feature_columns} for _ in range(50)]
+    assert bundle.score_rows(rows) == [bundle.score_one(r) for r in rows]
+    assert bundle.score_rows([]) == []

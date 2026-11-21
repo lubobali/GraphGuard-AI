@@ -37,9 +37,14 @@ def test_the_superuser_has_no_network_access():
     assert "graphguard" not in host_roles and "postgres" not in host_roles
 
 
-def test_only_the_rollback_catalog_comes_from_the_host():
+def test_only_the_rollback_catalog_and_the_stream_come_from_the_host():
     from_gateway = [r for r in _rules() if r[0] == "host" and r[3] == pga.GATEWAY]
-    assert [r[1] for r in from_gateway] == ["lakehouse"]
+    assert [r[1] for r in from_gateway] == ["lakehouse", "stream"]
+
+
+def test_only_the_stream_is_reachable_from_pods_and_only_its_own_database():
+    from_pods = [r for r in _rules() if r[0] == "host" and r[3] == pga.PODS]
+    assert [(r[1], r[2]) for r in from_pods] == [("stream", "stream_app")]
 
 
 def test_the_committed_file_matches_the_code():

@@ -55,6 +55,11 @@ REGISTRY: dict[str, Secret] = {
     ),
     # Not a secret to rotate: the alert's sender and recipient, kept out of the public repo.
     "alerts-mail.env": S("scorer alert (addresses)", "just secret-set alerts-mail.env", None),
+    "forgejo-ci-read.env": S(
+        "CI status checks (read-only repo token)",
+        "Forgejo settings: new token, delete old",
+        CONSOLE_DAYS,
+    ),
     "hetzner-readonly.env": S(
         "edge watchdog", "Hetzner console: new token, delete old", CONSOLE_DAYS
     ),
@@ -109,6 +114,9 @@ REGISTRY: dict[str, Secret] = {
     "redis-loader.env": S("store-load", "just rotate-redis", BOX_DAYS),
     "redis-tests.env": S("live tests", "just rotate-redis", BOX_DAYS),
     "redis-stream.env": S("stream consumer (S6.3+)", "just rotate-redis", BOX_DAYS),
+    "stream-db.env": S(
+        "stream consumer (Postgres role stream_app)", "just rotate-pg stream_app", BOX_DAYS
+    ),
     # Kafka (S6.4): all passwords + cluster id, and one file per login.
     "kafka.env": S("Kafka logins (all) + cluster id", "just rotate-kafka", BOX_DAYS),
     **{
@@ -189,6 +197,7 @@ def init_ledger() -> None:
 AWS_ID = re.compile(r"^AKIA[0-9A-Z]{16}$")
 AWS_SECRET = re.compile(r"^[A-Za-z0-9/+]{40}$")
 HETZNER = re.compile(r"^[A-Za-z0-9]{64}$")
+FORGEJO = re.compile(r"^[0-9a-f]{40}$")
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -231,6 +240,8 @@ def secret_set(name: str) -> None:
             "ALERT_FROM": _ask("sender email (SES-verified)", EMAIL),
             "ALERT_TO": _ask("recipient email", EMAIL),
         }
+    elif name == "forgejo-ci-read.env":
+        values = {"FORGEJO_TOKEN": _ask("Forgejo read-only token", FORGEJO)}
     elif name == "hetzner-readonly.env":
         values = {"HETZNER_TOKEN": _ask("Hetzner API token", HETZNER)}
     else:

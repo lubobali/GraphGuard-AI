@@ -81,6 +81,13 @@ class ModelBundle:
         matrix = frame.select(self.feature_columns).cast(pl.Float32).to_numpy()
         return self.model.predict_proba(matrix)[:, 1]
 
+    def score_rows(self, rows: list[dict[str, float]]) -> list[float]:
+        """Many rows in one call (the stream's micro-batches). Same numbers as `score_one`."""
+        if not rows:
+            return []
+        matrix = np.vstack([self.to_vector(r) for r in rows])
+        return [float(p) for p in self.model.predict_proba(matrix)[:, 1]]
+
     def score_one(self, row: dict[str, float]) -> float:
         vector = self.to_vector(row).reshape(1, -1)
         return float(self.model.predict_proba(vector)[0, 1])

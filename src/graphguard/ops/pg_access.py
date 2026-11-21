@@ -21,9 +21,10 @@ from graphguard.config import REPO_ROOT
 HBA_FILE = REPO_ROOT / "docker" / "postgres" / "pg_hba.conf"
 NETWORK = "172.25.0.0/16"  # graphguard-net
 GATEWAY = "172.25.0.1/32"  # where host connections through 127.0.0.1:5434 arrive from
+PODS = "10.42.0.0/16"  # k3s pods, through the pod-bridge port (S6.6: the stream consumer)
 
-# database -> (role, source)
-SERVICES: dict[str, tuple[str, str]] = {
+# database -> (role, source or sources)
+SERVICES: dict[str, tuple[str, str | tuple[str, ...]]] = {
     "mlflow": ("mlflow_app", NETWORK),
     "lakekeeper": ("lakekeeper", NETWORK),
     "lakekeeper_s56c": ("lakekeeper", NETWORK),  # the S5.6c rollback catalog
@@ -31,6 +32,8 @@ SERVICES: dict[str, tuple[str, str]] = {
     "mlflow_auth": ("mlflow_auth", NETWORK),  # MLflow's login store (S5b.7)
     "openfga": ("openfga", NETWORK),
     "lakehouse": ("lakehouse", GATEWAY),  # host-side SQL-catalog rollback only
+    # The stream's decisions (S6.6): the consumer pod, and the host for its live tests.
+    "stream": ("stream_app", (PODS, GATEWAY)),
 }
 
 
@@ -40,8 +43,9 @@ def hba_lines(services: dict[str, tuple[str, str]] = SERVICES) -> list[str]:
         "# TYPE  DATABASE          USER          ADDRESS            METHOD",
         "local   all               all                              scram-sha-256",
     ]
-    for db, (role, source) in services.items():
-        lines.append(f"host    {db:<17} {role:<13} {source:<18} scram-sha-256")
+    for db, (role, sources) in services.items():
+        for source in (sources,) if isinstance(sources, str) else sources:
+            lines.append(f"host    {db:<17} {role:<13} {source:<18} scram-sha-256")
     lines += [
         "host    all               all           0.0.0.0/0          reject",
         "host    all               all           ::/0               reject",

@@ -355,6 +355,10 @@ ci-sandbox:
           echo "== $r"; ./.tools/bin/just $r
         done'
 
+# Wait for CI on a commit (default HEAD); exit 0 green, 1 red. Read-only Forgejo token.
+ci-wait *args:
+    {{UV}} run python -m graphguard.ops.ci_status wait {{args}}
+
 # --- S5b.3: backups ------------------------------------------------------------
 backup:
     {{UV}} run python -m graphguard.ops.backup backup
