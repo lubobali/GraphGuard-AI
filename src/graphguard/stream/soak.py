@@ -96,10 +96,16 @@ def monitor(every_s: int = 300, hours: float = 14) -> None:
 
 
 def start(speed: float) -> None:
+    import grp
+    import os
+
     from graphguard.stream import e2e
 
     e2e.reset()
     RUN_DIR.mkdir(parents=True, exist_ok=True)
+    # The replay job runs as gg-reader (S5b.5): the run folder must be the jobs group's.
+    os.chown(RUN_DIR, -1, grp.getgrnam("gg-jobs").gr_gid)
+    os.chmod(RUN_DIR, 0o2770)
     METRICS.unlink(missing_ok=True)
     (RUN_DIR / "checkpoint.json").unlink(missing_ok=True)
     (RUN_DIR / "started.json").write_text(
