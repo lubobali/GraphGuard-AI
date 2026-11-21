@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** written 2026-11-21, waiting for Lubo's approval. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1 done; S6.2 next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -70,41 +70,48 @@ plus k3s, if no lakehouse job or training runs at the same time.
 
 ---
 
-## S6.1 — The scorer alert: an email when it breaks, and when it heals
+## S6.1 — The scorer alert: an email when it breaks, and when it heals ✅ done 2026-11-21
 
 **As** Lubo, **I want** an email when the scorer goes down and another when it comes back,
 **so that** an outage reaches me before the stream starts depending on the scorer (it sat
 broken for 18 days once and nobody noticed — S5.2).
 
 Acceptance criteria (Given/When/Then):
-- [ ] **Given** the scorer is healthy, **when** the check runs, **then** no email is sent
+- [x] **Given** the scorer is healthy, **when** the check runs, **then** no email is sent
       and the state file says `healthy`.
-- [ ] **Given** the last state was `healthy`, **when** a check finds a problem (`just
+- [x] **Given** the last state was `healthy`, **when** a check finds a problem (`just
       k8s-check` fails, or `/health` answers 503 "unavailable"/"not loaded", or no
       answer), **then** exactly one email is sent: what broke, since when, the first
       command to run, a link to the runbook.
-- [ ] **Given** it is still broken, **when** the next checks run, **then** no new email —
+- [x] **Given** it is still broken, **when** the next checks run, **then** no new email —
       except one reminder per 24 h while broken.
-- [ ] **Given** it was broken, **when** a check passes, **then** one "recovered" email with
+- [x] **Given** it was broken, **when** a check passes, **then** one "recovered" email with
       how long it was down.
-- [ ] **Flapping guard:** a state changes only after 2 checks in a row agree (no email for
+- [x] **Flapping guard:** a state changes only after 2 checks in a row agree (no email for
       a 1-minute blip, e.g. during a rolling upgrade).
-- [ ] **If the email itself fails**, the failure is logged and the check retries next run;
+- [x] **If the email itself fails**, the failure is logged and the check retries next run;
       `just alert-status` shows the last check, the state and the last email sent (and
       exits 1 when the check is stale or mail failed), next to the other health checks.
-- [ ] **The judgement is pure and unit-tested** (state machine: healthy/broken/flapping/
+- [x] **The judgement is pure and unit-tested** (state machine: healthy/broken/flapping/
       reminder/recovery, all with a fake clock and a fake mailer). Only `main` talks to
       k3s, HTTP and SES.
-- [ ] **Live drill without breaking anything:** `just alert-drill` runs the real path with
+- [x] **Live drill without breaking anything:** `just alert-drill` runs the real path with
       a forced-failure flag (never touches the scorer) and sends one real "drill" email
       and one "recovered" email. Lubo confirms both arrived.
-- [ ] **Least privilege:** the SES key can send only from the one verified address
+- [x] **Least privilege:** the SES key can send only from the one verified address
       (`ses:FromAddress` condition) and nothing else — a live test proves another action
       is denied. Key in `.secrets/alerts-aws.env` (registry entry), Lubo's address in
       `.secrets/` too, **never in the repo**. The unit runs sandboxed (like the edge check),
       key handed in with `LoadCredential`.
-- [ ] Runbook `docs/runbooks/scorer-down.md`: what each email means, first commands, how to
+- [x] Runbook `docs/runbooks/scorer-down.md`: what each email means, first commands, how to
       silence it during planned work (`just alert-pause 2h`).
+
+**Done 2026-11-21.** 24 unit tests (state machine with a fake clock, messages, SES call shape,
+sandboxed unit) + 4 live AWS denials (other sender, other recipient, reading SES settings,
+S3). Drill: both emails accepted by SES. Timer active; the check runs sandboxed and sees
+only its two credentials (`.secrets/` hidden, verified). `just health` added. The existing
+S5.2 runbook was extended (section 0), not replaced. Key pasted in chat by Lubo's choice
+(accepted risk, private record).
 
 Definition of Done: timer installed and active (every 5 min), drill emails received, unit
 tests + `just check` green, CI green, LuBot sites 200 before/after, CLAUDE.md and PLAN.md

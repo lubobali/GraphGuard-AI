@@ -498,7 +498,7 @@ protected" document a reviewer can read.
 > minute is 187 tx/s). The HTTP endpoint stays for interactive use. Lubo chose this over
 > more CPU or replacing Ray Serve.
 
-- **First: the scorer alert.** Once the stream depends on the scorer, an outage must
+- ✅ **(S6.1, done 2026-11-21)** **First: the scorer alert.** Once the stream depends on the scorer, an outage must
   reach a human. `just k8s-check` on a cron, an **email only on state change**
   (healthy↔broken), runbook `docs/runbooks/scorer-down.md`. Moved here from S5.2; Phase
   8 monitoring replaces it

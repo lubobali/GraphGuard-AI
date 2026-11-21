@@ -95,9 +95,8 @@ def _run_json(cmd: list[str]) -> dict | None:
     return json.loads(result.stdout)
 
 
-def main(argv: list[str] | None = None) -> int:
-    argv = sys.argv[1:] if argv is None else argv
-    image = argv[0] if argv else DEFAULT_IMAGE
+def collect_problems(image: str = DEFAULT_IMAGE) -> list[str]:
+    """Every problem with the scorer on k3s right now; empty means healthy."""
     pods = _run_json(["k3s", "kubectl", "get", "pods", "-n", NAMESPACE, "-o", "json"])
     problems = ["could not query k3s for pods"] if pods is None else assess_pods(pods)
     policies = _run_json(["k3s", "kubectl", "get", "networkpolicy", "-n", NAMESPACE, "-o", "json"])
@@ -107,6 +106,13 @@ def main(argv: list[str] | None = None) -> int:
         else assess_network_policies(policies, REQUIRED_POLICIES)
     )
     problems += assess_image(image, _run_json(["k3s", "crictl", "inspecti", "-o", "json", image]))
+    return problems
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    image = argv[0] if argv else DEFAULT_IMAGE
+    problems = collect_problems(image)
 
     if problems:
         for problem in problems:

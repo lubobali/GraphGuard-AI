@@ -474,6 +474,42 @@ edge-check:
 edge-baseline:
     {{UV}} run python -m graphguard.ops.edge baseline
 
+# Every health check in one go (backups, edge, secrets, alert, k3s); exit 1 if any fails.
+health:
+    #!/usr/bin/env bash
+    fail=0
+    for r in backup-status edge-status secrets-status alert-status k8s-check; do
+      echo "== $r"; just "$r" || fail=1
+    done
+    exit $fail
+
+# --- Scorer alert (S6.1): email on state change only -----------------------------
+# Exit 1 if the alert check is stale, its mail is failing, or the scorer is broken.
+alert-status:
+    {{UV}} run python -m graphguard.ops.alert status
+
+# One check now (what the 5-minute timer runs).
+alert-check:
+    {{UV}} run python -m graphguard.ops.alert check
+
+# Two real emails marked DRILL ("down", "recovered"). Never touches the scorer.
+alert-drill:
+    {{UV}} run python -m graphguard.ops.alert drill
+
+# Silence emails during planned work, e.g. `just alert-pause 2h` (state is still tracked).
+alert-pause duration:
+    {{UV}} run python -m graphguard.ops.alert pause {{duration}}
+
+alert-resume:
+    {{UV}} run python -m graphguard.ops.alert resume
+
+alert-install:
+    mkdir -p {{justfile_directory()}}/private/alerts {{justfile_directory()}}/.tools/uv-cache-backup
+    chmod 700 {{justfile_directory()}}/private/alerts
+    install -m 644 systemd/graphguard-alert.service systemd/graphguard-alert.timer /etc/systemd/system/
+    systemctl daemon-reload
+    systemctl enable --now graphguard-alert.timer
+
 edge-install:
     mkdir -p {{justfile_directory()}}/private/edge {{justfile_directory()}}/.tools/uv-cache-backup
     chmod 700 {{justfile_directory()}}/private/edge

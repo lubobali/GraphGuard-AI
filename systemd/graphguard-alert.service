@@ -1,0 +1,24 @@
+# GraphGuard scorer alert (S6.1): email on state change only. Installed by `just alert-install`.
+[Unit]
+Description=GraphGuard scorer alert (email when the scorer breaks or heals)
+After=network-online.target k3s.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/srv/graphguard
+Environment=UV_CACHE_DIR=/srv/graphguard/.tools/uv-cache-backup
+Environment=HOME=/tmp
+ExecStart=/srv/graphguard/.tools/bin/uv run --no-sync python -m graphguard.ops.alert check
+TimeoutStartSec=4min
+MemoryMax=256M
+Nice=10
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes
+# Its two secrets arrive as credentials; the rest of .secrets/ and private/ stay hidden.
+LoadCredential=alerts-aws.env:/srv/graphguard/.secrets/alerts-aws.env
+LoadCredential=alerts-mail.env:/srv/graphguard/.secrets/alerts-mail.env
+InaccessiblePaths=/srv/graphguard/.secrets /srv/graphguard/private/security /srv/graphguard/private/secrets
+ReadWritePaths=/srv/graphguard/private/alerts /srv/graphguard/.tools/uv-cache-backup

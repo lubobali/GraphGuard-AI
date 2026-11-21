@@ -311,6 +311,18 @@ other health checks. Remove: `just edge-remove`. A new public listener from anot
 project is reported to its session, never changed by us; accept on purpose with
 `just edge-baseline`. Runbook `docs/runbooks/edge.md`.
 
+## The scorer alert (S6.1, 2026-11-21)
+
+`graphguard-alert.timer` every 5 min: `k8s_health.collect_problems()` + the scorer's
+`/health` asked from inside its pod. **Email only on state change** (2 checks in a row must
+agree; reminder once a day while broken; failed mail retried), via AWS SES — IAM user
+`graphguard-alerts` may send only from Lubo's verified address to the same address (live
+test `tests/ops/test_alert_live.py`). Key `.secrets/alerts-aws.env`, addresses
+`.secrets/alerts-mail.env` (never in the repo). `just alert-status | alert-drill |
+alert-pause 2h | alert-resume`; **`just health`** runs every health check (backups, edge,
+secrets, alert, k3s). Code `src/graphguard/ops/alert.py` (pure `step`); runbook
+`docs/runbooks/scorer-down.md`. Planned scorer work: `just alert-pause` first.
+
 ## Backups (S5b.3, 2026-11-19)
 
 Nightly 03:20 UTC `graphguard-backup.timer`, Sundays 05:10 UTC
@@ -464,7 +476,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
-| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | not started |
+| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert done |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |

@@ -1,0 +1,11 @@
+# Every 5 minutes. A state changes only after 2 checks agree, so an outage emails within ~10.
+[Unit]
+Description=GraphGuard scorer alert, every 5 minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

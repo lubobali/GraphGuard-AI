@@ -50,6 +50,11 @@ REGISTRY: dict[str, Secret] = {
     "models-reader-aws.env": S(
         "scorer (via k8s Secret graphguard-model)", "AWS IAM console, two-key overlap", CONSOLE_DAYS
     ),
+    "alerts-aws.env": S(
+        "scorer alert (SES send only)", "AWS IAM console, two-key overlap", CONSOLE_DAYS
+    ),
+    # Not a secret to rotate: the alert's sender and recipient, kept out of the public repo.
+    "alerts-mail.env": S("scorer alert (addresses)", "just secret-set alerts-mail.env", None),
     "hetzner-readonly.env": S(
         "edge watchdog", "Hetzner console: new token, delete old", CONSOLE_DAYS
     ),
@@ -177,6 +182,7 @@ def init_ledger() -> None:
 AWS_ID = re.compile(r"^AKIA[0-9A-Z]{16}$")
 AWS_SECRET = re.compile(r"^[A-Za-z0-9/+]{40}$")
 HETZNER = re.compile(r"^[A-Za-z0-9]{64}$")
+EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def set_env_values(path, values: dict[str, str]) -> None:
@@ -206,13 +212,18 @@ def _ask(prompt: str, pattern: re.Pattern) -> str:
 
 def secret_set(name: str) -> None:
     if name in {"backup-aws.env", "lakekeeper-aws.env", "aws.env", "models-publisher-aws.env",
-                "models-reader-aws.env"}:  # fmt: skip
+                "models-reader-aws.env", "alerts-aws.env"}:  # fmt: skip
         values = {
             "AWS_ACCESS_KEY_ID": _ask("AWS access key id", AWS_ID),
             "AWS_SECRET_ACCESS_KEY": _ask("AWS secret access key", AWS_SECRET),
         }
-        if name.startswith("models-"):
+        if name.startswith(("models-", "alerts-")):
             values["AWS_REGION"] = "us-east-1"
+    elif name == "alerts-mail.env":
+        values = {
+            "ALERT_FROM": _ask("sender email (SES-verified)", EMAIL),
+            "ALERT_TO": _ask("recipient email", EMAIL),
+        }
     elif name == "hetzner-readonly.env":
         values = {"HETZNER_TOKEN": _ask("Hetzner API token", HETZNER)}
     else:

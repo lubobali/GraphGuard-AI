@@ -1,7 +1,7 @@
 # Runbook — the k3s scorer is down
 
-**Symptom:** `just k8s-check` exits 1, or `just k8s-status` shows the scorer pod not
-`1/1 Running`.
+**Symptom:** a `[GraphGuard] scorer DOWN` email (S6.1), or `just k8s-check` exits 1, or
+`just k8s-status` shows the scorer pod not `1/1 Running`.
 
 **Blast radius:** GraphGuard scoring only. LuBot, Forgejo, Sentinel and every other app
 on the box are separate. Nothing in this runbook touches them.
@@ -10,6 +10,43 @@ on the box are separate. Nothing in this runbook touches them.
 lubot.ai offline. If it ever happens: `systemctl restart docker`.
 
 ---
+
+## 0. The alert emails (S6.1)
+
+Every 5 minutes `graphguard-alert.timer` runs the same check as `just k8s-check` plus the
+scorer's own `/health` (asked from inside its pod). **It emails only when the state
+changes**, after two checks in a row agree, so a one-check blip (a rolling upgrade)
+emails nobody.
+
+| Email | Means |
+|---|---|
+| `[GraphGuard] scorer DOWN since …` | two checks in a row failed; the email lists what failed |
+| `[GraphGuard] scorer still DOWN since …` | still broken, once every 24 h |
+| `[GraphGuard] scorer recovered (down N min)` | two checks in a row passed again |
+| `[GraphGuard][DRILL] …` | `just alert-drill`; nothing is broken |
+
+```
+just alert-status      # last check, state, last email; exit 1 if stale, mail failing, or broken
+just alert-check       # one check now
+just health            # every health check: backups, edge, secrets, alert, k3s
+just alert-pause 2h    # planned work: emails silenced, state still tracked (alert-resume)
+journalctl -u graphguard-alert --since -1h
+```
+
+If the scorer is still broken when a pause ends, the DOWN email goes out then; an outage
+that starts and ends inside a pause stays silent. A failed email is retried every check.
+
+- **`alert-status` says stale:** the timer is not running —
+  `systemctl status graphguard-alert.timer`; `just alert-install` re-installs it.
+- **`alert-status` says mail failing:** check the key (`just secrets-status`), that the SES
+  identity is still verified (AWS console → SES → Identities), and the journal.
+
+How it works: `src/graphguard/ops/alert.py` (the judgement is the pure `step`). Email goes
+through AWS SES with `.secrets/alerts-aws.env` (IAM user `graphguard-alerts`, allowed only
+to send from the one verified address); the addresses are in `.secrets/alerts-mail.env`;
+state in `private/alerts/state.json`. The unit is sandboxed and gets its two secrets as
+systemd credentials. `just alert-drill` sends a DRILL "down" + "recovered" through the real
+path without touching the scorer or the real state. Phase 8 monitoring replaces it.
 
 ## 1. See what is wrong
 
@@ -28,6 +65,8 @@ k3s kubectl describe pod -n graphguard <pod> | tail -20   # the Events section
 | pod `CrashLoopBackOff` | The app starts and dies | `just k8s-logs`. Usually the model bundle or Redis (step 4) |
 | pod `not ready: Running` | Ray up, Serve app not healthy | `k3s kubectl get rayservice -n graphguard -o yaml \| grep -A5 applicationStatuses`, then `just k8s-logs` |
 | `no pods running` | RayService/RayCluster gone, or the operator is down | `k3s kubectl get pods -n ray-system`; re-apply with `just k8s-deploy` |
+| `scorer /health 503: feature store not loaded` | Redis restarted and is empty (S5.5: the scorer refuses cold scores) | `just store-load` (step 4) |
+| `scorer /health 503: feature store unavailable` | Redis down or unreachable | `docker ps --filter name=graphguard-redis`, then `just store-load` |
 | `could not query k3s for pods` | k3s itself is down | `systemctl status k3s`. Restart with `systemctl restart k3s` — **not** killall |
 
 ## 3. Restart the pod (after fixing the cause)
@@ -74,5 +113,5 @@ df -h /            # k3s starts deleting images at ~85% disk
 
 **History:** 2026-10-30 → 2026-11-18, the scorer sat in ImagePullBackOff for 18 days
 after k3s image GC deleted `serving:0.1.2` during a disk-full period. Fixed in S5.1,
-made detectable and pinned in S5.2. The email alert that runs this check on a schedule
-is planned for the start of Phase 6, when the stream first depends on the scorer.
+made detectable and pinned in S5.2. Since S6.1 (2026-11-21) the check runs every 5 minutes
+and emails on any change, so it cannot go unnoticed again.
