@@ -121,7 +121,7 @@ REGISTRY: dict[str, Secret] = {
     "kafka.env": S("Kafka logins (all) + cluster id", "just rotate-kafka", BOX_DAYS),
     **{
         f"kafka-{u}.env": S(f"Kafka login {u}", "just rotate-kafka", BOX_DAYS)
-        for u in ("admin", "replayer", "consumer", "shadow", "monitor")
+        for u in ("admin", "replayer", "consumer", "shadow", "monitor", "labeler")
     },
     "redis-users.acl": S("Redis (hashes only)", "just rotate-redis", BOX_DAYS, owner_uid=10379),
 }

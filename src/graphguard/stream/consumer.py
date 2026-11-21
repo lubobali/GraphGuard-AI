@@ -42,6 +42,7 @@ from graphguard.stream import updater as up
 log = logging.getLogger("graphguard.consumer")
 GROUP = "graphguard-consumer"
 TOPIC = "transactions"
+LABELS = "labels"
 LOCK_KEY = 6_006_006  # pg_advisory_lock key: one consumer at a time
 
 
@@ -118,6 +119,11 @@ class ReorderBuffer:
         return None if last is None else last + 1
 
 
+def _topic(record) -> str:
+    topic = getattr(record, "topic", None)
+    return topic() if callable(topic) else TOPIC
+
+
 def _dead(event_id, offset, reason, raw=None) -> dict:
     return {"event_id": event_id, "kafka_offset": offset, "reason": reason, "raw": raw}
 
@@ -139,9 +145,12 @@ class Consumer:
         self.counts = {"decided": 0, "repeats": 0, "late": 0, "malformed": 0}
 
     def step(self, records) -> None:
-        released, dead = [], []
+        released, dead, labels = [], [], []
         for r in records:
             if r.error():
+                continue
+            if _topic(r) == LABELS:
+                labels.append(r)
                 continue
             self.last_offset = r.offset()
             try:
@@ -152,6 +161,22 @@ class Consumer:
                 continue
             released += self.buffer.push((t.timestamp, t.event_id), (t, r.offset()), r.offset())
         self._process(released, dead)
+        if labels:
+            self._labels(labels)
+
+    def _labels(self, records) -> None:
+        """Store late verdicts (S6.9). Idempotent: one row per transaction."""
+        rows = []
+        for r in records:
+            try:
+                d = json.loads(r.value())
+                rows.append((int(d["event_id"]), bool(d["label"]),
+                             dt.datetime.fromisoformat(d["label_known_at"]), str(d["channel"]),
+                             r.offset()))  # fmt: skip
+            except (ValueError, KeyError, TypeError):
+                self.counts["malformed"] += 1
+        self.sink.commit_labels(rows, max(r.offset() for r in records) + 1)
+        self.counts["labels"] = self.counts.get("labels", 0) + len(rows)
 
     def flush(self) -> None:
         """Release everything held (end of stream, or a quiet moment)."""
@@ -252,6 +277,12 @@ _INSERT_DECISIONS = (
 )
 
 
+_INSERT_LABELS = (
+    "INSERT INTO labels (event_id, label, label_known_at, channel, kafka_offset) "
+    "VALUES %s ON CONFLICT (event_id) DO NOTHING"
+)
+
+
 class PostgresSink:
     def __init__(
         self,
@@ -268,11 +299,12 @@ class PostgresSink:
                 (version, list(feature_names)),
             )
 
-    def load_offset(self) -> int | None:
+    def load_offset(self, topic: str | None = None) -> int | None:
+        topic = topic or self.topic
         with self.conn, self.conn.cursor() as cur:
             cur.execute(
                 "SELECT next_offset FROM consumer_offsets WHERE grp=%s AND topic=%s AND part=0",
-                (self.group, self.topic),
+                (self.group, topic),
             )
             row = cur.fetchone()
         return row[0] if row else None
@@ -331,6 +363,18 @@ class PostgresSink:
                     "INSERT INTO outbox (topic, msg_key, payload) VALUES %s",
                     [(o["topic"], o["key"], o["payload"]) for o in outbox],
                 )
+
+    def commit_labels(self, rows: list[tuple], next_offset: int) -> None:
+        from psycopg2.extras import execute_values
+
+        with self.conn, self.conn.cursor() as cur:
+            if rows:
+                execute_values(cur, _INSERT_LABELS, rows)
+            cur.execute(
+                "INSERT INTO consumer_offsets (grp, topic, part, next_offset) VALUES "
+                "(%s, %s, 0, %s) ON CONFLICT (grp, topic, part) DO UPDATE SET "
+                "next_offset = EXCLUDED.next_offset, updated_at = now()",
+                (self.group, LABELS, next_offset))  # fmt: skip
 
     def publish_outbox(self, producer, limit: int = 5_000) -> int:
         with self.conn, self.conn.cursor() as cur:
@@ -423,7 +467,10 @@ def run(stop=lambda: False, max_idle_s: float | None = None) -> dict:
             "queued.max.messages.kbytes": 16384,
         }
     )
-    kc.assign([TopicPartition(TOPIC, 0, start if start is not None else OFFSET_BEGINNING)])
+    label_start = sink.load_offset(LABELS)
+    kc.assign([TopicPartition(TOPIC, 0, start if start is not None else OFFSET_BEGINNING),
+               TopicPartition(LABELS, 0, label_start if label_start is not None
+                              else OFFSET_BEGINNING)])  # fmt: skip
     producer = Producer({**ka.client_config("consumer", cfg["kafka"]), **ka.PRODUCER})
     log.info("consumer up: model %s, resume at offset %s", m["version"], start)
     idle_since, last_log = time.monotonic(), time.monotonic()

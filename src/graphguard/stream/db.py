@@ -9,6 +9,7 @@ only, backed up nightly). The consumer writes each micro-batch in ONE transactio
     decisions         one row per transaction scored (event_id = source_row, the key);
                       score, rules, model version + hash, and the features it saw
     consumer_offsets  where to resume in Kafka -- moves only with the decisions
+    labels            late verdicts from the `labels` topic (S6.9)
     outbox            what to publish (decisions, alerts, dead letters) -- written in the
                       same transaction, published after it, so a message never exists
                       without its row, nor a row without its message
@@ -75,6 +76,15 @@ CREATE TABLE IF NOT EXISTS dead_letters (
     reason       text NOT NULL,
     raw          bytea,
     created_at   timestamptz NOT NULL DEFAULT now()
+);
+-- Late verdicts from the `labels` topic (S6.9): one per transaction, idempotent.
+CREATE TABLE IF NOT EXISTS labels (
+    event_id       bigint PRIMARY KEY,
+    label          boolean NOT NULL,
+    label_known_at timestamp NOT NULL,
+    channel        text NOT NULL,
+    kafka_offset   bigint NOT NULL,
+    received_at    timestamptz NOT NULL DEFAULT now()
 );
 -- A record redelivered after a crash must not become a second dead letter (S6.7).
 CREATE UNIQUE INDEX IF NOT EXISTS dead_letters_once ON dead_letters (kafka_offset);
@@ -144,7 +154,8 @@ def setup() -> None:
 
 def reset() -> None:
     with connect(secrets_dir=REPO_ROOT / ".secrets") as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE decisions, consumer_offsets, outbox, dead_letters RESTART IDENTITY")
+        cur.execute("TRUNCATE decisions, consumer_offsets, outbox, dead_letters, labels "
+                    "RESTART IDENTITY")  # fmt: skip
 
 
 def main(argv: list[str]) -> int:

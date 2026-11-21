@@ -11,6 +11,7 @@ One login per program, each with only what it does (the Redis and lakehouse patt
     consumer   read `transactions` (group graphguard-consumer); write decisions, alerts, the DLQ
     shadow     read `transactions` (group graphguard-shadow); write `decisions.shadow`
     monitor    describe only (lag)
+    labeler    write `labels` -- late verdicts, from the label simulator (S6.9)
     admin      setup; a super user, used by nothing else
 
 Change access only here, then `just kafka-setup`: ACLs the broker holds that are not listed
@@ -36,7 +37,7 @@ SECRETS = REPO_ROOT / ".secrets"
 HOST_BOOTSTRAP = "127.0.0.1:9092"
 POD_BOOTSTRAP = "10.42.0.1:9094"
 CONTAINER = "graphguard-kafka"
-USERS = ("admin", "replayer", "consumer", "shadow", "monitor")
+USERS = ("admin", "replayer", "consumer", "shadow", "monitor", "labeler")
 PARTITIONS = 1  # one total order: receiver-side features need it (ADR 0005)
 ITERATIONS = 8192
 
@@ -50,7 +51,14 @@ _TOPIC = {
 }
 TOPICS: dict[str, dict[str, str]] = {
     name: dict(_TOPIC)
-    for name in ("transactions", "decisions", "alerts", "transactions.dlq", "decisions.shadow")
+    for name in (
+        "transactions",
+        "decisions",
+        "alerts",
+        "transactions.dlq",
+        "decisions.shadow",
+        "labels",
+    )  # fmt: skip
 }
 
 PRODUCER = {"enable.idempotence": True, "acks": "all", "max.in.flight.requests.per.connection": 5,
@@ -81,6 +89,8 @@ ACLS: tuple[Acl, ...] = tuple(
     + _grant("shadow", "TOPIC", "transactions", "READ", "DESCRIBE")
     + _grant("shadow", "GROUP", "graphguard-shadow", "READ", "DESCRIBE")
     + _grant("shadow", "TOPIC", "decisions.shadow", "WRITE", "DESCRIBE")
+    + _grant("consumer", "TOPIC", "labels", "READ", "DESCRIBE")  # S6.9: stores late labels
+    + _grant("labeler", "TOPIC", "labels", "WRITE", "DESCRIBE")  # S6.9: the label simulator
     + _grant("monitor", "TOPIC", "*", "DESCRIBE")
     + _grant("monitor", "GROUP", "*", "DESCRIBE")
     + _grant("monitor", "CLUSTER", "kafka-cluster", "DESCRIBE")

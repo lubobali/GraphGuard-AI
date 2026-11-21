@@ -46,8 +46,11 @@ ROWS = [_row(i, i // 2) for i in range(60)]
 
 
 class Msg:
-    def __init__(self, value, offset):
-        self._v, self._o = value, offset
+    def __init__(self, value, offset, topic="transactions"):
+        self._v, self._o, self._t = value, offset, topic
+
+    def topic(self):
+        return self._t
 
     def value(self):
         return self._v
@@ -66,6 +69,12 @@ def _msgs(bodies, start=0):
 class FakeSink:
     def __init__(self):
         self.decisions, self.dead, self.offset, self.outbox, self.commits = {}, [], None, [], 0
+        self.labels, self.label_offset = {}, None
+
+    def commit_labels(self, rows, next_offset):
+        for event_id, *rest in rows:
+            self.labels.setdefault(event_id, tuple(rest))
+        self.label_offset = next_offset
 
     def decided(self, ids):
         return {i for i in ids if i in self.decisions}
@@ -320,3 +329,12 @@ def test_rules_fire_live_and_alerts_go_to_their_own_topic_with_reasons():
         d.event_id for d in sink.decisions.values() if d.alert
     }
     assert all(a["reasons"] for a in alerts)
+
+
+def test_late_labels_are_stored_once_and_never_touch_the_decisions():
+    c, sink, _ = _consumer()
+    lab = json.dumps({"event_id": 105, "label": True, "channel": "investigation",
+                      "label_known_at": "2022-09-10T10:00:00"}).encode()  # fmt: skip
+    c.step([Msg(lab, 0, "labels"), Msg(lab, 1, "labels"), Msg(b"junk", 2, "labels")])
+    assert list(sink.labels) == [105] and sink.label_offset == 3
+    assert sink.decisions == {}  # a label is not a transaction

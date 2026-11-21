@@ -114,7 +114,12 @@ def test_no_acl_grants_all_or_a_wildcard_write():
 
 def test_admin_has_no_acls_because_it_is_the_setup_super_user():
     assert _ops("admin") == set()
-    assert set(ka.USERS) == {"admin", "replayer", "consumer", "shadow", "monitor"}
+    assert set(ka.USERS) == {"admin", "replayer", "consumer", "shadow", "monitor", "labeler"}
+
+
+def test_the_labeler_writes_only_labels_and_the_consumer_may_read_them():
+    assert _ops("labeler") == {("TOPIC", "labels", "WRITE"), ("TOPIC", "labels", "DESCRIBE")}
+    assert ("TOPIC", "labels", "READ") in _ops("consumer")
 
 
 # --- client settings -------------------------------------------------------------------

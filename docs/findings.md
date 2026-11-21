@@ -639,3 +639,36 @@ and would also be tuning, so they are left for a later, separately-measured step
 them costs nothing at the capacity that matters (p@k unchanged) and 0.019 PR-AUC from the
 override's reordering. Real bank data, with real structuring, would likely make rules look
 better; on synthetic AMLworld they are the baseline the model is shown to beat.
+
+## FINDING-017 — By the end of the 50-hour stream, 0.28% of its laundering has a known label
+
+*Found: 2026-11-21, Phase 6 (S6.9). Acts on: Phase 8 (monitoring, retraining), the pitch.*
+
+Labels arrive late through two doors, with stated, cited assumptions
+(`src/graphguard/stream/labels.py`): investigators work the top **100 alerts a day** and
+return a verdict **1-14 days** later (Dal Pozzolo et al., IEEE TNNLS 2018: ~100 cards/day,
+feedback within about a week); laundering the system missed is reported from outside
+**30-60 days** later (US SAR deadline, 31 CFR 1020.320). Never alerted and never reported =
+**no label** — unknown, not innocent. Simulated over the whole validation window with the live
+alert policy (ADR 0007; `docs/analysis/s6.9-labels.json`):
+
+| | |
+|---|---|
+| Transactions / laundering | 1,015,300 / 1,083 |
+| Alerts (capacity line, ADR 0007) | 5,000 |
+| Alerts investigators can work (100/day, ~3 days) | 300 |
+| Labels that will eventually exist | 1,184 (300 investigation + 884 external reports) |
+| **Labels known when the window ends** | **5** (all from investigation) |
+| **Laundering known when the window ends** | **3 of 1,083 = 0.28%** |
+
+**What it means.** Anything that learns from this stream "as it happens" is learning from
+almost nothing, and from a biased sample (only what the model already alerted on). That is
+why Phase 8 monitors without labels (score distribution, drift, alert volume, feature
+staleness) and retrains only on labels known by the retraining date —
+`labels.known_as_of(t)` is the only door, and `gold.labels.label_known_at` records when each
+truth became known. It is also why the project's headline evaluation uses the full validation
+labels offline: those are the labels a bank would have *months* later, not on the day.
+
+**Assumptions to say out loud:** verdicts are assumed correct; delays are uniform within the
+stated ranges; capacity is fixed per calendar day. Change any of them in `Policy` and rerun
+`python -m graphguard.stream.labels measure`.

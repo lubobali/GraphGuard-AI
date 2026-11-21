@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.8 done; S6.9 next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.9 done; S6.10 next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -388,7 +388,7 @@ decision stores its rules and an `alert` flag (priority ≥ the rank-5,000 line 
 alerts with `reasons` go to the `alerts` topic through the outbox. The e2e check now also
 proves live rules == offline rules for every transaction.
 
-## S6.9 — Labels arrive late, like in a bank
+## S6.9 — Labels arrive late, like in a bank ✅ done 2026-11-21
 
 **As** the person who will build retraining (Phase 8), **I want** labels to arrive days
 after the alert on their own topic, **so that** nothing downstream learns from the future.
@@ -399,6 +399,17 @@ after the alert on their own topic, **so that** nothing downstream learns from t
 - `gold.labels.label_known_at` filled; anything that learns sees a label only after it.
 - **Finding written up honestly:** with realistic delays almost no labels arrive inside a
   ~50-hour window — which is exactly why real systems monitor without labels.
+
+**Done 2026-11-21** (FINDING-017). `stream/labels.py`: two doors (investigation: top 100
+alerts/day, verdict 1-14 days; external report: missed laundering, 30-60 days), no label =
+unknown; seeded, pure, 6 unit tests; `known_as_of(t)` is the only door for learning. New
+topic `labels`, login `labeler` (write labels only), consumer reads it into the `labels` table
+(idempotent, own offset); `gold.labels.label_known_at` filled. Whole validation window: 5,000
+alerts, 300 investigable, 1,184 labels eventually — **5 known by the window's end, 3 of 1,083
+laundering (0.28%)**. Live: 20,000-event replay → 113 labels simulated; with the clock at
++15 days 100 were known and published → 100 stored by the consumer, 113 `label_known_at` in
+gold. Image 0.1.9 (scorer roll: 33/34 probes ok — the one failure is not proven to be the
+service; recorded).
 
 ## S6.10 — Shadow scoring: a challenger that decides nothing
 

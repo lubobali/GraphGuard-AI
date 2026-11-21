@@ -1,0 +1,30 @@
+{
+  "policy": {
+    "capacity_per_day": 100,
+    "investigation_days": [
+      1.0,
+      14.0
+    ],
+    "external_days": [
+      30.0,
+      60.0
+    ],
+    "seed": 0
+  },
+  "validation_rows": 1015300,
+  "laundering": 1083,
+  "alerts": 5000,
+  "labels_eventually": 1184,
+  "labels_eventually_by_channel": {
+    "investigation": 300,
+    "external report": 884
+  },
+  "known_by_window_end": 5,
+  "known_by_channel": {
+    "investigation": 5,
+    "external report": 0
+  },
+  "laundering_known_by_window_end": 3,
+  "share_of_laundering_known_by_end": 0.0028,
+  "window_end": "2022-09-08T16:09:00"
+}
