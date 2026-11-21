@@ -51,3 +51,4 @@ __marimo__/
 # repo is public, so they never go to git (a public summary only after fixes).
 /private/
 /kafka-data/
+/stream-runs/

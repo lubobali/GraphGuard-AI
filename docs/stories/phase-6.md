@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.4 done; S6.5 next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.5 done; S6.6 next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -286,7 +286,7 @@ the private record). Edge watchdog ok. CI: config/ACL tests only (jobs cannot re
 behaviour proven live. Deferred to S6.6 with the pod: its Kubernetes Secret and NetworkPolicy.
 Lag exporter → S6.11.
 
-## S6.5 — The replayer: a bank that sends like a real one
+## S6.5 — The replayer: a bank that sends like a real one ✅ done 2026-11-21
 
 **As** the demo, **I want** a producer that replays validation transactions like live
 payments, with real-world mess, **so that** the consumer is tested against what production
@@ -300,6 +300,17 @@ throws at it.
   *delivery* only, never event time or labels.
 - Durable checkpoint: a restarted replayer resumes without re-sending.
 - Runs as a job user (`gg-reader`-style profile) reading `silver`.
+
+**Done 2026-11-21.** `stream/replayer.py` + `stream/messages.py` (schema v1/v2, **no label in
+the message** — labels come later, S6.9; amounts bit-exact through JSON). Pacing 1× / N× /
+max with bursts that compress wall time only. Seeded faults (duplicate, late up to N
+positions, malformed, schema v2 mid-stream) logged to `stream-runs/<run>/faults.jsonl`.
+Checkpoint after each flushed batch; a crash resumes there (≤ one batch re-sent, dropped by
+event id). Runs as job `replay` (user gg-reader, its own Kafka login only). Smoke run
+(2,000 events, chaos): 2,025 records = 2,000 distinct + 22 duplicates + 3 malformed, v1 + v2,
+0 labels, 46 late arrivals, all inside validation; re-run → 0 sent. 18 unit tests.
+**Carries into S6.6:** the consumer needs a reorder buffer larger than the replayer's
+`late_max_shift` (50) so late events are applied in training's order, not refused.
 
 ## S6.6 — The consumer: score every event once
 

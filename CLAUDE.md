@@ -326,6 +326,13 @@ project is reported to its session, never changed by us; accept on purpose with
 replay's 2022 event times live in the message body). Keep the JVM hardening flag in
 `KAFKA_OPTS` (test-enforced; why and when to drop it: `private/security/`). ADR 0006.
 
+## The replayer (S6.5, 2026-11-21)
+
+`just replay --run <name> --speed 600|1|max [--faults chaos] [--limit N]` — job `replay`
+(gg-reader): validation window only (asserted), training's order, JSON messages
+(`stream/messages.py`, **no label**), seeded faults logged to `stream-runs/<run>/`,
+checkpoint resume. Empty the topic between runs with the admin login (delete records).
+
 ## Live features for the stream (S6.3, 2026-11-21)
 
 `src/graphguard/stream/updater.py`: each event returns both accounts' state **before** it,
@@ -503,7 +510,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
-| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015), S6.3 live features (ADR 0005), S6.4 Kafka (ADR 0006) done |
+| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015), S6.3 live features (ADR 0005), S6.4 Kafka (ADR 0006), S6.5 replayer done |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |

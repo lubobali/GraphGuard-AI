@@ -85,6 +85,15 @@ JOBS: dict[str, Job] = {
             raw_allowed=(),
         ),
         Job(
+            "replay",  # S6.5: validation window -> Kafka, as the bank would send it
+            "gg-reader",
+            ("-m", "graphguard.stream.replayer"),
+            ("identity-reader.env", "kafka-replayer.env"),
+            memory="768M",
+            writes=("stream-runs",),
+            raw_allowed=(),
+        ),
+        Job(
             "sql",
             "gg-reader",
             ("-m", "graphguard.lakehouse.sql"),

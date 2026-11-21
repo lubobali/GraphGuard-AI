@@ -510,6 +510,12 @@ kafka-bootstrap:
 kafka-setup:
     {{UV}} run python -m graphguard.stream.kafka_admin setup
 
+# Replay the validation window into Kafka as user gg-reader, e.g.
+#   just replay --run demo --speed 600        just replay --run chaos --speed max --faults chaos
+replay *args:
+    mkdir -p {{justfile_directory()}}/stream-runs && chgrp gg-jobs {{justfile_directory()}}/stream-runs && chmod 2770 {{justfile_directory()}}/stream-runs
+    {{UV}} run --no-sync python -m graphguard.ops.jobs run replay {{args}}
+
 # New passwords for every Kafka login, proven, rolled back on failure (S5b.6 pattern).
 rotate-kafka:
     {{UV}} run python -m graphguard.stream.kafka_admin rotate
