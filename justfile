@@ -483,6 +483,42 @@ health:
     done
     exit $fail
 
+# --- Kafka (S6.4): one broker, SCRAM logins, deny by default --------------------------
+KAFKA_COMPOSE := "docker compose --env-file .secrets/mlflow.env"
+
+# Passwords + cluster id, once (never rotates an existing one).
+kafka-secrets:
+    {{UV}} run python -m graphguard.stream.kafka_admin secrets
+
+# First start only: the data dir (uid 10380, 700) and the KRaft storage format.
+kafka-init: kafka-secrets
+    mkdir -p {{justfile_directory()}}/kafka-data
+    chown 10380:10380 {{justfile_directory()}}/kafka-data
+    chmod 700 {{justfile_directory()}}/kafka-data
+    {{KAFKA_COMPOSE}} run --rm --no-deps -e KAFKA_HEAP_OPTS=-Xmx128m --entrypoint /opt/kafka/bin/kafka-storage.sh kafka format --standalone -t $({{UV}} run python -m graphguard.stream.kafka_admin cluster-id) -c /etc/kafka/server.properties
+
+kafka-up:
+    {{KAFKA_COMPOSE}} up -d --no-deps kafka
+
+kafka-down:
+    {{KAFKA_COMPOSE}} stop kafka
+
+# The admin login (once, after the first start), then logins, topics and ACLs (idempotent).
+kafka-bootstrap:
+    {{UV}} run python -m graphguard.stream.kafka_admin bootstrap
+
+kafka-setup:
+    {{UV}} run python -m graphguard.stream.kafka_admin setup
+
+# New passwords for every Kafka login, proven, rolled back on failure (S5b.6 pattern).
+rotate-kafka:
+    {{UV}} run python -m graphguard.stream.kafka_admin rotate
+
+kafka-status:
+    @docker ps --filter name=graphguard-kafka --format '{{{{.Names}} {{{{.Status}}'
+    @docker stats --no-stream --format '{{{{.Name}} {{{{.MemUsage}}' graphguard-kafka
+    {{UV}} run python -m graphguard.stream.kafka_admin status
+
 # --- Scorer alert (S6.1): email on state change only -----------------------------
 # Exit 1 if the alert check is stale, its mail is failing, or the scorer is broken.
 alert-status:

@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.3 done; S6.4 next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.4 done; S6.5 next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -256,7 +256,7 @@ single writer + MULTI/EXEC), docs updated.
 
 Out of scope: Kafka (S6.4), the consumer loop and Postgres (S6.6), the writer lease (S6.6).
 
-## S6.4 — Kafka on the box, hardened and measured
+## S6.4 — Kafka on the box, hardened and measured ✅ done 2026-11-21
 
 **As** an operator, **I want** one Kafka 4.4.0 broker that fits its cap and only talks to
 our programs, **so that** the stream has a safe pipe.
@@ -275,6 +275,16 @@ our programs, **so that** the stream has a safe pipe.
 - How CI gets a broker (CI jobs cannot reach other containers) decided and written here.
 
 New container (covered by approval): `graphguard-kafka`, and later `graphguard-kafka-exporter`.
+
+**Done 2026-11-21** (ADR 0006). Kafka 4.4.0 (official image, digest), KRaft combined,
+uid 10380, read-only, heap 384m / cap 768m. Measured: idle 332 MiB; 1,015,300 messages in at
+~535k/s and read back in 10 s, peak **422 MiB**. SCRAM + deny-by-default: 21 ACLs from
+`kafka_admin.py`, `kafka-setup` idempotent (2nd run: 0 added, 0 removed); 8 live tests (no
+login, wrong password, each login's denials, 2022 event time kept, pod listener); 16 unit
+tests; `just rotate-kafka`. A JVM hardening flag is set and test-enforced (assessment in
+the private record). Edge watchdog ok. CI: config/ACL tests only (jobs cannot reach containers); broker
+behaviour proven live. Deferred to S6.6 with the pod: its Kubernetes Secret and NetworkPolicy.
+Lag exporter → S6.11.
 
 ## S6.5 — The replayer: a bank that sends like a real one
 

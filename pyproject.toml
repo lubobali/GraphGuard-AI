@@ -22,6 +22,7 @@ dependencies = [
   "jinja2>=3.1",
   # S5.7: the scorer downloads its model from S3 at startup (graphguard.serving.model_store).
   "boto3>=1.40",
+  "confluent-kafka>=2.15",
 ]
 
 [project.optional-dependencies]

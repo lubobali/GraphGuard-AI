@@ -50,3 +50,4 @@ __marimo__/
 # Security audits and hardening plans: a map of the box's weak spots. The GitHub
 # repo is public, so they never go to git (a public summary only after fixes).
 /private/
+/kafka-data/

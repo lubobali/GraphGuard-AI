@@ -155,7 +155,7 @@ The old per-job `apt-get` (~7 s of every job) is gone: git and curl are in the j
 | Compose project | `graphguard` |
 | Network | `graphguard-net` |
 | Volumes | `graphguard-mlflow-db-data`, `graphguard-mlflow-artifacts` |
-| Memory caps | MLflow 640M (1 worker, job system off: 354 MiB), Postgres 256M, Redis 448M (S6.3) — measured |
+| Memory caps | MLflow 640M (1 worker, job system off: 354 MiB), Postgres 256M, Redis 448M (S6.3), Kafka 768M (S6.4) — measured |
 
 Ports 5000, 5432 and 5433 were already taken on this host, which is why these
 are 5010 and 5434. **Credentials live in `.secrets/`** - gitignored, `chmod 600`,
@@ -314,6 +314,17 @@ listeners vs `private/edge/baseline.json`, guard present. **`just edge-status`**
 other health checks. Remove: `just edge-remove`. A new public listener from another
 project is reported to its session, never changed by us; accept on purpose with
 `just edge-baseline`. Runbook `docs/runbooks/edge.md`.
+
+## Kafka (S6.4, 2026-11-21)
+
+`graphguard-kafka`: Apache Kafka 4.4.0, one KRaft node, `127.0.0.1:9092` (host) and
+`10.42.0.1:9094` (pods), **SCRAM login required**, deny by default; heap 384m, cap 768m
+(peak 422 MiB at 1M messages). Logins / topics / ACLs only in
+`src/graphguard/stream/kafka_admin.py` → `just kafka-setup` (removes anything else).
+`just kafka-status | kafka-up | kafka-down | rotate-kafka`; first start: `kafka-init`,
+`kafka-up`, `kafka-bootstrap`, `kafka-setup`. Topics keep **arrival-time** retention (the
+replay's 2022 event times live in the message body). Keep the JVM hardening flag in
+`KAFKA_OPTS` (test-enforced; why and when to drop it: `private/security/`). ADR 0006.
 
 ## Live features for the stream (S6.3, 2026-11-21)
 
@@ -492,7 +503,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
-| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015), S6.3 live features (ADR 0005) done |
+| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015), S6.3 live features (ADR 0005), S6.4 Kafka (ADR 0006) done |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |

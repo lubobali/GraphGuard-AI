@@ -109,6 +109,12 @@ REGISTRY: dict[str, Secret] = {
     "redis-loader.env": S("store-load", "just rotate-redis", BOX_DAYS),
     "redis-tests.env": S("live tests", "just rotate-redis", BOX_DAYS),
     "redis-stream.env": S("stream consumer (S6.3+)", "just rotate-redis", BOX_DAYS),
+    # Kafka (S6.4): all passwords + cluster id, and one file per login.
+    "kafka.env": S("Kafka logins (all) + cluster id", "just rotate-kafka", BOX_DAYS),
+    **{
+        f"kafka-{u}.env": S(f"Kafka login {u}", "just rotate-kafka", BOX_DAYS)
+        for u in ("admin", "replayer", "consumer", "shadow", "monitor")
+    },
     "redis-users.acl": S("Redis (hashes only)", "just rotate-redis", BOX_DAYS, owner_uid=10379),
 }
 

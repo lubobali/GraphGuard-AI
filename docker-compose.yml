@@ -369,6 +369,53 @@ services:
       mlflow-db:
         condition: service_healthy
 
+  # --- the stream (S6.4) --------------------------------------------------------
+  # Apache Kafka 4.4.0, one node in KRaft combined mode (no ZooKeeper). Official image,
+  # pinned by digest. Config docker/kafka/server.properties (read-only): explicit
+  # listeners, SCRAM logins on everything reachable from outside the container, deny by
+  # default (ACLs in src/graphguard/stream/kafka_admin.py). Ports: host loopback for the
+  # replayer and admin, the k3s pod bridge for the consumer pod -- never 0.0.0.0.
+  #
+  # KAFKA_OPTS carries a JVM hardening flag; a test keeps it (reason in the private record).
+  kafka:
+    image: apache/kafka:4.4.0@sha256:833b867a9585a141da455dc2b57431c65cbccb27f11c91f694444cca9f777e0f
+    container_name: graphguard-kafka
+    restart: unless-stopped
+    command: ["/opt/kafka/bin/kafka-server-start.sh", "/etc/kafka/server.properties"]
+    environment:
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx384m"
+      KAFKA_OPTS: "-XX:-UseBASE64Intrinsics"
+      LOG_DIR: /tmp/kafka-logs
+    # Not the image's uid 1000 (a host's first human user gets 1000). 10380 is unused.
+    user: "10380:10380"
+    volumes:
+      - ./docker/kafka/server.properties:/etc/kafka/server.properties:ro
+      - ./kafka-data:/var/lib/kafka/data
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 256
+    ports:
+      - "127.0.0.1:9092:19092"
+      - "10.42.0.1:9094:19094"
+    networks:
+      - graphguard
+    mem_limit: 768m
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      # A TCP check, not a Kafka CLI: each CLI call starts a JVM inside the memory cap.
+      test: ["CMD-SHELL", "nc -z 127.0.0.1 19091"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 20s
+
 networks:
   graphguard:
     name: graphguard-net
