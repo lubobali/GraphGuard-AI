@@ -21,7 +21,7 @@ import urllib.request
 from graphguard.config import REPO_ROOT
 
 NS = "graphguard"
-IMAGE = "graphguard/serving:0.1.5"  # the scorer's image: Python, nothing extra pulled
+IMAGE = "graphguard/serving:0.1.6"  # the scorer's image: Python, nothing extra pulled
 SERVICE_URL = "http://graphguard-scorer-serve-svc:8000/"
 HOST_URL = "http://10.43.3.216:8000/"
 LABEL = "graphguard-loadgen"

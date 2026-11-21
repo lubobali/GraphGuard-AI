@@ -1,5 +1,7 @@
 """The scorer's Kubernetes manifests stay locked down (S5b.1)."""
 
+import json
+
 import pytest
 import yaml
 
@@ -135,3 +137,71 @@ def test_the_image_carries_no_model():
     from graphguard.config import REPO_ROOT
 
     assert "models/production" not in (REPO_ROOT / "Dockerfile").read_text().split("# No model")[1]
+
+
+# --- the stream consumer (S6.6) --------------------------------------------------------
+def _consumer():
+    docs = _docs("consumer.yaml")
+    (dep,) = [d for d in docs if d["kind"] == "Deployment"]
+    (np,) = [d for d in docs if d["kind"] == "NetworkPolicy"]
+    return dep, np
+
+
+def test_the_consumer_is_one_writer_never_two():
+    dep, _ = _consumer()
+    assert dep["spec"]["replicas"] == 1
+    assert dep["spec"]["strategy"]["type"] == "Recreate"  # a rolling update would overlap
+
+
+def test_the_consumer_pod_is_restricted_and_capped():
+    dep, _ = _consumer()
+    pod = dep["spec"]["template"]["spec"]
+    assert pod["automountServiceAccountToken"] is False
+    assert pod["securityContext"]["runAsNonRoot"] is True
+    assert pod["securityContext"]["seccompProfile"]["type"] == "RuntimeDefault"
+    (c,) = pod["containers"]
+    assert c["securityContext"] == {"allowPrivilegeEscalation": False,
+                                    "readOnlyRootFilesystem": True,
+                                    "capabilities": {"drop": ["ALL"]}}  # fmt: skip
+    assert c["resources"]["limits"]["memory"]
+
+
+def test_the_consumer_takes_no_secret_from_the_manifest_and_the_same_model_as_the_scorer():
+    dep, _ = _consumer()
+    (c,) = dep["spec"]["template"]["spec"]["containers"]
+    env = {e["name"]: e for e in c["env"]}
+    for name in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"):
+        assert "valueFrom" in env[name]
+    scorer = _docs("rayservice.yaml")[0]
+    text = yaml.safe_dump(scorer)
+    for pin in ("GRAPHGUARD_MODEL_VERSION", "GRAPHGUARD_MODEL_SHA256"):
+        assert env[pin]["value"] in text
+    assert not any("password" in e["name"].lower() for e in c["env"])
+
+
+def test_the_consumer_reaches_only_dns_redis_kafka_and_postgres():
+    _, np = _consumer()
+    ports = sorted(p["port"] for rule in np["spec"]["egress"] for p in rule.get("ports", [])
+                   if p["protocol"] == "TCP" and p["port"] != 53)  # fmt: skip
+    assert ports == [5432, 6379, 19094]
+    cidrs = {t["ipBlock"]["cidr"] for r in np["spec"]["egress"] for t in r["to"] if "ipBlock" in t}
+    assert cidrs == {"172.25.0.0/16"}
+
+
+def test_the_consumer_s3_policy_has_the_same_ranges_as_the_scorers():
+    def nets(name):
+        (doc,) = [d for d in yaml.safe_load_all((K8S / name).read_text()) if d]
+        return doc["spec"]["egress"][0]["to"], doc["spec"]["podSelector"]
+
+    scorer, _ = nets("networkpolicy-s3.yaml")
+    consumer, sel = nets("networkpolicy-s3-consumer.yaml")
+    assert consumer == scorer and sel == {"matchLabels": {"app": "graphguard-consumer"}}
+
+
+def test_the_stream_secret_holds_exactly_the_consumers_three_files(tmp_path):
+    from graphguard.stream import k8s as sk
+
+    for src in sk.FILES.values():
+        (tmp_path / src).write_text(f"X={src}\n")
+    doc = json.loads(sk.secret_manifest(tmp_path))
+    assert set(doc["data"]) == {"kafka-consumer.env", "redis.env", "stream-db.env"}

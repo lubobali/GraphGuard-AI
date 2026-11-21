@@ -1,0 +1,94 @@
+# The stream consumer (S6.6): Kafka -> live features -> model -> Postgres. One replica and
+# `Recreate`, never a rolling update: there is exactly one writer (also enforced by a
+# Postgres advisory lock). Same restricted pod rules as the scorer; its secrets come from
+# Kubernetes Secrets (`just k8s-stream-secret`, `just k8s-model-secret`), never this file.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graphguard-consumer
+  namespace: graphguard
+  labels: {app: graphguard-consumer}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: graphguard-consumer}
+  template:
+    metadata:
+      labels: {app: graphguard-consumer}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001  # the Secret's files belong to the pod's group (mode 0440 below)
+        seccompProfile: {type: RuntimeDefault}
+      terminationGracePeriodSeconds: 30
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 256Mi}
+        - name: creds
+          secret:
+            secretName: graphguard-stream
+            defaultMode: 0440
+      containers:
+        - name: consumer
+          image: graphguard/serving:0.1.6
+          imagePullPolicy: IfNotPresent
+          command: ["/app/.venv/bin/python", "-m", "graphguard.stream.consumer"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: creds, mountPath: /var/run/graphguard, readOnly: true}
+          env:
+            # Kafka, Redis and Postgres live in Docker on the host; pods reach them on the
+            # k3s pod bridge 10.42.0.1, each with this consumer's own login.
+            - {name: GRAPHGUARD_KAFKA_BOOTSTRAP, value: "10.42.0.1:9094"}
+            - {name: GRAPHGUARD_REDIS_BASE, value: "redis://10.42.0.1:6380"}
+            - {name: GRAPHGUARD_STREAM_DB, value: "10.42.0.1:5434"}
+            # graphguard.config.secrets_dir() reads the mounted Secret's files here.
+            - {name: CREDENTIALS_DIRECTORY, value: /var/run/graphguard}
+            # The same model as the scorer, by version and hash (S5.7).
+            - {name: GRAPHGUARD_MODEL_VERSION, value: "xgb-ab9ee07e6bd8"}
+            - {name: GRAPHGUARD_MODEL_SHA256, value: "dbdce0cd8e0ca2b4d1b0d2b5e264398441ce65afcfdd28224e2f34e8ca8dc014"}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom: {secretKeyRef: {name: graphguard-model, key: AWS_ACCESS_KEY_ID}}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom: {secretKeyRef: {name: graphguard-model, key: AWS_SECRET_ACCESS_KEY}}
+            - name: AWS_REGION
+              valueFrom: {secretKeyRef: {name: graphguard-model, key: AWS_REGION}}
+          # Measured: 345 MiB peak over a 20k-event chaos run (S6.6); S6.11 re-checks overnight.
+          resources:
+            requests: {cpu: "250m", memory: "384Mi"}
+            limits: {cpu: "1", memory: "640Mi"}  # measured peak 345 MiB (S6.6)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-consumer-egress
+  namespace: graphguard
+spec:
+  podSelector:
+    matchLabels: {app: graphguard-consumer}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    # Docker rewrites 10.42.0.1:<host port> to the container's address before the policy
+    # is checked, so the rule names graphguard-net and the CONTAINER ports (as for Redis).
+    - to:
+        - ipBlock: {cidr: 172.25.0.0/16}
+      ports:
+        - {protocol: TCP, port: 6379}   # Redis
+        - {protocol: TCP, port: 19094}  # Kafka, pod listener
+        - {protocol: TCP, port: 5432}   # Postgres, database `stream` only (pg_hba)

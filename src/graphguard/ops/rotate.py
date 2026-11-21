@@ -226,6 +226,26 @@ def _write_openfga_db(pw: str) -> None:
     reg.set_env_values(SECRETS / "openfga.env", {"OPENFGA_DATASTORE_URI": url})
 
 
+def _roll_consumer() -> None:
+    """The consumer pod reads stream-db.env from its Secret: refresh it, restart the pod."""
+    from graphguard.stream.k8s import secret_manifest
+
+    kubectl = ["k3s", "kubectl"]
+    deploy = ["-n", "graphguard", "deploy/graphguard-consumer"]
+    subprocess.run([*kubectl, "apply", "-f", "-"], input=secret_manifest(), text=True,
+                   check=True, capture_output=True)  # fmt: skip
+    subprocess.run([*kubectl, "rollout", "restart", *deploy], check=True, capture_output=True)
+    subprocess.run([*kubectl, "rollout", "status", *deploy, "--timeout=180s"], check=True,
+                   capture_output=True)  # fmt: skip
+
+
+def stream_db_ok() -> None:
+    from graphguard.stream import db
+
+    with db.connect(secrets_dir=SECRETS) as conn, conn.cursor() as cur:
+        cur.execute("SELECT 1")
+
+
 def _plan(role: str) -> RolePlan:
     none = lambda: None  # noqa: E731
     plans = {
@@ -247,6 +267,10 @@ def _plan(role: str) -> RolePlan:
             _env("lakehouse.env")["LAKEHOUSE_DB_USER"], ["lakehouse.env"],
             lambda pw: reg.set_env_values(SECRETS / "lakehouse.env", {"LAKEHOUSE_DB_PASSWORD": pw}),
             none, lakehouse_role_ok),
+        "stream_app": lambda: RolePlan(
+            "stream_app", ["stream-db.env"],
+            lambda pw: reg.set_env_values(SECRETS / "stream-db.env", {"STREAM_DB_PASSWORD": pw}),
+            _roll_consumer, stream_db_ok),
         "superuser": lambda: RolePlan(
             _env("mlflow.env")["MLFLOW_DB_USER"], ["mlflow.env"],
             lambda pw: reg.set_env_values(SECRETS / "mlflow.env", {"MLFLOW_DB_PASSWORD": pw}),
@@ -299,6 +323,7 @@ def _old_pg_password(role: str) -> str:
         "dex": lambda: _env("governance.env")["DEX_DB_PASSWORD"],
         "openfga": lambda: _env("governance.env")["OPENFGA_DB_PASSWORD"],
         "lakehouse": lambda: _env("lakehouse.env")["LAKEHOUSE_DB_PASSWORD"],
+        "stream_app": lambda: _env("stream-db.env")["STREAM_DB_PASSWORD"],
         "superuser": lambda: _env("mlflow.env")["MLFLOW_DB_PASSWORD"],
     }[role]()
 

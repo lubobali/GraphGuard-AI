@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.5 done; S6.6 next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.6 done; S6.7 next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -312,7 +312,7 @@ event id). Runs as job `replay` (user gg-reader, its own Kafka login only). Smok
 **Carries into S6.6:** the consumer needs a reorder buffer larger than the replayer's
 `late_max_shift` (50) so late events are applied in training's order, not refused.
 
-## S6.6 — The consumer: score every event once
+## S6.6 — The consumer: score every event once ✅ done 2026-11-21
 
 **As** the fraud checker, **I want** to read each transaction, update features, score it
 with the model in process and store the decision exactly once, **so that** nothing is lost
@@ -327,6 +327,21 @@ or doubled.
   cold scores (same rule as S5.5). Clean shutdown on SIGTERM.
 - Proof: N events in → exactly N decisions; the scores equal the HTTP scorer's for the
   same events.
+
+**Done 2026-11-21.** `stream/consumer.py` on k3s (`k8s/consumer.yaml`: 1 replica,
+`Recreate`, restricted pod, own egress policy — DNS + Redis + Kafka + Postgres on
+graphguard-net, S3 on 443 — secrets from `graphguard-stream` / `graphguard-model`, same
+pinned model as the scorer). Reorder buffer 200 (> the replayer's 50), repeats dropped by
+event id, live features (S6.3), in-process scoring (`score_rows` == `score_one`), one Postgres
+transaction per batch (decisions + offset + outbox), dead letters, advisory-lock single
+writer, pause when Redis is down or not loaded. Postgres `stream` / `stream_app` (own db only,
+from pods + host; live access test; backed up; `just rotate-pg stream_app` rolls the pod —
+done live). **Proof (`stream/e2e.py`): 20,000 events → 20,000 decisions, 0 score mismatches
+with the offline evaluation — host consumer, host + chaos, and the k3s pod + chaos (210
+repeats dropped, 20 malformed → dead letters, 0 late).** Pod peak 345 MiB → cap 640Mi.
+Scorer rolled to image 0.1.6 (carries S6.2's arithmetic): 32/32 health checks during the
+upgrade. Postgres now also on the pod bridge (pg_hba: only `stream` from pods). `just ci-wait`
+(read-only Forgejo token) — CI is now checked without Lubo.
 
 ## S6.7 — Chaos: kill it, restart it, repeat it — same answers
 

@@ -19,7 +19,7 @@ export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
 # -n 3 1,715 MB / 29 s, -n 2 1,195 MB / 34 s.
 XDIST := "-n 2 --dist=loadgroup"
 
-IMAGE_TAG := "0.1.5"
+IMAGE_TAG := "0.1.6"
 
 default:
     @just --list
@@ -519,6 +519,20 @@ kafka-setup:
 replay *args:
     mkdir -p {{justfile_directory()}}/stream-runs && chgrp gg-jobs {{justfile_directory()}}/stream-runs && chmod 2770 {{justfile_directory()}}/stream-runs
     {{UV}} run --no-sync python -m graphguard.ops.jobs run replay {{args}}
+
+# The consumer pod (S6.6): its Secret on stdin, then the Deployment + its egress policies.
+k8s-stream-secret:
+    {{UV}} run python -m graphguard.stream.k8s secret | k3s kubectl apply -f -
+
+k8s-consumer-deploy:
+    k3s kubectl apply -f k8s/consumer.yaml -f k8s/networkpolicy-s3-consumer.yaml
+
+consumer-logs:
+    k3s kubectl logs -n graphguard deploy/graphguard-consumer --tail=50
+
+# Reset the stream to the start: empty the topics and the decision tables, reload Redis.
+stream-reset:
+    {{UV}} run python -c "from graphguard.stream import e2e; e2e.reset()"
 
 # New passwords for every Kafka login, proven, rolled back on failure (S5b.6 pattern).
 rotate-kafka:

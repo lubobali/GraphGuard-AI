@@ -60,7 +60,7 @@ spec:
                 sizeLimit: 1Gi
           containers:
             - name: ray-head
-              image: graphguard/serving:0.1.5
+              image: graphguard/serving:0.1.6
               imagePullPolicy: IfNotPresent
               securityContext:
                 allowPrivilegeEscalation: false

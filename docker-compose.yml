@@ -38,6 +38,9 @@ services:
     user: "70:70"  # the image's postgres user; the data volume is already 70:70
     ports:
       - "127.0.0.1:5434:5432"
+      # The k3s pod bridge (S6.6): only the stream consumer pod uses it, and pg_hba lets
+      # pods reach exactly one database (`stream`, role stream_app) -- everything else rejected.
+      - "10.42.0.1:5434:5432"
     volumes:
       - mlflow-db-data:/var/lib/postgresql/data
       - ./docker/postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro

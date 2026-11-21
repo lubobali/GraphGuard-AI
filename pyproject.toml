@@ -23,6 +23,7 @@ dependencies = [
   # S5.7: the scorer downloads its model from S3 at startup (graphguard.serving.model_store).
   "boto3>=1.40",
   "confluent-kafka>=2.15",
+  "psycopg2-binary>=2.9.13",
 ]
 
 [project.optional-dependencies]

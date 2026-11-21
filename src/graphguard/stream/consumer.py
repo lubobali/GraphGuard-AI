@@ -360,7 +360,7 @@ def run(stop=lambda: False, max_idle_s: float | None = None) -> dict:
         Consumer as KafkaConsumer,
     )
 
-    from graphguard.serving.store import RedisFeatureStore
+    from graphguard.serving.store import RedisFeatureStore, redis_url
     from graphguard.stream import db
     from graphguard.stream import kafka_admin as ka
 
@@ -371,7 +371,8 @@ def run(stop=lambda: False, max_idle_s: float | None = None) -> dict:
     m = _model()
     bundle = m["bundle"]
     sink = PostgresSink(db.connect(cfg["postgres"]), bundle.feature_columns, m["version"])
-    redis = RedisFeatureStore(user="stream")
+    # Its own login, explicitly: the image's default GRAPHGUARD_REDIS_URL carries none.
+    redis = RedisFeatureStore(url=redis_url(0, "stream"))
     store = up.RedisStore(redis.client)
     consumer = Consumer(store, sink, bundle, m, cfg["buffer"])
     start = sink.load_offset()
