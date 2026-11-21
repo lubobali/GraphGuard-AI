@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS dead_letters (
     raw          bytea,
     created_at   timestamptz NOT NULL DEFAULT now()
 );
+-- A record redelivered after a crash must not become a second dead letter (S6.7).
+CREATE UNIQUE INDEX IF NOT EXISTS dead_letters_once ON dead_letters (kafka_offset);
 """
 
 

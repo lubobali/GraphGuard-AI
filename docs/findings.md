@@ -604,3 +604,38 @@ one moved (8.7e-8), and it was the 24 h fix making the online score equal traini
 a last-digit gap in a running total never shrinks. And "the same tie order" was true only
 by luck — Polars kept same-minute ties in source order without being asked; every history
 sort now says `maintain_order=True`.
+
+## FINDING-016 — Simple AML rules barely work on AMLworld; the model catches 26x more in the same queue
+
+*Found: 2026-11-21, Phase 6 (S6.8). Acts on: the rules layer, the pitch, Phase 7's queue.*
+
+Six plain rules, each on as-of state only (what the consumer knows before a transaction):
+velocity, fan-out, fan-in, structuring (9,000-10,000), new account + large amount, and
+both-accounts-new (FINDING-014). Thresholds are quantiles of the **training** window,
+chosen before looking at validation and not tuned afterwards. Measured on validation
+through `evaluate()` (1,015,300 transactions, 1,083 laundering;
+`docs/analysis/s6.8-rules.json`):
+
+| Ranking | PR-AUC | p@500 | p@1000 | p@5000 | laundering in top 5,000 |
+|---|---|---|---|---|---|
+| Rules only | 0.00186 | 0.008 | 0.004 | 0.0042 | 21 |
+| Model only | 0.28155 | 0.506 | 0.332 | 0.1084 | 542 |
+| Combined (ADR 0007) | 0.26202 | 0.506 | 0.333 | 0.1084 | — |
+
+Rules catch 7 launderers in their top 5,000 that the model misses; the model catches 528 the
+rules miss.
+
+**Why the rules fail here, and why that is the finding rather than a bug.** The velocity and
+fan-out thresholds are set by the training window's hubs (FINDING-002: one account makes
+168,672 transfers), so the top-0.1% line sits at 25,752 sends a day and 14,230 distinct
+receivers — no validation transaction crosses them. Structuring fires on ~1% of traffic at
+0.34% precision (3x the base rate, far below the model). And AMLworld launders through
+ordinary amounts (FINDING-003): the signal is the shape across accounts, which is exactly
+what a rule on one row cannot see. Per-account or peer-group thresholds would do better —
+and would also be tuning, so they are left for a later, separately-measured step.
+
+**What it means for the system.** Rules stay as the explainable safety net regulators expect
+(and the both-new override), but they do not earn queue slots on their own here. Combining
+them costs nothing at the capacity that matters (p@k unchanged) and 0.019 PR-AUC from the
+override's reordering. Real bank data, with real structuring, would likely make rules look
+better; on synthetic AMLworld they are the baseline the model is shown to beat.

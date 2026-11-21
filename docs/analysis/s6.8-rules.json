@@ -1,0 +1,59 @@
+{
+  "thresholds": {
+    "velocity_24h": 25752.0,
+    "fan_out": 14230.0,
+    "fan_in": 48.0,
+    "large_amount": 16394770.28,
+    "fitted_on": "train window",
+    "alert_priority": 0.22587209939956665,
+    "alert_capacity": 5000
+  },
+  "validation_rows": 1015300,
+  "laundering": 1083,
+  "rules_only": {
+    "pr_auc": 0.00186,
+    "precision_at_k": {
+      "500": 0.008,
+      "1000": 0.004,
+      "5000": 0.0042
+    }
+  },
+  "model_only": {
+    "pr_auc": 0.28155,
+    "precision_at_k": {
+      "500": 0.506,
+      "1000": 0.332,
+      "5000": 0.1084
+    }
+  },
+  "combined": {
+    "pr_auc": 0.26202,
+    "precision_at_k": {
+      "500": 0.506,
+      "1000": 0.333,
+      "5000": 0.1084
+    }
+  },
+  "top5000_caught": {
+    "rules_only": 21,
+    "model_only": 542,
+    "rules_not_model": 7,
+    "model_not_rules": 528
+  },
+  "fire_rate": {
+    "velocity": 0.0,
+    "fan_out": 0.0,
+    "fan_in": 0.00104,
+    "structuring": 0.00989,
+    "new_account_large": 0.0,
+    "both_new": 0.0
+  },
+  "fire_precision": {
+    "velocity": null,
+    "fan_out": null,
+    "fan_in": 0.0,
+    "structuring": 0.00339,
+    "new_account_large": 0.0,
+    "both_new": 0.2
+  }
+}

@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.6 done; S6.7 next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.8 done; S6.9 next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -343,7 +343,7 @@ Scorer rolled to image 0.1.6 (carries S6.2's arithmetic): 32/32 health checks du
 upgrade. Postgres now also on the pod bridge (pg_hba: only `stream` from pods). `just ci-wait`
 (read-only Forgejo token) — CI is now checked without Lubo.
 
-## S6.7 — Chaos: kill it, restart it, repeat it — same answers
+## S6.7 — Chaos: kill it, restart it, repeat it — same answers ✅ done 2026-11-21
 
 **As** a skeptical reviewer, **I want** proof that crashes and repeats change nothing,
 **so that** "effectively-once" is measured, not claimed.
@@ -355,7 +355,19 @@ upgrade. Postgres now also on the pod bridge (pg_hba: only `stream` from pods). 
 - **Decision parity under chaos:** same decisions at 1×, 600× and as-fast-as-possible, with
   and without faults.
 
-## S6.8 — Rules next to the model
+**Done 2026-11-21.** `python -m graphguard.stream.chaos` — 6 scenarios on the k3s consumer,
+20,000 events each: clean at max speed, clean at 600×, seeded faults, the pod killed twice
+(force delete), a crash between Redis and Postgres (the consumer's once-only chaos hook), the
+broker restarted mid-replay. **6/6 exact:** every transaction decided once, 0 score
+mismatches with the offline evaluation, 0 rule mismatches, Redis's final state equal to a
+batch recomputation (300 accounts), exactly the planned dead letters — and the same 211 rule
+hits and 221 alerts in every scenario (decision parity across speeds and faults). The first
+run found a real bug: a malformed record redelivered after a kill became a second dead letter
+(22 vs 20) → `dead_letters` unique per Kafka offset, and a dead-letter message is published
+only for a new row. Images 0.1.7 (chaos hook) and 0.1.8 (fix + rules); scorer rolled each
+time with 0 failed health checks.
+
+## S6.8 — Rules next to the model ✅ done 2026-11-21
 
 **As** an investigator, **I want** simple rules beside the model, **so that** there is a
 baseline the model must beat and a safety net if it fails.
@@ -367,6 +379,14 @@ baseline the model must beat and a safety net if it fails.
   every alert has `reasons[]`; k queue slots per simulated day.
 - **The table:** rules-only vs model-only vs combined precision@k at the same k, on
   validation, and what each catches that the other misses.
+
+**Done 2026-11-21** (FINDING-016, ADR 0007). Six as-of rules (`stream/rules.py`), thresholds
+from the training window only (generated `stream/rule_thresholds.py`, shipped in the image).
+Validation through `evaluate()`: rules-only p@5000 0.0042 (21 launderers), model-only 0.1084
+(542), combined 0.1084 at k (PR-AUC 0.262 vs 0.282). Rules find 7 the model misses. Live: each
+decision stores its rules and an `alert` flag (priority ≥ the rank-5,000 line on validation);
+alerts with `reasons` go to the `alerts` topic through the outbox. The e2e check now also
+proves live rules == offline rules for every transaction.
 
 ## S6.9 — Labels arrive late, like in a bank
 

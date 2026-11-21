@@ -36,6 +36,7 @@ from dataclasses import dataclass
 from graphguard.serving.online_features import to_model_row
 from graphguard.serving.service import COLD_POLICY, UNSEEN_CATEGORY
 from graphguard.stream import messages as msg
+from graphguard.stream import rules as R
 from graphguard.stream import updater as up
 
 log = logging.getLogger("graphguard.consumer")
@@ -60,6 +61,14 @@ class Decision:
     rules: tuple[str, ...] = ()
     alert: bool = False
 
+    def alert_payload(self) -> str:
+        return json.dumps({"event_id": self.event_id, "event_time": self.event_time.isoformat(),
+                           "from_account": self.from_account, "to_account": self.to_account,
+                           "amount_paid": self.amount_paid, "score": self.score,
+                           "priority": R.priority(self.score, self.rules),
+                           "reasons": list(self.rules) or ["model score"],
+                           "cold_policy": self.cold_policy}, separators=(",", ":"))  # fmt: skip
+
     def payload(self) -> str:
         return json.dumps(
             {
@@ -73,6 +82,10 @@ class Decision:
             },
             separators=(",", ":"),
         )
+
+
+class ChaosCrash(RuntimeError):
+    """Raised only by the S6.7 chaos hook; the process then exits as if killed."""
 
 
 class ReorderBuffer:
@@ -112,8 +125,14 @@ def _dead(event_id, offset, reason, raw=None) -> dict:
 class Consumer:
     """The decision logic, independent of where records come from (tested with fakes)."""
 
-    def __init__(self, store, sink, model, model_info: dict, buffer_size: int = 200) -> None:
+    def __init__(self, store, sink, model, model_info: dict, buffer_size: int = 200,
+                 crash_after_redis_at: int | None = None,
+                 thresholds: R.Thresholds | None = None) -> None:  # fmt: skip
         self.store, self.sink, self.model, self.info = store, sink, model, model_info
+        self.th = thresholds or R.load()  # fitted on the training window (S6.8)
+        # Chaos only (S6.7): die right after Redis applied this event and before Postgres
+        # has its decision -- once, since after the restart the event comes back "replayed".
+        self.crash_at = crash_after_redis_at
         self.buffer = ReorderBuffer(buffer_size)
         self.last_offset: int | None = None
         self.currency = model.category_maps.get("payment_currency", {})
@@ -156,6 +175,12 @@ class Consumer:
             for t in fresh
         ]
         befores = self.store.apply(events) if events else []
+        if self.crash_at is not None and any(
+            e.source_row == self.crash_at and b.status == up.APPLIED
+            for e, b in zip(sorted(events, key=up.order), befores, strict=True)
+        ):
+            log.warning("chaos: crashing after Redis, before Postgres (event %s)", self.crash_at)
+            raise ChaosCrash(self.crash_at)
         rows, kept = [], []
         for e, b in zip(sorted(events, key=up.order), befores, strict=True):
             t = by_id[e.source_row]
@@ -178,25 +203,26 @@ class Consumer:
             kept.append((t, b))
         scores = self.model.score_rows(rows) if rows else []
         cols = self.model.feature_columns
-        decisions = [
-            Decision(
-                t.event_id,
-                t.seq,
-                t.timestamp,
-                t.from_account,
-                t.to_account,
-                t.amount_paid,
-                float(s),
-                COLD_POLICY[(b.sender.is_cold, b.receiver.is_cold)],
-                self.info["version"],
-                self.info["sha256"] or "",
-                tuple(float(row[c]) for c in cols),
-            )
-            for (t, b), s, row in zip(kept, scores, rows, strict=True)
-        ]
+        decisions = []
+        for (t, b), s, row in zip(kept, scores, rows, strict=True):
+            fired = R.fire(row, t.amount_paid, b.sender.is_cold, b.receiver.is_cold, self.th)
+            decisions.append(
+                Decision(t.event_id, t.seq, t.timestamp, t.from_account, t.to_account,
+                         t.amount_paid, float(s),
+                         COLD_POLICY[(b.sender.is_cold, b.receiver.is_cold)],
+                         self.info["version"], self.info["sha256"] or "",
+                         tuple(float(row[c]) for c in cols), rules=fired,
+                         alert=R.priority(float(s), fired) >= self.th.alert_priority)
+            )  # fmt: skip
         outbox = [
             {"topic": "decisions", "key": str(d.event_id), "payload": d.payload()}
             for d in decisions
+        ]
+        # The investigator queue's feed: every alert with its reasons (ADR 0007).
+        outbox += [
+            {"topic": "alerts", "key": str(d.event_id), "payload": d.alert_payload()}
+            for d in decisions
+            if d.alert
         ]
         outbox += [
             {
@@ -209,6 +235,13 @@ class Consumer:
         self.sink.commit(decisions, dead, self.buffer.resume_offset(self.last_offset), outbox)
         self.store.ack([e.source_row for e in events])
         self.counts["decided"] += len(decisions)
+
+
+def only_new_dead_letters(outbox: list[dict], inserted_offsets: set[int]) -> list[dict]:
+    """Drop the dead-letter messages of records that were already dead letters (a record
+    redelivered after a crash). Decisions are kept. Pure, tested."""
+    return [o for o in outbox if o["topic"] != "transactions.dlq"
+            or json.loads(o["payload"])["kafka_offset"] in inserted_offsets]  # fmt: skip
 
 
 # --- Postgres ----------------------------------------------------------------------------
@@ -277,11 +310,14 @@ class PostgresSink:
                     ],
                 )
             if dead:
-                execute_values(
+                inserted = execute_values(
                     cur,
-                    "INSERT INTO dead_letters (event_id, kafka_offset, reason, raw) VALUES %s",
+                    "INSERT INTO dead_letters (event_id, kafka_offset, reason, raw) VALUES %s "
+                    "ON CONFLICT (kafka_offset) DO NOTHING RETURNING kafka_offset",
                     [(d["event_id"], d["kafka_offset"], d["reason"], d["raw"]) for d in dead],
+                    fetch=True,
                 )
+                outbox = only_new_dead_letters(outbox, {r[0] for r in inserted})
             if next_offset is not None:
                 cur.execute(
                     "INSERT INTO consumer_offsets (grp, topic, part, next_offset) VALUES "
@@ -340,6 +376,7 @@ def _settings() -> dict:
         "buffer": int(os.environ.get("GRAPHGUARD_REORDER_BUFFER", "200")),
         "batch": int(os.environ.get("GRAPHGUARD_BATCH", "500")),
         "idle_flush_s": float(os.environ.get("GRAPHGUARD_IDLE_FLUSH_S", "5")),
+        "crash_at": int(v) if (v := os.environ.get("GRAPHGUARD_CHAOS_CRASH_AFTER_REDIS")) else None,
     }
 
 
@@ -374,7 +411,7 @@ def run(stop=lambda: False, max_idle_s: float | None = None) -> dict:
     # Its own login, explicitly: the image's default GRAPHGUARD_REDIS_URL carries none.
     redis = RedisFeatureStore(url=redis_url(0, "stream"))
     store = up.RedisStore(redis.client)
-    consumer = Consumer(store, sink, bundle, m, cfg["buffer"])
+    consumer = Consumer(store, sink, bundle, m, cfg["buffer"], crash_after_redis_at=cfg["crash_at"])
     start = sink.load_offset()
     kc = KafkaConsumer(
         {
@@ -420,7 +457,10 @@ def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     stopping = {"now": False}
     signal.signal(signal.SIGTERM, lambda *_: stopping.__setitem__("now", True))
-    counts = run(stop=lambda: stopping["now"])
+    try:
+        counts = run(stop=lambda: stopping["now"])
+    except ChaosCrash:
+        os._exit(137)  # like kill -9: no flush, no clean close
     log.info("stopped cleanly: %s", counts)
     return 0
 

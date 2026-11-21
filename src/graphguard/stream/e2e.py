@@ -56,23 +56,35 @@ def replay(n: int, faults: rp.Faults, run: str) -> rp.Plan:
     return p
 
 
-def offline_scores(event_ids: set[int]) -> dict[int, float]:
-    """The evaluation's own score for each transaction: training features, same model."""
+def offline_scores(event_ids: set[int]) -> dict[int, tuple[float, tuple[str, ...]]]:
+    """The evaluation's own score for each transaction (training features, same model), and
+    the rules those same as-of features fire offline (S6.8)."""
     from graphguard.config import TRANSACTIONS_FILE
     from graphguard.data.loader import load_transactions
     from graphguard.evaluation.dataset import frozen_boundaries
     from graphguard.models.pipeline import features_for_split
     from graphguard.models.tabular import build_matrix
     from graphguard.serving.model_bundle import ModelBundle
+    from graphguard.stream import rules as R
 
     bundle = ModelBundle.load(REPO_ROOT / "models" / "production")
+    b = frozen_boundaries()
     lf = load_transactions(TRANSACTIONS_FILE)
     lf = (lf.lazy() if isinstance(lf, pl.DataFrame) else lf).with_row_index("source_row")
-    frame = features_for_split(lf, "validation", frozen_boundaries())
+    frame = features_for_split(lf, "validation", b)
     frame = frame.filter(pl.col("source_row").is_in(list(event_ids)))
+    flags = R.cold_flags(lf.filter(pl.col("timestamp") < b[1])
+                         .sort("timestamp", maintain_order=True).collect()
+                         .select("source_row", "from_account", "to_account"))  # fmt: skip
+    frame = frame.join(flags.select("source_row", "sender_cold", "receiver_cold"), on="source_row")
     X, _ = build_matrix(frame, bundle.category_maps)
     scores = bundle.model.predict_proba(X.select(bundle.feature_columns).to_numpy())[:, 1]
-    return dict(zip(frame["source_row"].to_list(), (float(s) for s in scores), strict=True))
+    th = R.load()
+    out = {}
+    for r, s in zip(frame.iter_rows(named=True), scores, strict=True):
+        out[r["source_row"]] = (float(s), R.fire(r, r["amount_paid"], r["sender_cold"],
+                                                 r["receiver_cold"], th))  # fmt: skip
+    return out
 
 
 def check(p: rp.Plan) -> dict:
@@ -81,21 +93,30 @@ def check(p: rp.Plan) -> dict:
     with db.connect(secrets_dir=SECRETS) as conn, conn.cursor() as cur:
         cur.execute("SELECT count(*), count(DISTINCT event_id) FROM decisions")
         rows, distinct = cur.fetchone()
-        cur.execute("SELECT event_id, score FROM decisions")
-        got = dict(cur.fetchall())
+        cur.execute("SELECT event_id, score, rules, alert FROM decisions")
+        rows_ = cur.fetchall()
+        got = {r[0]: r[1] for r in rows_}
+        got_rules = {r[0]: tuple(r[2]) for r in rows_}
+        alerts = sum(1 for r in rows_ if r[3])
         cur.execute("SELECT split_part(reason, ':', 1), count(*) FROM dead_letters GROUP BY 1")
         dead = dict(cur.fetchall())
         cur.execute("SELECT count(*) FROM outbox WHERE published_at IS NULL")
         unpublished = cur.fetchone()[0]
-    want = offline_scores(expected)
+    offline = offline_scores(expected)
+    want = {i: v[0] for i, v in offline.items()}
     wrong = [(i, got.get(i), want[i]) for i in expected if got.get(i) != want[i]]
+    rules_wrong = [(i, got_rules.get(i), offline[i][1]) for i in expected
+                   if got_rules.get(i) != offline[i][1]]  # fmt: skip
     return {
         "sent": len(p.sends), "events": len(expected), "decisions": rows,
         "distinct": distinct, "missing": len(expected - set(got)),
         "extra": len(set(got) - expected), "dead_letters": dead,
         "malformed_planned": malformed, "score_mismatches": len(wrong),
         "first_mismatches": wrong[:3], "outbox_unpublished": unpublished,
-        "ok": rows == distinct == len(expected) and not wrong and unpublished == 0
+        "rules_mismatches": len(rules_wrong), "first_rules_mismatches": rules_wrong[:3],
+        "rules_fired": sum(1 for v in got_rules.values() if v), "alerts": alerts,
+        "ok": rows == distinct == len(expected) and not wrong and not rules_wrong
+        and unpublished == 0
         and dead.get("malformed", 0) == malformed and "late" not in dead,
     }  # fmt: skip
 

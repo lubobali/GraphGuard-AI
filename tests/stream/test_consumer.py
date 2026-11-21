@@ -17,6 +17,12 @@ from graphguard.stream import updater as up
 
 pytestmark = pytest.mark.unit
 
+from graphguard.stream import rules as R  # noqa: E402
+
+# Small thresholds so the fixture's few accounts can fire rules.
+TH = R.Thresholds(velocity_24h=3, fan_out=2, fan_in=2, large_amount=40.0,
+                  alert_priority=0.65, alert_capacity=5)  # fmt: skip
+
 T0 = dt.datetime(2022, 9, 6, 13, 34)
 
 
@@ -92,6 +98,7 @@ def _consumer(buffer=10):
         model=FakeModel(),
         model_info={"version": "test", "sha256": "0" * 64},
         buffer_size=buffer,
+        thresholds=TH,
     )
     return c, sink, store
 
@@ -204,6 +211,7 @@ def test_a_restart_from_the_stored_offset_changes_nothing():
         model=FakeModel(),
         model_info={"version": "test", "sha256": "0" * 64},
         buffer_size=10,
+        thresholds=TH,
     )
     c2.step(_msgs(bodies[held_from:], start=held_from))  # Kafka redelivers from there
     c2.flush()
@@ -241,10 +249,10 @@ def test_decisions_are_published_through_the_outbox():
     c.step(_msgs(_bodies(ROWS[:12])))
     c.flush()
     topics = {o["topic"] for o in sink.outbox}
-    assert topics == {"decisions"}
-    assert {json.loads(o["payload"])["event_id"] for o in sink.outbox} == {
-        r["source_row"] for r in ROWS[:12]
-    }
+    assert topics <= {"decisions", "alerts"}  # alerts: S6.8
+    assert {
+        json.loads(o["payload"])["event_id"] for o in sink.outbox if o["topic"] == "decisions"
+    } == {r["source_row"] for r in ROWS[:12]}
 
 
 def test_the_score_uses_the_features_before_the_transaction():
@@ -256,3 +264,59 @@ def test_the_score_uses_the_features_before_the_transaction():
     names = FakeModel.feature_columns
     assert first_of_s0.features[names.index("sender_n_sent_before")] == 0
     assert later_of_s0.features[names.index("sender_n_sent_before")] == 1
+
+
+def test_a_crash_between_redis_and_postgres_loses_and_doubles_nothing():
+    bodies = _bodies(ROWS)
+    c1, s1, _ = _consumer()
+    c1.step(_msgs(bodies))
+    c1.flush()
+    want = {k: v.score for k, v in s1.decisions.items()}
+
+    c, sink, store = _consumer()
+    c.crash_at = 130  # inside the second released batch
+    records = _msgs(bodies)
+    with pytest.raises(cs.ChaosCrash):
+        for i in range(0, len(records), 15):
+            c.step(records[i : i + 15])
+    assert 130 not in sink.decisions  # Redis has it, Postgres does not
+    resume = sink.offset or 0
+    c2 = cs.Consumer(
+        store=store,
+        sink=sink,
+        model=FakeModel(),
+        model_info={"version": "test", "sha256": "0" * 64},
+        buffer_size=10,
+        thresholds=TH,
+        crash_after_redis_at=130,
+    )  # the hook is still set: must not fire twice
+    c2.step(_msgs(bodies[resume:], start=resume))
+    c2.flush()
+    assert {k: v.score for k, v in sink.decisions.items()} == want
+    assert sink.dead == []
+
+
+def test_a_redelivered_dead_letter_is_not_published_twice():
+    outbox = [{"topic": "decisions", "key": "1", "payload": "{}"},
+              {"topic": "transactions.dlq", "key": "None",
+               "payload": json.dumps({"kafka_offset": 7, "reason": "malformed"})},
+              {"topic": "transactions.dlq", "key": "None",
+               "payload": json.dumps({"kafka_offset": 9, "reason": "malformed"})}]  # fmt: skip
+    kept = cs.only_new_dead_letters(outbox, inserted_offsets={9})
+    assert [o["topic"] for o in kept] == ["decisions", "transactions.dlq"]
+    assert json.loads(kept[1]["payload"])["kafka_offset"] == 9
+
+
+def test_rules_fire_live_and_alerts_go_to_their_own_topic_with_reasons():
+    c, sink, _ = _consumer()
+    c.step(_msgs(_bodies(ROWS)))
+    c.flush()
+    fired = [d for d in sink.decisions.values() if d.rules]
+    assert fired, "the fixture should trip at least one rule"
+    for d in sink.decisions.values():
+        assert d.alert == (R.priority(d.score, d.rules) >= TH.alert_priority)
+    alerts = [json.loads(o["payload"]) for o in sink.outbox if o["topic"] == "alerts"]
+    assert {a["event_id"] for a in alerts} == {
+        d.event_id for d in sink.decisions.values() if d.alert
+    }
+    assert all(a["reasons"] for a in alerts)

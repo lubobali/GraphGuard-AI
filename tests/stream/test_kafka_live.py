@@ -23,13 +23,21 @@ def _cfg(user, **extra):
     return {**ka.client_config(user, secrets_dir=SECRETS), **extra}
 
 
-def _produce(cfg, topic, value=b"probe", ts_ms=None):
+def _produce(cfg, topic, value=b"probe", ts_ms=None, offsets=None):
+    """Send one marked record; the delivery error (None = delivered). `offsets` collects
+    where it landed, so a reader can go straight there however full the topic is."""
     from confluent_kafka import Producer
 
     errors = []
+
+    def report(err, msg):
+        errors.append(err)
+        if err is None and offsets is not None:
+            offsets.append(msg.offset())
+
     p = Producer({**cfg, "message.timeout.ms": 8000})
     p.produce(topic, value, headers={"graphguard-test": b"1"}, timestamp=ts_ms or 0,
-              on_delivery=lambda err, msg: errors.append(err))  # fmt: skip
+              on_delivery=report)  # fmt: skip
     p.flush(15)
     return errors[0] if errors else "no delivery report"
 
@@ -115,13 +123,16 @@ def test_the_monitor_cannot_read_or_write():
 
 
 def test_a_2022_event_time_is_kept_because_retention_uses_arrival_time():
-    from confluent_kafka import TIMESTAMP_LOG_APPEND_TIME, Consumer
+    from confluent_kafka import TIMESTAMP_LOG_APPEND_TIME, Consumer, TopicPartition
 
     old = int(dt.datetime(2022, 9, 6, tzinfo=dt.UTC).timestamp() * 1000)
-    assert _produce(_cfg("replayer"), "transactions", b"old", ts_ms=old) is None
+    where: list[int] = []
+    assert _produce(_cfg("replayer"), "transactions", b"old", ts_ms=old, offsets=where) is None
     c = Consumer({**_cfg("consumer"), "group.id": "graphguard-consumer",
-                  "auto.offset.reset": "earliest", "enable.auto.commit": False})  # fmt: skip
-    c.subscribe(["transactions"])
+                  "enable.auto.commit": False})  # fmt: skip
+    # Straight to our record: the topic may already hold a whole replay (this test used to
+    # read from the start and give up after 20 records -- flaky after every e2e run).
+    c.assign([TopicPartition("transactions", 0, where[0])])
     try:
         seen = None
         for _ in range(20):
