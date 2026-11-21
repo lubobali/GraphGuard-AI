@@ -34,6 +34,7 @@ PARITY_COLUMNS = (
     "receiver_distinct_in_before",
     "in_out_ratio_before",
     "sender_sent_last_24h",
+    "sender_seconds_since_last_send",
 )
 
 
@@ -95,7 +96,8 @@ def _online_row():
 @pytest.mark.parametrize("column", PARITY_COLUMNS)
 def test_batch_and_online_agree_on(column):
     batch, online = _batch_row(), _online_row()
-    assert online[column] == pytest.approx(float(batch[column])), (
+    # Exact, not approx (S6.2): approx is what hid the last-digit gap in the money totals.
+    assert online[column] == float(batch[column]), (
         f"train/serve skew on {column}: batch={batch[column]} online={online[column]}"
     )
 

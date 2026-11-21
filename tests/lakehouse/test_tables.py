@@ -17,23 +17,30 @@ from graphguard.lakehouse.schemas import (
     BronzeTransactions,
     GoldAccountFeatures,
     GoldLabels,
+    GoldRecentSends,
     SilverTransactions,
 )
 from graphguard.lakehouse.tables import (
     BRONZE_TX,
     GOLD_FEATURES,
     GOLD_LABELS,
+    GOLD_RECENT_SENDS,
     SILVER_TX,
+    StreamBoundsError,
+    assert_in_validation,
     current_snapshot_ids,
     expire_old_snapshots,
     read_account_states,
     read_account_states_at_snapshot,
+    read_recent_sends,
+    validation_stream,
     write_bronze,
     write_gold_features,
     write_gold_labels,
+    write_gold_recent_sends,
     write_silver,
 )
-from graphguard.serving.online_features import build_account_states
+from graphguard.serving.online_features import build_account_states, recent_sends_frame
 
 pytestmark = pytest.mark.unit
 
@@ -77,6 +84,7 @@ def _build(cat, raw):
     write_bronze(cat, raw)
     write_silver(cat, boundaries=(TRAIN_END, VAL_END), tail_cutoff=TAIL)
     write_gold_features(cat, as_of=TRAIN_END)
+    write_gold_recent_sends(cat, as_of=TRAIN_END)
     write_gold_labels(cat)
 
 
@@ -209,6 +217,7 @@ def test_each_layer_satisfies_its_contract(cat, raw):
     SilverTransactions.validate(_read(cat, SILVER_TX))
     GoldAccountFeatures.validate(_read(cat, GOLD_FEATURES))
     GoldLabels.validate(_read(cat, GOLD_LABELS))
+    GoldRecentSends.validate(_read(cat, GOLD_RECENT_SENDS))
 
 
 def test_the_gold_contract_rejects_a_negative_count():
@@ -292,3 +301,38 @@ def test_every_row_keeps_its_source_position(cat, raw):
     bronze = _read(cat, BRONZE_TX).sort("source_row")
     assert bronze["source_row"].to_list() == list(range(raw.height))
     assert bronze.drop("source_row").equals(raw)
+
+
+# --- S6.2: what the stream starts from, and what it may replay -----------------
+
+
+def test_gold_recent_sends_equal_the_serving_definition(cat, raw):
+    _build(cat, raw)
+    expected = recent_sends_frame(
+        raw.lazy().filter(pl.col("timestamp") < VAL_END), TRAIN_END
+    ).with_columns(pl.col("timestamp").cast(pl.Datetime("us")))
+    got = read_recent_sends(cat, as_of=TRAIN_END)
+    assert got.equals(expected)
+    assert got.height == 1  # only C -> B at 09-06 01:00 is inside (train_end - 24h, train_end)
+
+
+def test_the_stream_replays_validation_only_in_time_then_source_order(cat, raw):
+    _build(cat, raw)
+    df = validation_stream(cat, (TRAIN_END, VAL_END)).collect()
+    assert df["timestamp"].min() >= TRAIN_END and df["timestamp"].max() < VAL_END
+    assert df.height == 2  # the boundary row (A -> D at train_end) and D -> A
+    assert df.select("timestamp", "source_row").equals(
+        df.select("timestamp", "source_row").sort(["timestamp", "source_row"])
+    )
+    assert "source_row" in df.columns  # the event id the stream carries
+
+
+def test_rows_outside_validation_are_refused():
+    ok = pl.DataFrame({"timestamp": [TRAIN_END]}).with_columns(
+        pl.col("timestamp").cast(pl.Datetime("us"))
+    )
+    assert_in_validation(ok, (TRAIN_END, VAL_END))
+    for bad in (TRAIN_END - dt.timedelta(minutes=1), VAL_END):
+        df = pl.DataFrame({"timestamp": [bad]})
+        with pytest.raises(StreamBoundsError):
+            assert_in_validation(df, (TRAIN_END, VAL_END))

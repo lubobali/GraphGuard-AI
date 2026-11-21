@@ -580,3 +580,27 @@ make every account look new — 54 such answers were seen during the S5b.6 rotat
 `store-load` writes a marker last; without it the scorer answers 503 "not loaded", and
 with Redis down 503 "unavailable", never a cold score. Drill: Redis stopped → 503 →
 restarted and refilled → healthy in 24 s; 2,000/2,000 scores identical after.
+
+## FINDING-015 — The online snapshot disagreed with training in two places; "approx" hid both
+
+*Found: 2026-11-21, Phase 6 (S6.2). Acts on: the stream (S6.3+), the online store.*
+
+Before building a stream that keeps features live, the snapshot it starts from was compared
+with training **exactly** (`==`), not with `pytest.approx` as the old parity test did.
+Measured on train + validation (the test window was not read):
+
+| Gap | Training | Snapshot (before) | Affected at `train_end` |
+|---|---|---|---|
+| Money totals | "before" = `(S + a) − a`, S the sequential running total | `sum()` (compensated rounding) | 78,902 senders, 125,112 receivers — last digit |
+| 24 h send count | window `(t − 24h, t)`: a send exactly 24 h earlier is **out** | `>=` — counted it | 280 senders (315 sends) |
+
+The proof test (`tests/serving/test_exact_parity_real.py`) fails on the old code with 79,003
+of 130,418 senders and 117,585 of 186,037 receivers mismatching, and passes on the new code
+with zero. Training itself did not change (train and validation features identical,
+4.06M rows), so the production model stays `xgb-ab9ee07e6bd8`; of 2,000 validation scores
+one moved (8.7e-8), and it was the 24 h fix making the online score equal training's.
+
+**Two lessons.** `approx` in a parity test hides exactly the errors a stream accumulates:
+a last-digit gap in a running total never shrinks. And "the same tie order" was true only
+by luck — Polars kept same-minute ties in source order without being asked; every history
+sort now says `maintain_order=True`.

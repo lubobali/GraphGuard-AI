@@ -215,6 +215,7 @@ Lakekeeper REST catalog, governance, Feast).
 | `sealed.transactions` | the test window — named only in `lakehouse/catalog.py` and `tables.py`; `test_set_touch_check` fails anywhere else |
 | `gold.account_features_asof` | account states as of `train_end`, by the serving definition |
 | `gold.labels` | labels + `label_known_at` (null until Phase 6's label-delay policy) |
+| `gold.account_recent_sends` | each send in the 24 h before `train_end` — the stream's seed for the 24 h count (S6.2) |
 
 ```
 just lakehouse-build   # CSV -> Iceberg on S3, ~35s, peak ~1.3GB, keeps last 5 snapshots, cleans orphans
@@ -235,7 +236,8 @@ test also runs on a fake S3 (moto). Setup steps: `docs/runbooks/aws-setup.md`.
 `lk` (vended keys), plus views `silver_transactions`, `gold_account_features_asof`,
 `gold_labels`. `sealed` does not exist for reader and bronze is Forbidden — by
 permission, not by a list. Capped at 512MB. History in SQL must order by **(timestamp, source_row)**, never time
-alone: 9.4% of transactions tie on the minute (FINDING-010).
+alone: 9.4% of transactions tie on the minute (FINDING-010). In Polars every history sort
+says `maintain_order=True`, and parity tests compare with `==`, never approx (FINDING-015).
 
 **Lakekeeper:** `just lakekeeper-status | lakekeeper-up | lakekeeper-down | lakekeeper-init
 | lakekeeper-export | identity-secrets` (status/up/down cover Dex and OpenFGA too).
@@ -476,7 +478,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
-| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert done |
+| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015) done |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |

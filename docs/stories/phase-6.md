@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1 done; S6.2 next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1 and S6.2 done; S6.3 next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -143,22 +143,60 @@ IAM user + one policy. No new container.
 
 ---
 
-## S6.2 — Training is the truth: the online snapshot matches it exactly
+## S6.2 — Training is the truth: the online snapshot matches it exactly ✅ done 2026-11-21
 
 **As** the person defending the numbers, **I want** the snapshot that seeds the stream to
 equal training's features bit for bit, **so that** the stream starts from what the model
 learned on.
 
-- Money totals seeded with training's sequential arithmetic, not `sum()` (D2).
-- `sent_last_24h`: a send exactly 24 h earlier is **excluded**, as in training; the
-  snapshot carries each sender's recent send times (481,840 sends), because a count
-  cannot roll forward.
-- One tie order everywhere: `(timestamp, source_row)` (FINDING-010) — including the
-  training sort, which is checked first.
-- The stream source is `silver` with `train_end <= ts < val_end`, asserted;
-  `test_set_touch_check` green; `sealed` never touched.
-- Proof: snapshot vs training features per account, zero mismatches. Scorer behaviour
-  unchanged (2,000/2,000 identical scores).
+**Measured first (2026-11-21, train + validation only):**
+- Training's tie order is the source order (= `source_row`): `sort("timestamp")` gave the
+  stable result in 6/6 runs — but Polars does not promise it (`maintain_order=False`).
+- Training's 24 h window is **exclusive** at t−24h: 0 mismatches in 356,771 sends of 300
+  senders (incl. the 20 biggest hubs); the snapshot's inclusive `>=` would miss 246,508.
+- Training's "amount before" is exactly `(S + a) − a` (S = sequential running total):
+  0 mismatches on the biggest hub's 132,535 sends; plain `S` differs 8 times (last digit).
+
+Acceptance criteria (Given/When/Then):
+- [x] **Tie order is explicit:** every history sort says `maintain_order=True` (source order
+      = `source_row`). Given rows whose source order disagrees with time and ties within a
+      minute, the features follow (timestamp, source order) — unit test with enough rows
+      to force a parallel sort.
+- [x] **Model untouched:** the training features before and after the change are identical
+      on train + validation (frame equality), so `xgb-ab9ee07e6bd8` stays the model.
+- [x] **Money:** the snapshot's totals are the sequential running total (`cum_sum`), and
+      `to_model_row` computes "before" as `(S + a) − a`, exactly as training. Unit test
+      with amounts where `sum()` and the sequential sum differ.
+- [x] **24 h edge:** the snapshot counts sends in `(as_of − 24h, as_of)` — a send exactly
+      24 h earlier is excluded. Unit test at the boundary.
+- [x] **Recent send times** for the stream: `recent_sends_frame(as_of)` (one row per send
+      in that window) and a gold table `gold.account_recent_sends` written by
+      `just lakehouse-build`; count equals `sent_last_24h` per account.
+- [x] **Validation-only stream source:** `validation_stream(catalog)` reads `silver` with
+      `train_end <= timestamp < val_end` in `(timestamp, source_row)` order and asserts both
+      bounds on the data it returns; it cannot name `sealed`. `test_set_touch_check` green.
+- [x] **The proof (real data, `slow`):** for every account active in validation, the
+      `train_end` snapshot gives exactly the training features of its first validation
+      send / receive (counts, distinct, seconds since last send, `(S + a) − a`, and the 24 h
+      count from the recent send times) — zero mismatches.
+- [x] **Scorer unchanged:** 2,000 validation transactions score identically through the old
+      and new `to_model_row` against the same store, or every difference is explained.
+
+**Done 2026-11-21** (FINDING-015). Exact parity on a 30k-row adversarial history (unit) and on
+every account active in validation (slow, real data: 0 mismatches; the old code fails with
+79,003 / 117,585). Training features identical before/after on 4.06M rows → model unchanged.
+1 of 2,000 scores moved by 8.7e-8, explained (the 24 h fix: 14 → 13, training says 13).
+`gold.account_recent_sends` live (481,525 sends); Redis reloaded; old approx parity test made
+exact. `MAINTAINED_TABLES` = tracked + recent sends (training lineage does not record the
+stream's seed). Not done here: the live HTTP scorer still runs image 0.1.5 with the old
+"before" arithmetic (last-digit only) — the next image (S6.6) carries it.
+
+Definition of Done: unit + slow proof green, `just check` + `just ci-sandbox` green,
+`just lakehouse-build` + `just store-load` re-run (gold and Redis refreshed), the live
+scorer still healthy, LuBot sites 200, docs updated.
+
+Out of scope: the live updater itself (S6.3), the edge set for distinct counts (S6.3),
+rolling a new scorer image (only if the 2,000-score check finds a difference worth it).
 
 ## S6.3 — Live features, proven before Kafka exists
 

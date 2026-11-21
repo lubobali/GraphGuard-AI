@@ -40,7 +40,13 @@ def build_account_history_features(
     `as_of` is a hard upper bound: rows at or after it are dropped before
     anything is computed.
     """
-    df = transactions.filter(pl.col("timestamp") < as_of).sort("timestamp").with_row_index("_row")
+    # Ties within a minute keep source order (= source_row): stated, because Polars only
+    # promises it with maintain_order (S6.2; the stream replays in the same order).
+    df = (
+        transactions.filter(pl.col("timestamp") < as_of)
+        .sort("timestamp", maintain_order=True)
+        .with_row_index("_row")
+    )
 
     # --- sender side --------------------------------------------------------
     # cum_count over the account, minus this row, is "how many before me".
@@ -93,12 +99,12 @@ def build_account_history_features(
 
     at_window_start = (
         counted.select("from_account", "timestamp", "_cum_sent")
-        .sort("timestamp")
+        .sort("timestamp", maintain_order=True)
         .rename({"_cum_sent": "_cum_at_window_start"})
     )
 
     velocity = (
-        counted.sort("_window_start")
+        counted.sort("_window_start", maintain_order=True)
         .join_asof(
             at_window_start,
             left_on="_window_start",

@@ -19,12 +19,14 @@ from graphguard.lakehouse.catalog import open_catalog
 from graphguard.lakehouse.lineage_events import lineage_run
 from graphguard.lakehouse.tables import (
     GOLD_FEATURES,
+    MAINTAINED_TABLES,
     current_snapshot_ids,
     expire_old_snapshots,
     remove_orphan_files,
     write_bronze,
     write_gold_features,
     write_gold_labels,
+    write_gold_recent_sends,
     write_silver,
 )
 
@@ -58,11 +60,13 @@ def _build() -> None:
     print(f"silver + sealed written ({time.time() - t0:.1f}s)", flush=True)
     n = write_gold_features(catalog, as_of=boundaries[0])
     print(f"gold features written: {n:,} accounts ({time.time() - t0:.1f}s)", flush=True)
+    n = write_gold_recent_sends(catalog, as_of=boundaries[0])
+    print(f"gold recent sends written: {n:,} ({time.time() - t0:.1f}s)", flush=True)
     write_gold_labels(catalog)
     print(f"gold labels written ({time.time() - t0:.1f}s)", flush=True)
 
     removed = 0
-    for name in current_snapshot_ids(catalog):
+    for name in MAINTAINED_TABLES:
         expire_old_snapshots(catalog, name, keep_last=KEEP_SNAPSHOTS)
         removed += remove_orphan_files(catalog, name)
     print(

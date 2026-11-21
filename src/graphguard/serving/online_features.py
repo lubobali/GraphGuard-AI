@@ -105,7 +105,9 @@ def account_states_frame(transactions: pl.LazyFrame, as_of: dt.datetime) -> pl.D
     -- or one AT `as_of` -- cannot reach the state. Counts are Int64 because
     Iceberg has no unsigned integers.
     """
-    past = transactions.filter(pl.col("timestamp") < as_of)
+    # Training's order: time, ties in source order (= source_row). Stated, not assumed:
+    # Polars keeps ties in order only when asked (S6.2).
+    past = transactions.filter(pl.col("timestamp") < as_of).sort("timestamp", maintain_order=True)
 
     window_start = as_of - dt.timedelta(hours=24)
 
@@ -113,10 +115,13 @@ def account_states_frame(transactions: pl.LazyFrame, as_of: dt.datetime) -> pl.D
         past.group_by("from_account")
         .agg(
             pl.len().alias("n_sent"),
-            pl.col("amount_paid").sum().alias("amount_sent"),
+            # The sequential running total, exactly as training adds it up -- not sum(),
+            # which compensates rounding and differs in the last digit (S6.2).
+            pl.col("amount_paid").cum_sum().last().alias("amount_sent"),
             pl.col("to_account").n_unique().alias("distinct_out"),
             pl.col("timestamp").max().alias("last_sent"),
-            (pl.col("timestamp") >= window_start).sum().alias("sent_last_24h"),
+            # (as_of - 24h, as_of): a send exactly 24 h earlier is outside, as in training.
+            (pl.col("timestamp") > window_start).sum().alias("sent_last_24h"),
         )
         .rename({"from_account": "account"})
     )
@@ -124,7 +129,7 @@ def account_states_frame(transactions: pl.LazyFrame, as_of: dt.datetime) -> pl.D
         past.group_by("to_account")
         .agg(
             pl.len().alias("n_received"),
-            pl.col("amount_paid").sum().alias("amount_received"),
+            pl.col("amount_paid").cum_sum().last().alias("amount_received"),
             pl.col("from_account").n_unique().alias("distinct_in"),
             pl.col("timestamp").max().alias("last_received"),
         )
@@ -144,6 +149,23 @@ def account_states_frame(transactions: pl.LazyFrame, as_of: dt.datetime) -> pl.D
         )
         .select(STATE_COLUMNS)
         .sort("account")
+        .collect()
+    )
+
+
+def recent_sends_frame(transactions: pl.LazyFrame, as_of: dt.datetime) -> pl.DataFrame:
+    """Every send in `(as_of - 24h, as_of)`, one row each: what the stream needs (S6.2).
+
+    A stored count cannot roll forward -- the stream must drop sends as they age past
+    24 h -- so it starts from the send times themselves. Per sender, the row count
+    equals `sent_last_24h` in `account_states_frame`.
+    """
+    window_start = as_of - dt.timedelta(hours=24)
+    return (
+        transactions.filter((pl.col("timestamp") > window_start) & (pl.col("timestamp") < as_of))
+        .sort("timestamp", maintain_order=True)
+        .select(pl.col("from_account").alias("account"), "timestamp")
+        .sort("account", maintain_order=True)
         .collect()
     )
 
@@ -198,7 +220,9 @@ def to_model_row(
     return {
         # from the two stored states
         "sender_n_sent_before": float(sender.n_sent),
-        "sender_amount_sent_before": float(sender.amount_sent),
+        # (S + a) - a, not S: training computes "before" as running total minus this
+        # amount, and float addition does not undo exactly (S6.2, measured on the hubs).
+        "sender_amount_sent_before": (sender.amount_sent + amount_paid) - amount_paid,
         "sender_distinct_out_before": float(sender.distinct_out),
         "sender_sent_last_24h": float(sender.sent_last_24h),
         # Null when the account has never sent. XGBoost treats NaN as missing
@@ -209,7 +233,7 @@ def to_model_row(
             else float("nan")
         ),
         "receiver_n_received_before": float(receiver.n_received),
-        "receiver_amount_received_before": float(receiver.amount_received),
+        "receiver_amount_received_before": (receiver.amount_received + amount_paid) - amount_paid,
         "receiver_distinct_in_before": float(receiver.distinct_in),
         # +1 keeps this finite for an account with no history yet
         "in_out_ratio_before": (receiver.n_received + 1) / (sender.n_sent + 1),

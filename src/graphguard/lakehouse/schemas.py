@@ -37,6 +37,18 @@ GoldAccountFeatures = pa.DataFrameSchema(
     name="gold_account_features",
 )
 
+# One row per send in (as_of - 24h, as_of): the stream rolls the 24 h count forward from
+# these, because a stored count cannot drop sends as they age (S6.2).
+GoldRecentSends = pa.DataFrameSchema(
+    {
+        "account": pa.Column(pl.String, nullable=False),
+        "timestamp": pa.Column(pl.Datetime, nullable=False),
+        "as_of": pa.Column(pl.Datetime, nullable=False),
+    },
+    strict=True,
+    name="gold_recent_sends",
+)
+
 GoldLabels = pa.DataFrameSchema(
     {
         # The transaction key: the row's position in the source file.

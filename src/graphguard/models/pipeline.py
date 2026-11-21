@@ -55,6 +55,6 @@ def features_for_split(
     return (
         assign_split(with_history, boundaries)
         .filter(pl.col("split") == split)
-        .sort("timestamp")
+        .sort("timestamp", maintain_order=True)
         .collect()
     )

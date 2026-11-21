@@ -5,6 +5,7 @@
     sealed.transactions       the test window -- written here, read only by the
                               final report (guarded, see test_set_touch_check)
     gold.account_features_asof  each account's state as of a time
+    gold.account_recent_sends   each send in the 24 h before that time (the stream's seed)
     gold.labels               labels, plus when each became known (Phase 6)
 
 Every table is Iceberg format v2. Writes are whole-table (or whole-`as_of`)
@@ -37,6 +38,7 @@ from graphguard.lakehouse.storage import filesystem, polars_storage_options, to_
 from graphguard.serving.online_features import (
     AccountState,
     account_states_frame,
+    recent_sends_frame,
     states_from_frame,
 )
 
@@ -45,10 +47,14 @@ SILVER_TX = "silver.transactions"
 _SEALED_TX = "sealed.transactions"
 GOLD_FEATURES = "gold.account_features_asof"
 GOLD_LABELS = "gold.labels"
+GOLD_RECENT_SENDS = "gold.account_recent_sends"
 
 # Tables whose snapshot ids a training run records. The sealed table is
 # deliberately absent: a training run must not even know which version of it exists.
 TRACKED_TABLES = (BRONZE_TX, SILVER_TX, GOLD_FEATURES, GOLD_LABELS)
+# Snapshot upkeep (expire + orphans) covers these too. The stream's seed is not a training
+# input, so a training run does not record it.
+MAINTAINED_TABLES = (*TRACKED_TABLES, GOLD_RECENT_SENDS)
 
 # Every row keeps its position in the source file. The dataset has no
 # transaction id, so this is the transaction key -- and it preserves the source
@@ -210,6 +216,20 @@ def write_gold_features(catalog: Catalog, as_of: dt.datetime) -> int:
     return frame.height
 
 
+def write_gold_recent_sends(catalog: Catalog, as_of: dt.datetime) -> int:
+    """Every send in `(as_of - 24h, as_of)`, from silver (S6.2). Replaces this `as_of`."""
+    frame = recent_sends_frame(scan_in_source_order(catalog, SILVER_TX), as_of).with_columns(
+        pl.col("timestamp").cast(pl.Datetime("us")),
+        pl.lit(as_of).cast(pl.Datetime("us")).alias("as_of"),
+    )
+    table = _table(catalog, GOLD_RECENT_SENDS, frame)
+    if table.current_snapshot() is None:
+        table.append(_arrow(frame))
+    else:
+        table.overwrite(_arrow(frame), overwrite_filter=EqualTo("as_of", as_of.isoformat()))
+    return frame.height
+
+
 def write_gold_labels(catalog: Catalog) -> None:
     labels = (
         _scan(catalog, SILVER_TX)
@@ -247,6 +267,47 @@ def read_account_states_at_snapshot(
 
 def read_states_frame(catalog: Catalog, as_of: dt.datetime) -> pl.DataFrame:
     return _states(catalog, as_of, None)
+
+
+def read_recent_sends(catalog: Catalog, as_of: dt.datetime) -> pl.DataFrame:
+    return (
+        _scan(catalog, GOLD_RECENT_SENDS)
+        .filter(pl.col("as_of") == as_of)
+        .drop("as_of")
+        .sort("account", "timestamp", maintain_order=True)
+        .collect()
+    )
+
+
+# --- the stream's source (S6.2) -----------------------------------------------
+
+
+class StreamBoundsError(RuntimeError):
+    """A row outside the validation window reached the stream. It must stop."""
+
+
+def assert_in_validation(df: pl.DataFrame, boundaries: tuple[dt.datetime, dt.datetime]) -> None:
+    """Refuse any batch with a row outside `[train_end, val_end)`: the stream replays the
+    validation window only; training data would be old news and the test window is sealed."""
+    train_end, val_end = boundaries
+    if df.height and (df["timestamp"].min() < train_end or df["timestamp"].max() >= val_end):
+        raise StreamBoundsError(
+            f"rows outside [{train_end}, {val_end}): {df['timestamp'].min()} .. "
+            f"{df['timestamp'].max()}"
+        )
+
+
+def validation_stream(
+    catalog: Catalog, boundaries: tuple[dt.datetime, dt.datetime]
+) -> pl.LazyFrame:
+    """The transactions the stream replays: validation only, from silver, in training's
+    order -- time, then `source_row` -- with `source_row` kept as the event id."""
+    train_end, val_end = boundaries
+    return (
+        _scan(catalog, SILVER_TX)
+        .filter((pl.col("timestamp") >= train_end) & (pl.col("timestamp") < val_end))
+        .sort("timestamp", SOURCE_ROW)
+    )
 
 
 # --- versioning ---------------------------------------------------------------
