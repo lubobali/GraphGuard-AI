@@ -444,3 +444,15 @@ morning, **so that** Phase 6 is done by the plan's own definition.
 - Overnight soak at a steady rate: zero lost or doubled decisions, memory flat under caps,
   LuBot untouched.
 - CLAUDE.md "Where we are" updated only when this passes.
+
+**In progress (2026-11-21).** Built: the 5-minute alert also watches the stream ("stalled"
+after 10 min without progress with work waiting; "falling behind" when the lag grows past
+200k), each decision records its Kafka arrival time (latency), `stream/soak.py` (reset →
+replay + monitor as detached systemd units → morning report). No separate lag-exporter
+container: an exporter needs a Prometheus, and the only one on the box is LuBot's (off
+limits) — the alert computes the lag itself. Postgres cap 256m → 384m (was at 211 MiB before
+the run). **Soak started 2026-11-21 07:58 UTC**: whole validation window (1,015,300
+transactions) at 6× ≈ 8.4 h, ends ~16:30 UTC. Gate = `python -m graphguard.stream.soak report`
+→ every transaction once, scores and rules == offline, no dead letters, outbox drained, lag back
+to 0, memory flat under caps.
+
