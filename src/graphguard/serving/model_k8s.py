@@ -24,6 +24,7 @@ SECRET = "graphguard-model"
 RANGES_URL = "https://ip-ranges.amazonaws.com/ip-ranges.json"
 POLICY_FILE = REPO_ROOT / "k8s" / "networkpolicy-s3.yaml"
 CONSUMER_POLICY_FILE = REPO_ROOT / "k8s" / "networkpolicy-s3-consumer.yaml"
+SHADOW_POLICY_FILE = REPO_ROOT / "k8s" / "networkpolicy-s3-shadow.yaml"
 REGION = "us-east-1"
 
 
@@ -90,7 +91,10 @@ def main(argv: list[str]) -> int:
         CONSUMER_POLICY_FILE.write_text(egress_policy(
             prefixes, ranges["syncToken"], ranges["createDate"],
             name="allow-consumer-s3-egress", selector="app: graphguard-consumer"))  # fmt: skip
-        print(f"wrote {POLICY_FILE.relative_to(REPO_ROOT)} + consumer: {len(prefixes)} S3 "
+        SHADOW_POLICY_FILE.write_text(egress_policy(
+            prefixes, ranges["syncToken"], ranges["createDate"],
+            name="allow-shadow-s3-egress", selector="app: graphguard-shadow"))  # fmt: skip
+        print(f"wrote {POLICY_FILE.relative_to(REPO_ROOT)} + consumer + shadow: {len(prefixes)} S3 "
               f"{REGION} prefixes")  # fmt: skip
         return 0
     print(f"usage: {argv[0]} secret|egress")

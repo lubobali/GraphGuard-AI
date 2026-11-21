@@ -205,3 +205,33 @@ def test_the_stream_secret_holds_exactly_the_consumers_three_files(tmp_path):
         (tmp_path / src).write_text(f"X={src}\n")
     doc = json.loads(sk.secret_manifest(tmp_path))
     assert set(doc["data"]) == {"kafka-consumer.env", "redis.env", "stream-db.env"}
+
+
+# --- the shadow consumer (S6.10) -------------------------------------------------------
+def test_the_shadow_pod_is_restricted_reaches_only_kafka_and_postgres_and_pins_its_model():
+    docs = _docs("shadow.yaml")
+    (dep,) = [d for d in docs if d["kind"] == "Deployment"]
+    (np_,) = [d for d in docs if d["kind"] == "NetworkPolicy"]
+    pod = dep["spec"]["template"]["spec"]
+    assert dep["spec"]["replicas"] == 1 and dep["spec"]["strategy"]["type"] == "Recreate"
+    assert pod["automountServiceAccountToken"] is False
+    (c,) = pod["containers"]
+    assert c["securityContext"]["readOnlyRootFilesystem"] is True
+    env = {e["name"]: e for e in c["env"]}
+    assert env["GRAPHGUARD_SHADOW_MODEL_VERSION"]["value"].startswith("xgb-")
+    assert len(env["GRAPHGUARD_SHADOW_MODEL_SHA256"]["value"]) == 64
+    assert "GRAPHGUARD_REDIS_BASE" not in env  # the shadow never touches the feature store
+    ports = sorted(p["port"] for r in np_["spec"]["egress"] for p in r.get("ports", [])
+                   if p["protocol"] == "TCP" and p["port"] != 53)  # fmt: skip
+    assert ports == [5432, 19094]
+
+
+def test_the_shadow_s3_policy_has_the_same_ranges_as_the_scorers():
+    def doc(name):
+        (d,) = [x for x in yaml.safe_load_all((K8S / name).read_text()) if x]
+        return d
+
+    assert (
+        doc("networkpolicy-s3-shadow.yaml")["spec"]["egress"]
+        == doc("networkpolicy-s3.yaml")["spec"]["egress"]
+    )

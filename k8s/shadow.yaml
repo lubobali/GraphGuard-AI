@@ -1,0 +1,83 @@
+# The shadow consumer (S6.10): the challenger scores the champion's own feature vectors from
+# the `decisions` topic and writes `decisions_shadow`. It decides nothing: no Redis, no
+# alerts. One replica, Recreate; restricted like the consumer; its own login (`shadow`).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graphguard-shadow
+  namespace: graphguard
+  labels: {app: graphguard-shadow}
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels: {app: graphguard-shadow}
+  template:
+    metadata:
+      labels: {app: graphguard-shadow}
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        seccompProfile: {type: RuntimeDefault}
+      volumes:
+        - name: tmp
+          emptyDir: {sizeLimit: 256Mi}
+        - name: creds
+          secret: {secretName: graphguard-shadow, defaultMode: 0440}
+      containers:
+        - name: shadow
+          image: graphguard/serving:0.1.10
+          imagePullPolicy: IfNotPresent
+          command: ["/app/.venv/bin/python", "-m", "graphguard.stream.shadow"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: {drop: ["ALL"]}
+          volumeMounts:
+            - {name: tmp, mountPath: /tmp}
+            - {name: creds, mountPath: /var/run/graphguard, readOnly: true}
+          env:
+            - {name: GRAPHGUARD_KAFKA_BOOTSTRAP, value: "10.42.0.1:9094"}
+            - {name: GRAPHGUARD_STREAM_DB, value: "10.42.0.1:5434"}
+            - {name: CREDENTIALS_DIRECTORY, value: /var/run/graphguard}
+            # The challenger, by version and hash (S5.7): `python -m graphguard.stream.shadow publish`.
+            - {name: GRAPHGUARD_SHADOW_MODEL_VERSION, value: "xgb-1eaf6e7157f8"}
+            - {name: GRAPHGUARD_SHADOW_MODEL_SHA256, value: "d709596db48313f15bf8bea4381c03b1042b870b2bdba17bb548ec61a08ccde5"}
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom: {secretKeyRef: {name: graphguard-model, key: AWS_ACCESS_KEY_ID}}
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom: {secretKeyRef: {name: graphguard-model, key: AWS_SECRET_ACCESS_KEY}}
+            - name: AWS_REGION
+              valueFrom: {secretKeyRef: {name: graphguard-model, key: AWS_REGION}}
+          resources:
+            requests: {cpu: "100m", memory: "256Mi"}
+            limits: {cpu: "1", memory: "384Mi"}  # measured peak 204 MiB (S6.10)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-shadow-egress
+  namespace: graphguard
+spec:
+  podSelector:
+    matchLabels: {app: graphguard-shadow}
+  policyTypes: ["Egress"]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels: {kubernetes.io/metadata.name: kube-system}
+          podSelector:
+            matchLabels: {k8s-app: kube-dns}
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+    # Post-DNAT container ports on graphguard-net (see consumer.yaml): Kafka and Postgres only.
+    - to:
+        - ipBlock: {cidr: 172.25.0.0/16}
+      ports:
+        - {protocol: TCP, port: 19094}  # Kafka, pod listener
+        - {protocol: TCP, port: 5432}   # Postgres, database `stream` only

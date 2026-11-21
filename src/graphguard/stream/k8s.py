@@ -22,16 +22,27 @@ FILES = {"kafka-consumer.env": "kafka-consumer.env", "redis.env": "redis-stream.
          "stream-db.env": "stream-db.env"}  # fmt: skip
 
 
-def secret_manifest(secrets_dir=SECRETS) -> str:
+# The shadow pod (S6.10): its own Kafka login and the stream database's role.
+SHADOW_NAME = "graphguard-shadow"
+SHADOW_FILES = {"kafka-shadow.env": "kafka-shadow.env", "stream-db.env": "stream-db.env"}
+
+
+def secret_manifest(secrets_dir=SECRETS, name: str = NAME, files: dict | None = None) -> str:
     data = {key: base64.b64encode((secrets_dir / src).read_bytes()).decode()
-            for key, src in FILES.items()}  # fmt: skip
+            for key, src in (files or FILES).items()}  # fmt: skip
     return json.dumps({"apiVersion": "v1", "kind": "Secret", "type": "Opaque",
-                       "metadata": {"name": NAME, "namespace": NS}, "data": data})  # fmt: skip
+                       "metadata": {"name": name, "namespace": NS}, "data": data})  # fmt: skip
+
+
+def shadow_secret_manifest(secrets_dir=SECRETS) -> str:
+    return secret_manifest(secrets_dir, SHADOW_NAME, SHADOW_FILES)
 
 
 if __name__ == "__main__":
     if sys.argv[1:] == ["secret"]:
         print(secret_manifest())
+    elif sys.argv[1:] == ["shadow-secret"]:
+        print(shadow_secret_manifest())
     else:
         print(f"usage: {sys.argv[0]} secret")
         sys.exit(2)

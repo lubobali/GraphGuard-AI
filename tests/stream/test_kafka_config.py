@@ -102,6 +102,11 @@ def test_the_shadow_writes_only_its_own_table():
     assert {n for t, n, o in _ops("shadow") if o == "WRITE"} == {"decisions.shadow"}
 
 
+def test_the_shadow_reads_the_champions_decisions_not_raw_transactions():
+    reads = {n for t, n, o in _ops("shadow") if o == "READ"}
+    assert reads == {"decisions", "graphguard-shadow"}
+
+
 def test_the_monitor_can_only_describe():
     assert {o for _, _, o in _ops("monitor")} == {"DESCRIBE"}
 

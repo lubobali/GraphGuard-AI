@@ -1,0 +1,31 @@
+{
+  "n": 20000,
+  "k": 200,
+  "rank_correlation": 0.9054,
+  "top_k_overlap": 0.65,
+  "mean_abs_score_diff": 0.069338,
+  "labelled": 100,
+  "champion_precision_top20pct_labelled": 0.55,
+  "challenger_precision_top20pct_labelled": 0.4,
+  "labelled_note": "labels exist only for investigated champion alerts (plus late external reports): biased toward the champion",
+  "by_segment": {
+    "scored: receiver new": {
+      "n": 3,
+      "mean_abs_score_diff": 0.677267,
+      "rank_correlation": 1.0
+    },
+    "scored: sender new": {
+      "n": 18,
+      "mean_abs_score_diff": 0.445548,
+      "rank_correlation": 0.8431
+    },
+    "warm": {
+      "n": 19979,
+      "mean_abs_score_diff": 0.068908,
+      "rank_correlation": 0.9053
+    }
+  },
+  "challenger_versions": [
+    "xgb-1eaf6e7157f8"
+  ]
+}

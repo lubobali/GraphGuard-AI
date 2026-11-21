@@ -9,7 +9,8 @@ One login per program, each with only what it does (the Redis and lakehouse patt
 
     replayer   write `transactions`
     consumer   read `transactions` (group graphguard-consumer); write decisions, alerts, the DLQ
-    shadow     read `transactions` (group graphguard-shadow); write `decisions.shadow`
+    shadow     read `decisions` (group graphguard-shadow) -- the champion's own feature
+               vectors; write `decisions.shadow` (S6.10)
     monitor    describe only (lag)
     labeler    write `labels` -- late verdicts, from the label simulator (S6.9)
     admin      setup; a super user, used by nothing else
@@ -86,7 +87,7 @@ ACLS: tuple[Acl, ...] = tuple(
         for t in ("decisions", "alerts", "transactions.dlq")
         for a in _grant("consumer", "TOPIC", t, "WRITE", "DESCRIBE")
     ]  # fmt: skip
-    + _grant("shadow", "TOPIC", "transactions", "READ", "DESCRIBE")
+    + _grant("shadow", "TOPIC", "decisions", "READ", "DESCRIBE")  # S6.10: identical inputs
     + _grant("shadow", "GROUP", "graphguard-shadow", "READ", "DESCRIBE")
     + _grant("shadow", "TOPIC", "decisions.shadow", "WRITE", "DESCRIBE")
     + _grant("consumer", "TOPIC", "labels", "READ", "DESCRIBE")  # S6.9: stores late labels
@@ -241,7 +242,13 @@ def setup() -> dict[str, int]:
     if missing:
         _wait(admin.create_acls(missing))
     if stale:
-        _wait(admin.delete_acls(stale))
+        # delete_acls takes filters; an exact filter per stale binding removes only it.
+        filters = [
+            AclBindingFilter(b.restype, b.name, b.resource_pattern_type, b.principal, b.host,
+                             b.operation, b.permission_type)
+            for b in stale
+        ]  # fmt: skip
+        _wait(admin.delete_acls(filters))
     return {"users": len(upserts) + 1, "topics_created": len(new), "acls": len(want),
             "acls_added": len(missing), "acls_removed": len(stale)}  # fmt: skip
 

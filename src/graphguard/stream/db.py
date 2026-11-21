@@ -86,6 +86,15 @@ CREATE TABLE IF NOT EXISTS labels (
     kafka_offset   bigint NOT NULL,
     received_at    timestamptz NOT NULL DEFAULT now()
 );
+-- The challenger's scores on the champion's own inputs (S6.10). Decides nothing.
+CREATE TABLE IF NOT EXISTS decisions_shadow (
+    event_id        bigint PRIMARY KEY,
+    score           double precision NOT NULL,
+    champion_score  double precision NOT NULL,
+    model_version   text NOT NULL,
+    model_sha256    text NOT NULL,
+    decided_at      timestamptz NOT NULL DEFAULT now()
+);
 -- A record redelivered after a crash must not become a second dead letter (S6.7).
 CREATE UNIQUE INDEX IF NOT EXISTS dead_letters_once ON dead_letters (kafka_offset);
 """
@@ -154,8 +163,10 @@ def setup() -> None:
 
 def reset() -> None:
     with connect(secrets_dir=REPO_ROOT / ".secrets") as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE decisions, consumer_offsets, outbox, dead_letters, labels "
-                    "RESTART IDENTITY")  # fmt: skip
+        cur.execute(
+            "TRUNCATE decisions, decisions_shadow, consumer_offsets, outbox, dead_letters, "
+            "labels RESTART IDENTITY"
+        )  # fmt: skip
 
 
 def main(argv: list[str]) -> int:

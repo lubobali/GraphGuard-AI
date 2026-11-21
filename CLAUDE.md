@@ -326,6 +326,14 @@ project is reported to its session, never changed by us; accept on purpose with
 replay's 2022 event times live in the message body). Keep the JVM hardening flag in
 `KAFKA_OPTS` (test-enforced; why and when to drop it: `private/security/`). ADR 0006.
 
+## Shadow scoring (S6.10, 2026-11-21)
+
+`graphguard-shadow` (k3s, `k8s/shadow.yaml`): the challenger scores the champion's own
+feature vectors from `decisions` → `decisions_shadow`; decides nothing. `just
+k8s-shadow-deploy | shadow-report`; challenger: `python -m graphguard.stream.shadow train |
+publish`, pin its version + hash in `k8s/shadow.yaml`. Labels for comparison are biased
+toward the champion (FINDING-017) — the report says so.
+
 ## Late labels (S6.9, 2026-11-21)
 
 `python -m graphguard.stream.labels measure | publish [--as-of T]`: labels arrive through
@@ -434,7 +442,7 @@ install, 13 networks unchanged, Docker's 94 iptables rules intact, lubot.ai and
 git.lubot.ai still answering. iptables grew from 188 to 320 rules, all of it k3s's own
 `KUBE-*` chains.
 
-**The scorer's model (S5.7, image 0.1.9 since S6.9).** Downloaded from S3 at startup by the version
+**The scorer's model (S5.7, image 0.1.10 since S6.10).** Downloaded from S3 at startup by the version
 and SHA-256 pinned in `k8s/rayservice.yaml`; any mismatch → it refuses to start (the old
 one keeps serving). New model: `just model-publish`, change those two lines, apply.
 Runbook `docs/runbooks/models.md`. The image carries no model.
@@ -539,7 +547,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
-| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015), S6.3 live features (ADR 0005), S6.4 Kafka (ADR 0006), S6.5 replayer, S6.6 consumer on k3s, S6.7 chaos 6/6 exact, S6.8 rules (FINDING-016, ADR 0007), S6.9 late labels (FINDING-017) done |
+| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015), S6.3 live features (ADR 0005), S6.4 Kafka (ADR 0006), S6.5 replayer, S6.6 consumer on k3s, S6.7 chaos 6/6 exact, S6.8 rules (FINDING-016, ADR 0007), S6.9 late labels (FINDING-017), S6.10 shadow/challenger done; S6.11 overnight soak open |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |

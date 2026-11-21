@@ -19,7 +19,7 @@ export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
 # -n 3 1,715 MB / 29 s, -n 2 1,195 MB / 34 s.
 XDIST := "-n 2 --dist=loadgroup"
 
-IMAGE_TAG := "0.1.9"
+IMAGE_TAG := "0.1.10"
 
 default:
     @just --list
@@ -526,6 +526,14 @@ k8s-stream-secret:
 
 k8s-consumer-deploy:
     k3s kubectl apply -f k8s/consumer.yaml -f k8s/networkpolicy-s3-consumer.yaml
+
+# The shadow pod (S6.10): its Secret, then its Deployment + egress policies.
+k8s-shadow-deploy:
+    {{UV}} run python -m graphguard.stream.k8s shadow-secret | k3s kubectl apply -f -
+    k3s kubectl apply -f k8s/shadow.yaml -f k8s/networkpolicy-s3-shadow.yaml
+
+shadow-report:
+    {{UV}} run python -m graphguard.stream.shadow report
 
 consumer-logs:
     k3s kubectl logs -n graphguard deploy/graphguard-consumer --tail=50

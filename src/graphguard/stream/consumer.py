@@ -70,7 +70,7 @@ class Decision:
                            "reasons": list(self.rules) or ["model score"],
                            "cold_policy": self.cold_policy}, separators=(",", ":"))  # fmt: skip
 
-    def payload(self) -> str:
+    def payload(self, feature_names: tuple[str, ...] = ()) -> str:
         return json.dumps(
             {
                 "event_id": self.event_id,
@@ -80,6 +80,8 @@ class Decision:
                 "rules": list(self.rules),
                 "alert": self.alert,
                 "model_version": self.model_version,
+                "features": list(self.features),
+                "feature_names": list(feature_names),
             },
             separators=(",", ":"),
         )
@@ -240,7 +242,7 @@ class Consumer:
                          alert=R.priority(float(s), fired) >= self.th.alert_priority)
             )  # fmt: skip
         outbox = [
-            {"topic": "decisions", "key": str(d.event_id), "payload": d.payload()}
+            {"topic": "decisions", "key": str(d.event_id), "payload": d.payload(cols)}
             for d in decisions
         ]
         # The investigator queue's feed: every alert with its reasons (ADR 0007).

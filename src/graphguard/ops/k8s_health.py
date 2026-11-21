@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 NAMESPACE = "graphguard"
-DEFAULT_IMAGE = "docker.io/graphguard/serving:0.1.9"
+DEFAULT_IMAGE = "docker.io/graphguard/serving:0.1.10"
 
 # Without these the Ray dashboard -- unauthenticated job submission, i.e. code
 # execution -- is reachable from every Docker container on the box (S5.3).
@@ -31,6 +31,7 @@ REQUIRED_POLICIES = (
     "default-deny-egress",
     "allow-scorer-egress",
     "allow-consumer-egress",  # S6.6: the stream consumer pod
+    "allow-shadow-egress",  # S6.10: the shadow (challenger) pod
 )
 
 # Pods in these phases have finished; they are leftovers, not the service.

@@ -228,15 +228,17 @@ def _write_openfga_db(pw: str) -> None:
 
 def _roll_consumer() -> None:
     """The consumer pod reads stream-db.env from its Secret: refresh it, restart the pod."""
-    from graphguard.stream.k8s import secret_manifest
+    from graphguard.stream.k8s import secret_manifest, shadow_secret_manifest
 
     kubectl = ["k3s", "kubectl"]
-    deploy = ["-n", "graphguard", "deploy/graphguard-consumer"]
-    subprocess.run([*kubectl, "apply", "-f", "-"], input=secret_manifest(), text=True,
-                   check=True, capture_output=True)  # fmt: skip
-    subprocess.run([*kubectl, "rollout", "restart", *deploy], check=True, capture_output=True)
-    subprocess.run([*kubectl, "rollout", "status", *deploy, "--timeout=180s"], check=True,
-                   capture_output=True)  # fmt: skip
+    for manifest in (secret_manifest(), shadow_secret_manifest()):
+        subprocess.run([*kubectl, "apply", "-f", "-"], input=manifest, text=True,
+                       check=True, capture_output=True)  # fmt: skip
+    for name in ("graphguard-consumer", "graphguard-shadow"):  # both read stream-db.env
+        deploy = ["-n", "graphguard", f"deploy/{name}"]
+        subprocess.run([*kubectl, "rollout", "restart", *deploy], check=True, capture_output=True)
+        subprocess.run([*kubectl, "rollout", "status", *deploy, "--timeout=180s"], check=True,
+                       capture_output=True)  # fmt: skip
 
 
 def stream_db_ok() -> None:

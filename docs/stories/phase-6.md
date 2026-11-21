@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.9 done; S6.10 next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.10 done; S6.11 (overnight run) next. Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -411,7 +411,7 @@ laundering (0.28%)**. Live: 20,000-event replay → 113 labels simulated; with t
 gold. Image 0.1.9 (scorer roll: 33/34 probes ok — the one failure is not proven to be the
 service; recorded).
 
-## S6.10 — Shadow scoring: a challenger that decides nothing
+## S6.10 — Shadow scoring: a challenger that decides nothing ✅ done 2026-11-21
 
 **As** the model owner, **I want** a second model to score the same stream without acting,
 **so that** a new model is compared on identical traffic before it is promoted.
@@ -419,6 +419,20 @@ service; recorded).
 - Second consumer group → `decisions_shadow`, never the alert queue.
 - Report: agreement, alert overlap, precision@k per model where labels exist, per segment
   (currency, payment format, cold-account class).
+
+**Done 2026-11-21.** `stream/shadow.py` + `k8s/shadow.yaml`: the champion's consumer puts its
+exact feature vector in each `decisions` message; the shadow pod (group graphguard-shadow,
+login `shadow` — now reads `decisions`, no longer raw transactions) scores those identical
+inputs with a challenger and writes `decisions_shadow`. No Redis, no alerts. Challenger =
+production pipeline with depth 6, 200 trees, seed 7, trained on the train window, published
+to S3 (`xgb-1eaf6e7157f8`, pinned by hash). Offline validation: champion PR-AUC 0.2816 vs
+challenger 0.2266. **Live, 20,000 events: shadow scores == offline challenger 20,000/20,000;
+rank correlation 0.905; top-200 overlap 65%; new accounts disagree most (mean |Δ| 0.45 vs 0.07
+warm); on the 100 labelled transactions (+15-day clock) champion 0.55 vs challenger 0.40
+precision in the top 20% — do not promote.** The labelled sample is the champion's own
+investigated alerts, so it is biased toward the champion; the report says so. Shadow pod peak
+204 MiB → cap 384Mi. Kafka setup's stale-ACL removal fixed (first run that removed one).
+`rotate-pg stream_app` now rolls both pods. Image 0.1.10.
 
 ## S6.11 — Lag, latency and the overnight run (the Phase 6 gate)
 
