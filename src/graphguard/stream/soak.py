@@ -158,7 +158,7 @@ def _percentiles(values: list[float]) -> dict:
 
     if not values:
         return {}
-    a = np.array(values)
+    a = np.array([float(v) for v in values])
     return {p: round(float(np.percentile(a, int(p[1:]))), 3) for p in ("p50", "p95", "p99")} | {
         "max": round(float(a.max()), 3)
     }

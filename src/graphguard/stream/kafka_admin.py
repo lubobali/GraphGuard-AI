@@ -97,6 +97,20 @@ ACLS: tuple[Acl, ...] = tuple(
     + _grant("monitor", "CLUSTER", "kafka-cluster", "DESCRIBE")
 )
 
+# The live tests prove each login's rights on a MIRROR of the stream topics and groups, never
+# on the stream itself: during the S6.11 soak their probe records (and their clean-up, which
+# emptied the topic) hit the live run. Same settings, same grants, generated from the above.
+PROBE = "probe."
+PROBED_TOPICS = ("transactions", "decisions")
+PROBED_GROUPS = ("graphguard-consumer", "graphguard-shadow")
+TOPICS |= {PROBE + t: dict(_TOPIC) for t in PROBED_TOPICS}
+ACLS += tuple(
+    Acl(a.principal, a.resource_type, PROBE + a.name, a.operation)
+    for a in ACLS
+    if (a.resource_type, a.name)
+    in {("TOPIC", t) for t in PROBED_TOPICS} | {("GROUP", g) for g in PROBED_GROUPS}
+)
+
 
 # --- secrets ----------------------------------------------------------------------------
 def password_var(user: str) -> str:

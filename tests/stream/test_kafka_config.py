@@ -79,8 +79,12 @@ def test_the_stream_topics_exist():
 
 # --- who may do what -------------------------------------------------------------------
 def _ops(user):
+    """The live grants. The probe.* mirror is proven identical by
+    test_probe_topics_mirror_the_stream_exactly, so least privilege here holds there too."""
     return {
-        (a.resource_type, a.name, a.operation) for a in ka.ACLS if a.principal == f"User:{user}"
+        (a.resource_type, a.name, a.operation)
+        for a in ka.ACLS
+        if a.principal == f"User:{user}" and not a.name.startswith(ka.PROBE)
     }
 
 
@@ -146,3 +150,15 @@ def test_secrets_are_generated_once_and_never_rotated_by_accident(tmp_path):
         f = tmp_path / f"kafka-{user}.env"
         assert oct(f.stat().st_mode & 0o777) == "0o600"
         assert f.read_text().count("=") == 1  # only that user's password
+
+
+def test_probe_topics_mirror_the_stream_exactly():
+    """The live tests run on probe.* -- only valid if probe.* has exactly the live rights."""
+
+    def rights(name):
+        return {(a.principal, a.resource_type, a.operation) for a in ka.ACLS if a.name == name}
+
+    for name in (*ka.PROBED_TOPICS, *ka.PROBED_GROUPS):
+        assert rights(name) and rights(ka.PROBE + name) == rights(name)
+    for t in ka.PROBED_TOPICS:
+        assert ka.TOPICS[ka.PROBE + t] == ka.TOPICS[t]

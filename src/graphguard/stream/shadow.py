@@ -109,6 +109,36 @@ def score_payloads(bundle, payloads: list[dict]) -> list[dict]:
     ]
 
 
+def decode(values: list[bytes]) -> tuple[list[dict], int]:
+    """The champion's decisions among the raw records; anything else is counted and skipped.
+
+    One unreadable record must not stop the shadow (it crash-looped on one in the S6.11
+    soak). Nothing is lost by skipping: the shadow decides nothing, and the champion's
+    consumer dead-letters bad input on its own side.
+    """
+    out, skipped = [], 0
+    for v in values:
+        try:
+            p = json.loads(v)
+        except (ValueError, TypeError):
+            skipped += 1
+            continue
+        if isinstance(p, dict) and {"event_id", "score", "features", "feature_names"} <= p.keys():
+            out.append(p)
+        else:
+            skipped += 1
+    return out, skipped
+
+
+def kafka_config(login: dict) -> dict:
+    # "earliest", not Kafka's default "latest": when the saved position no longer exists
+    # (records deleted under it), "latest" jumps to the end and silently skips everything
+    # in between -- 1,021 decisions in the soak. The writes are idempotent, so re-reading is
+    # safe.
+    return {**login, "group.id": GROUP, "enable.auto.commit": False,
+            "auto.offset.reset": "earliest"}  # fmt: skip
+
+
 def run(stop=lambda: False, max_idle_s: float | None = None) -> int:
     from confluent_kafka import OFFSET_BEGINNING, Consumer, TopicPartition
     from psycopg2.extras import execute_values
@@ -129,13 +159,11 @@ def run(stop=lambda: False, max_idle_s: float | None = None) -> int:
         )
         row = cur.fetchone()
     kc = Consumer(
-        {
-            **ka.client_config(
+        kafka_config(
+            ka.client_config(
                 "shadow", os.environ.get("GRAPHGUARD_KAFKA_BOOTSTRAP", ka.HOST_BOOTSTRAP)
-            ),
-            "group.id": GROUP,
-            "enable.auto.commit": False,
-        }
+            )
+        )
     )
     kc.assign([TopicPartition(TOPIC, 0, row[0] if row else OFFSET_BEGINNING)])
     log.info("shadow up: challenger %s, resume at %s", m["version"], row)
@@ -148,8 +176,10 @@ def run(stop=lambda: False, max_idle_s: float | None = None) -> int:
                     break
                 continue
             idle = time.monotonic()
-            payloads = [json.loads(r.value()) for r in records]
-            scored = score_payloads(m["bundle"], [p for p in payloads if "features" in p])
+            payloads, skipped = decode([r.value() for r in records])
+            if skipped:
+                log.warning("skipped %d records that are not decisions", skipped)
+            scored = score_payloads(m["bundle"], payloads)
             with conn, conn.cursor() as cur:  # one transaction: rows + position
                 if scored:
                     execute_values(

@@ -323,7 +323,7 @@ project is reported to its session, never changed by us; accept on purpose with
 `src/graphguard/stream/kafka_admin.py` → `just kafka-setup` (removes anything else).
 `just kafka-status | kafka-up | kafka-down | rotate-kafka`; first start: `kafka-init`,
 `kafka-up`, `kafka-bootstrap`, `kafka-setup`. Topics keep **arrival-time** retention (the
-replay's 2022 event times live in the message body). Keep the JVM hardening flag in
+replay's 2022 event times live in the message body). **Tests never write to or empty the stream's topics**: live tests use the `probe.*` mirror (the S6.11 soak caught them deleting live records). Keep the JVM hardening flag in
 `KAFKA_OPTS` (test-enforced; why and when to drop it: `private/security/`). ADR 0006.
 
 ## Shadow scoring (S6.10, 2026-11-21)
@@ -354,7 +354,7 @@ tag (never rebuild a tag the scorer runs) + roll both.
 
 ## The consumer (S6.6, 2026-11-21)
 
-`graphguard-consumer` (k3s Deployment, `k8s/consumer.yaml`, image 0.1.6): Kafka →
+`graphguard-consumer` (k3s Deployment, `k8s/consumer.yaml`, image 0.1.12): Kafka →
 live features → model in process → Postgres `stream` (decisions + offset + outbox in one
 transaction), one writer (advisory lock, `Recreate`). `just consumer-logs |
 k8s-consumer-deploy | k8s-stream-secret | stream-reset`. End-to-end proof:
@@ -442,7 +442,7 @@ install, 13 networks unchanged, Docker's 94 iptables rules intact, lubot.ai and
 git.lubot.ai still answering. iptables grew from 188 to 320 rules, all of it k3s's own
 `KUBE-*` chains.
 
-**The scorer's model (S5.7, image 0.1.10 since S6.10).** Downloaded from S3 at startup by the version
+**The scorer's model (S5.7, image 0.1.12 since S6.11).** Downloaded from S3 at startup by the version
 and SHA-256 pinned in `k8s/rayservice.yaml`; any mismatch → it refuses to start (the old
 one keeps serving). New model: `just model-publish`, change those two lines, apply.
 Runbook `docs/runbooks/models.md`. The image carries no model.

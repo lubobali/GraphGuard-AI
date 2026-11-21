@@ -456,3 +456,30 @@ transactions) at 6× ≈ 8.4 h, ends ~16:30 UTC. Gate = `python -m graphguard.st
 → every transaction once, scores and rules == offline, no dead letters, outbox drained, lag back
 to 0, memory flat under caps.
 
+
+**Run 1 (07:58–16:24 UTC) — gate NOT met; two real bugs found, fixed.**
+(`docs/analysis/s6.11-soak-run1.json`) The champion side was exact: 1,015,300 sent →
+1,015,300 decisions, each once, **0 score mismatches, 0 rules mismatches** with the offline
+evaluation, outbox drained, lag back to 0 (max 329), consumer memory flat at 337 MiB, Redis
+302 MiB, Kafka 481 MiB, Postgres ≤ 225 MiB, 101 samples with 0 errors. Decision latency p50
+5.3 s / p99 6.3 s / max 10.3 s — almost all of it is the reorder buffer (200 records at the
+replay's ~36 tx/s ≈ 5.5 s), the price of absorbing late events; scoring is milliseconds.
+It failed on **3 dead letters**, and finding out why exposed more:
+
+1. **Tests wrote into the live stream.** At ~08:01 the suite ran `test_kafka_live.py`; it
+   produced `probe`/`old` records into `transactions` and `decisions`, and its clean-up
+   **deleted every record in both topics**. The consumer dead-lettered the 3 probes
+   correctly (and was caught up, so no transaction was lost — luck, not design).
+   Fix: the live tests now run on a `probe.*` mirror (same settings, same grants,
+   generated from the live ones; a unit test proves the mirror is exact). A full `just check`
+   afterwards left the live topics byte-for-byte where they were.
+2. **The shadow lost 1,021 decisions.** A `probe` record in `decisions` crash-looped it (it
+   parsed every record as JSON); on restart its saved position had been deleted under it, and
+   Kafka's default `auto.offset.reset=latest` jumped it **to the end**, silently. Fix:
+   unreadable records are counted and skipped, and the shadow restarts from `earliest`
+   (its writes are idempotent). The champion consumer already did both.
+3. The report itself crashed on Postgres `Decimal` latencies (test + fix).
+
+Image 0.1.12 (shadow fix) rolled to scorer, consumer, shadow; the scorer was healthy after
+(`probe_health`, `k8s-check`) but the roll window was **not** measured (the in-roll probe was
+wrong: the consumer pod has no route to the scorer). Run 2 follows with the same gate.

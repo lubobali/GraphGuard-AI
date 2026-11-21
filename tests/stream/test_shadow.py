@@ -48,3 +48,18 @@ def test_unlabelled_rows_are_compared_but_never_counted_as_negatives():
 
 def test_an_empty_stream_reports_nothing():
     assert sh.compare([]) == {"n": 0}
+
+
+# --- S6.11: what the soak found -------------------------------------------------------
+def test_a_record_that_is_not_a_decision_is_skipped_not_fatal():
+    # a non-JSON record in `decisions` crash-looped the shadow pod during the soak
+    good = b'{"event_id": 1, "score": 0.5, "features": [0.1], "feature_names": ["a"]}'
+    payloads, skipped = sh.decode([b"probe", good, b'{"event_id": 2}', b"[1, 2]"])
+    assert [p["event_id"] for p in payloads] == [1] and skipped == 3
+
+
+def test_a_lost_position_restarts_from_the_oldest_record_never_the_newest():
+    # Kafka's default ("latest") silently skipped 1,021 decisions after a restart; the
+    # shadow's writes are idempotent (ON CONFLICT DO NOTHING), so re-reading is safe.
+    cfg = sh.kafka_config({"bootstrap.servers": "127.0.0.1:1"})
+    assert cfg["auto.offset.reset"] == "earliest" and cfg["enable.auto.commit"] is False

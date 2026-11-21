@@ -1,8 +1,10 @@
 """The live broker refuses what each login may not do (S6.4).
 
 Runs where `graphguard-kafka` is up and `.secrets/kafka-*.env` exist; skips elsewhere
-(CI). Positive checks write one marked record, and the admin deletes it again at the end,
-so the stream's topic is left empty.
+(CI). Every write and read goes to the probe.* mirror (same settings, same grants --
+test_kafka_config proves it), never to the stream's own topics: during the S6.11 soak
+these tests' records and their clean-up landed in the live run. The admin empties the
+probe topics at the end.
 """
 
 import datetime as dt
@@ -13,6 +15,8 @@ import pytest
 from graphguard.stream import kafka_admin as ka
 
 SECRETS = ka.SECRETS
+TX, DEC = ka.PROBE + "transactions", ka.PROBE + "decisions"
+CONSUMER_GROUP = ka.PROBE + "graphguard-consumer"
 pytestmark = [
     pytest.mark.integration,
     pytest.mark.skipif(not (SECRETS / "kafka-admin.env").exists(), reason="Kafka not set up"),
@@ -67,7 +71,7 @@ def leave_topics_empty():
     from confluent_kafka.admin import AdminClient
 
     admin = AdminClient(_cfg("admin"))
-    for topic in ("transactions", "decisions"):
+    for topic in (TX, DEC):
         tp = TopicPartition(topic, 0, -1)  # -1 = up to the end
         for fut in admin.delete_records([tp]).values():
             fut.result(timeout=30)
@@ -90,20 +94,20 @@ def test_a_wrong_password_is_refused():
 
 
 def test_the_replayer_writes_transactions_and_nothing_else():
-    assert _produce(_cfg("replayer"), "transactions") is None
-    assert _produce(_cfg("replayer"), "decisions").name() == "TOPIC_AUTHORIZATION_FAILED"
-    err = _consume_error(_cfg("replayer"), "transactions", "graphguard-consumer")
+    assert _produce(_cfg("replayer"), TX) is None
+    assert _produce(_cfg("replayer"), DEC).name() == "TOPIC_AUTHORIZATION_FAILED"
+    err = _consume_error(_cfg("replayer"), TX, CONSUMER_GROUP)
     assert err in {"TOPIC_AUTHORIZATION_FAILED", "GROUP_AUTHORIZATION_FAILED"}
 
 
 def test_the_consumer_reads_with_its_own_group_only_and_cannot_write_input():
-    _produce(_cfg("replayer"), "transactions")
-    assert _consume_error(_cfg("consumer"), "transactions", "graphguard-consumer") == "OK"
-    assert _consume_error(_cfg("consumer"), "transactions", f"other-{uuid.uuid4().hex[:6]}") == (
+    _produce(_cfg("replayer"), TX)
+    assert _consume_error(_cfg("consumer"), TX, CONSUMER_GROUP) == "OK"
+    assert _consume_error(_cfg("consumer"), TX, f"other-{uuid.uuid4().hex[:6]}") == (
         "GROUP_AUTHORIZATION_FAILED"
     )
-    assert _produce(_cfg("consumer"), "transactions").name() == "TOPIC_AUTHORIZATION_FAILED"
-    assert _produce(_cfg("consumer"), "decisions") is None
+    assert _produce(_cfg("consumer"), TX).name() == "TOPIC_AUTHORIZATION_FAILED"
+    assert _produce(_cfg("consumer"), DEC) is None
 
 
 def test_nobody_but_admin_can_create_topics():
@@ -117,8 +121,8 @@ def test_nobody_but_admin_can_create_topics():
 
 
 def test_the_monitor_cannot_read_or_write():
-    assert _produce(_cfg("monitor"), "transactions").name() == "TOPIC_AUTHORIZATION_FAILED"
-    err = _consume_error(_cfg("monitor"), "transactions", "graphguard-consumer")
+    assert _produce(_cfg("monitor"), TX).name() == "TOPIC_AUTHORIZATION_FAILED"
+    err = _consume_error(_cfg("monitor"), TX, CONSUMER_GROUP)
     assert err in {"TOPIC_AUTHORIZATION_FAILED", "GROUP_AUTHORIZATION_FAILED"}
 
 
@@ -127,12 +131,12 @@ def test_a_2022_event_time_is_kept_because_retention_uses_arrival_time():
 
     old = int(dt.datetime(2022, 9, 6, tzinfo=dt.UTC).timestamp() * 1000)
     where: list[int] = []
-    assert _produce(_cfg("replayer"), "transactions", b"old", ts_ms=old, offsets=where) is None
-    c = Consumer({**_cfg("consumer"), "group.id": "graphguard-consumer",
+    assert _produce(_cfg("replayer"), TX, b"old", ts_ms=old, offsets=where) is None
+    c = Consumer({**_cfg("consumer"), "group.id": CONSUMER_GROUP,
                   "enable.auto.commit": False})  # fmt: skip
     # Straight to our record: the topic may already hold a whole replay (this test used to
     # read from the start and give up after 20 records -- flaky after every e2e run).
-    c.assign([TopicPartition("transactions", 0, where[0])])
+    c.assign([TopicPartition(TX, 0, where[0])])
     try:
         seen = None
         for _ in range(20):
