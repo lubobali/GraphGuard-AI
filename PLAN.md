@@ -582,7 +582,8 @@ unsupported-claim rate is measured and at zero on the eval set.
 - **Champion / challenger, kept small.** MLflow aliases plus a shadow-scoring comparison:
   the new model scores everything but decides nothing, and is promoted only if it beats
   the champion on precision@k. The honest version of "A/B testing" (R-2: only 2 of 58
-  postings name it, so it stays lean)
+  postings name it, so it stays lean). **First challenger: the model without `weekday`**
+  (FINDING-018: a simulator calendar artifact; dropping it measured 0.28253 vs 0.28155)
 - *Optional:* **alert volume forecast** — a small time-series model predicting tomorrow's
   alert count for staffing. Demoted by R-2 to keep the project finishable
 - README: the architecture, the leakage contract, the fair-baseline argument, the

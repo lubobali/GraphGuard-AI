@@ -118,6 +118,17 @@ from the transaction being scored, so there is no future to see.
 
 ---
 
+## The calendar features (added 2026-11-22, FINDING-018)
+
+`hour` and `weekday` were in the model from Phase 3 but never justified here — an omission
+found when S7.4's explanations showed weekday as a top-3 reason for 77.9% of the top 5,000.
+**Weekday is a generator artifact:** the training window holds each weekday once, and the
+simulator launders a near-constant count per day, so the feature encodes *which day*;
+Wednesday (48% of validation) never occurs in training. Removing it, measured with the same
+recipe: PR-AUC 0.28253 vs 0.28155 — no loss. **Hour** carries signal (removing both: 0.26131).
+Both are knowable at decision time, so neither is leakage. Weekday is the first Phase 8
+challenger's removal.
+
 ## What must be said in the write-up
 
 The three artifact features are **not leakage**. All three are knowable at

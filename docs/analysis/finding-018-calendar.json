@@ -1,0 +1,136 @@
+{
+  "daily": [
+    {
+      "split": "train",
+      "day": "2022-09-01",
+      "weekday": "Thursday",
+      "transactions": 1114921,
+      "laundering": 322,
+      "per_1000": 0.289
+    },
+    {
+      "split": "train",
+      "day": "2022-09-02",
+      "weekday": "Friday",
+      "transactions": 754449,
+      "laundering": 408,
+      "per_1000": 0.541
+    },
+    {
+      "split": "train",
+      "day": "2022-09-03",
+      "weekday": "Saturday",
+      "transactions": 207382,
+      "laundering": 391,
+      "per_1000": 1.885
+    },
+    {
+      "split": "train",
+      "day": "2022-09-04",
+      "weekday": "Sunday",
+      "transactions": 207430,
+      "laundering": 407,
+      "per_1000": 1.962
+    },
+    {
+      "split": "train",
+      "day": "2022-09-05",
+      "weekday": "Monday",
+      "transactions": 482650,
+      "laundering": 471,
+      "per_1000": 0.976
+    },
+    {
+      "split": "train",
+      "day": "2022-09-06",
+      "weekday": "Tuesday",
+      "transactions": 279354,
+      "laundering": 297,
+      "per_1000": 1.063
+    },
+    {
+      "split": "validation",
+      "day": "2022-09-06",
+      "weekday": "Tuesday",
+      "transactions": 202735,
+      "laundering": 234,
+      "per_1000": 1.154
+    },
+    {
+      "split": "validation",
+      "day": "2022-09-07",
+      "weekday": "Wednesday",
+      "transactions": 482751,
+      "laundering": 497,
+      "per_1000": 1.03
+    },
+    {
+      "split": "validation",
+      "day": "2022-09-08",
+      "weekday": "Thursday",
+      "transactions": 329814,
+      "laundering": 352,
+      "per_1000": 1.067
+    }
+  ],
+  "variants": {
+    "production (with weekday + hour)": {
+      "features": 15,
+      "pr_auc": 0.28155,
+      "caught_at_k": {
+        "211": 170,
+        "1000": 332,
+        "5000": 542
+      },
+      "rings_caught_at_k": {
+        "211": 36,
+        "1000": 79,
+        "5000": 127
+      },
+      "rings_touched_at_k": {
+        "211": 81,
+        "1000": 117,
+        "5000": 140
+      }
+    },
+    "without weekday": {
+      "features": 14,
+      "pr_auc": 0.28253,
+      "caught_at_k": {
+        "211": 164,
+        "1000": 336,
+        "5000": 555
+      },
+      "rings_caught_at_k": {
+        "211": 38,
+        "1000": 86,
+        "5000": 131
+      },
+      "rings_touched_at_k": {
+        "211": 85,
+        "1000": 118,
+        "5000": 147
+      }
+    },
+    "without weekday and hour": {
+      "features": 13,
+      "pr_auc": 0.26131,
+      "caught_at_k": {
+        "211": 148,
+        "1000": 323,
+        "5000": 542
+      },
+      "rings_caught_at_k": {
+        "211": 33,
+        "1000": 84,
+        "5000": 129
+      },
+      "rings_touched_at_k": {
+        "211": 77,
+        "1000": 115,
+        "5000": 144
+      }
+    }
+  },
+  "reproduces_production": true
+}

@@ -279,12 +279,49 @@ override costs 3 at that size (model alone 170) — written into ADR 0007.
 
 ## S7.4 — Why this alert, in plain words
 
-**As** an investigator, **I want** the top three reasons for a score in a sentence each,
-**so that** I can trust or reject it quickly.
-- Exact SHAP from XGBoost's own `pred_contribs` on the stored feature vectors; test: the
-  contributions add up to the stored score exactly. Stored in the demo schema.
-- A template table, one plain sentence per feature family, filled with the as-of values;
-  rule hits shown word for word; the raw numbers one click away.
+**As** an investigator, **I want** the three things that pushed a score up, each in one plain
+sentence, **so that** I can trust or reject the alert quickly.
+
+**Design.**
+- **Exact SHAP from XGBoost itself** (`pred_contribs=True`, TreeSHAP; no new library) on
+  the feature vectors the stream stored. Units are log-odds; contributions + base value =
+  the model's raw margin, and sigmoid(margin) = the stored score.
+- **The right model, proven:** the build recomputes each explained row's score with the
+  local production bundle and refuses to run unless it equals the stored score
+  bit-for-bit (the model that decided is the model that explains).
+- **Reason templates** (`demo/reasons.py`): one sentence per feature, filled with that
+  transaction's as-of value — counts as numbers, timings as durations, currencies by name.
+  **Money totals are never printed** (the history sums mix 15 currencies): those two
+  features are said as "higher than N% of senders/receivers in this window" instead.
+- The top 3 *positive* contributions become the reasons; rule hits are shown word for word
+  from the rule's own definition (`rules.py`), separately.
+- Stored for the top 20,000 of the queue (4× the slider's maximum): `explanations`
+  (event id, base value, contributions, the three reasons).
+
+**Acceptance criteria**
+- [ ] Unit (first): a template for every one of the 15 features (a test fails if the model
+      gains a feature without one); no reason ever prints a summed amount; the NaN case
+      ("never sent before") reads correctly; top-3 picks the largest *positive* ones.
+- [ ] Unit: additivity on a small real-shaped model — contributions sum to the margin.
+- [ ] Build: every explained row's recomputed score == stored score (exact); every row's
+      contributions sum to logit(score) within float32 rounding (stated tolerance 1e-4).
+- [ ] Live: 20,000 rows in `explanations`, each with 3 reasons; `demo_reader` can read it.
+- [ ] Measured: build time and memory added.
+
+**Done 2026-11-22.** `demo/reasons.py` (a sentence for each of the 15 features; the two
+mixed-currency sums said as "higher than in N% of the payments in this window"; rule hits in the
+rules' own words), `demo/explain.py` (XGBoost's own TreeSHAP). Demo table `explanations`: the
+top 20,000, 3 reasons each. The build recomputed every explained score with the local bundle —
+**all 20,000 equal the stored scores bit-for-bit** (it refuses otherwise) — and the
+contributions sum back to the scores within 1e-5 (live test). SHAP with 4 threads (identical
+output; 1 thread took ~90 s): build 75 s, peak 2.0 GB.
+**Finding (FINDING-018):** the explanations showed weekday as a top-3 reason for 77.9% of the
+top 5,000. Investigated: each weekday occurs once in training and Wednesday (48% of
+validation) never; the simulator launders a near-constant count per day. Retrained the same
+recipe without it: PR-AUC 0.28253 vs 0.28155 (reproduced exactly), 555 vs 542 caught at 5,000 —
+it costs nothing. Production unchanged in Phase 7; the weekday reason is labelled as a simulator
+pattern on screen; the leakage audit gains the calendar section it never had; the model without
+weekday is Phase 8's first challenger.
 
 ## S7.5 — The ring as it looked at the moment of the alert
 

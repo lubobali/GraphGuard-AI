@@ -242,7 +242,19 @@ def assemble() -> tuple[dict[str, pl.DataFrame], dict]:
     from graphguard.config import SEED
 
     capacity = capacity_table(tx, truth, seed=SEED)
-    tables = {"transactions": tx, "truth": truth, "accounts": accounts, "capacity": capacity}
+    from graphguard.config import REPO_ROOT
+    from graphguard.demo.explain import explain
+    from graphguard.serving.model_bundle import ModelBundle
+
+    bundle = ModelBundle.load(REPO_ROOT / "models" / "production")
+    explanations = explain(tx, feature_names, bundle)  # refuses on any score mismatch
+    tables = {
+        "transactions": tx,
+        "truth": truth,
+        "accounts": accounts,
+        "capacity": capacity,
+        "explanations": explanations,
+    }
     info = {
         "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         "model_version": versions[0],
@@ -250,6 +262,7 @@ def assemble() -> tuple[dict[str, pl.DataFrame], dict]:
         "rows": {k: v.height for k, v in tables.items()},
         "fingerprints": {k: fingerprint(v) for k, v in tables.items() if k != "capacity"}
         | {"capacity": fingerprint(capacity.sort("ranking", "k"))},
+        "explained_model_metadata": bundle.trained_on,
         "window": [str(b) for b in frozen_boundaries()],
     }
     return tables, info

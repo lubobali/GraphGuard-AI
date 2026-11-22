@@ -339,6 +339,10 @@ Database `demo` (Postgres, 734 MB), separate from `stream` so stream resets neve
 `demo_writer` (INSERT verdicts only) — `pg_access.EXTRA_ROLES`. `just demo-setup | demo-build`
 (from the soak's decisions; refuses an incomplete stream; 2.5 GB cap). ADR 0008 holds the rules
 every screen follows (synthetic banner, counts not money, rank not "chance", as-of ring).
+S7.3-S7.4 add `capacity` (the slider's counts, four rankings, held equal to `evaluate()`) and
+`explanations` (exact SHAP for the top 20,000 + three plain reasons; the build refuses unless
+the local bundle reproduces every stored score). FINDING-018: weekday is a simulator artifact
+(first Phase 8 challenger drops it).
 
 ## Shadow scoring (S6.10, 2026-11-21)
 

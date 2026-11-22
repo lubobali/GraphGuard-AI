@@ -61,7 +61,7 @@ TX_COLUMNS = {
     "to_bank_name": "text",
     "to_name": "text",
 }
-TABLES = ("transactions", "accounts", "truth", "verdicts", "build_info", "capacity")
+TABLES = ("transactions", "accounts", "truth", "verdicts", "build_info", "capacity", "explanations")
 
 SCHEMA = (
     "CREATE TABLE IF NOT EXISTS transactions ("
@@ -107,6 +107,13 @@ CREATE TABLE IF NOT EXISTS capacity (
     rings_touched integer NOT NULL,
     rings_total   integer NOT NULL,
     PRIMARY KEY (ranking, k)
+);
+-- S7.4: exact SHAP (log-odds) for the queue's top 20,000, and the three plain reasons.
+CREATE TABLE IF NOT EXISTS explanations (
+    event_id  bigint PRIMARY KEY,
+    base      double precision NOT NULL,
+    contribs  double precision[] NOT NULL,
+    reasons   text[] NOT NULL
 );
 CREATE TABLE IF NOT EXISTS build_info (
     id   smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -232,12 +239,13 @@ def load(tables: dict[str, pl.DataFrame], info: dict) -> None:
         "transactions": tables["transactions"].select(list(TX_COLUMNS)),
         "accounts": tables["accounts"].select("bank_id", "account", "bank_name", "entity_name"),
         "capacity": tables["capacity"],
+        "explanations": tables["explanations"],
         "truth": tables["truth"].select(
             "event_id", "is_laundering", "pattern_id", "pattern_type", "hop"
         ),
     }
     with connect(OWNER, secrets_dir=REPO_ROOT / ".secrets") as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE transactions, accounts, truth, capacity, build_info")
+        cur.execute("TRUNCATE transactions, accounts, truth, capacity, explanations, build_info")
         for name, df in frames.items():
             cols = ", ".join(df.columns)
             sql = f"COPY {name} ({cols}) FROM STDIN WITH (FORMAT csv)"

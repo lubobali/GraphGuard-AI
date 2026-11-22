@@ -683,3 +683,43 @@ labels offline: those are the labels a bank would have *months* later, not on th
 **Assumptions to say out loud:** verdicts are assumed correct; delays are uniform within the
 stated ranges; capacity is fixed per calendar day. Change any of them in `Policy` and rerun
 `python -m graphguard.stream.labels measure`.
+
+## FINDING-018 — "Weekday" is a simulator calendar artifact; the model leans on it and gains nothing
+
+*Found: 2026-11-22, Phase 7 (S7.4), by the explanations. Acts on: the reasons shown to
+investigators, the leakage audit, the first Phase 8 challenger.*
+
+Explaining the queue with exact SHAP showed **weekday among the top-3 reasons for 77.9% of the
+top 5,000 alerts** ("Sent on a Wednesday."). Rule 5 of the leakage contract: a feature that
+looks too good gets investigated.
+
+**Why it is an artifact.** The training window holds **each weekday exactly once**
+(2022-09-01 Thursday … 09-06 Tuesday). The simulator launders ~300-470 transactions a day
+whatever the day's volume, while ordinary traffic falls ~5× at the weekend — so the laundering
+rate per day swings from 0.29 to 1.96 per 1,000 for calendar reasons alone. "Weekday" therefore
+encodes *which training day*, and **Wednesday, 48% of validation, never occurs in training** —
+the trees route it wherever their splits happen to fall. Not leakage (the day is known at
+decision time), but a property of the generator that would not transfer to a bank, like the
+three artifacts of FINDING-006.
+
+**Measured** (`python -m graphguard.analysis.calendar_features` →
+`docs/analysis/finding-018-calendar.json`): the production recipe — same features, params,
+seed, trees and window — retrained with and without the calendar features, each scored on
+validation through `evaluate()`. The run *with* them reproduces production exactly (0.28155),
+so the comparison is fair.
+
+| Variant | PR-AUC | Caught @211 | @1,000 | @5,000 | Rings caught @5,000 |
+|---|---|---|---|---|---|
+| Production (weekday + hour) | 0.28155 | 170 | 332 | 542 | 127 / 168 |
+| **Without weekday** | **0.28253** | 164 | 336 | **555** | **131** |
+| Without weekday and hour | 0.26131 | 148 | 323 | 542 | 129 |
+
+**Dropping weekday costs nothing** (slightly better at 1,000 and 5,000, 6 fewer at 211 — noise at
+this size) — so the headline is not inflated by it, but the model spends splits and
+explanations on a calendar pattern. **Hour is different:** removing it too costs 0.02 PR-AUC, so
+it carries signal in this simulator (whether a bank would show it is unknown).
+
+**Decision.** Production is unchanged in Phase 7 (a retrain means a new full replay and a new
+demo build). The screens tell the truth about the current model: a weekday reason is labelled
+as a simulator calendar pattern. **The first Phase 8 challenger is the model without weekday**,
+promoted only through champion/challenger.

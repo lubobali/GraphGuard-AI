@@ -104,7 +104,13 @@ def test_the_build_is_recorded():
         cur.execute("SELECT info FROM build_info")
         info = cur.fetchone()[0]
     assert info["rows"]["transactions"] == 1_015_300
-    assert set(info["fingerprints"]) == {"transactions", "truth", "accounts", "capacity"}
+    assert set(info["fingerprints"]) == {
+        "transactions",
+        "truth",
+        "accounts",
+        "capacity",
+        "explanations",
+    }
 
 
 def test_the_answer_key_holds_the_168_validation_rings_and_no_other():
@@ -127,3 +133,19 @@ def test_the_capacity_numbers_match_the_evaluation():
     assert got["model"][:2] == (542, 127)  # s6.8-rules.json; the leakage audit's 127 / 168
     assert got["rules"][0] == 21  # FINDING-016
     assert {v[2] for v in got.values()} == {168}
+
+
+def test_the_top_of_the_queue_is_explained_in_three_plain_reasons():
+    with _conn(db.READER) as c, c.cursor() as cur:
+        cur.execute("SELECT count(*), min(cardinality(reasons)), max(cardinality(reasons)), "
+                    "min(cardinality(contribs)) FROM explanations")  # fmt: skip
+        n, lo, hi, nf = cur.fetchone()
+        assert (n, nf) == (20_000, 15) and 1 <= lo and hi == 3
+        cur.execute("SELECT count(*) FROM explanations e JOIN transactions t USING (event_id) "
+                    "WHERE t.rank > 20000")  # fmt: skip
+        assert cur.fetchone()[0] == 0
+        # contributions + base = the model's margin: sigmoid gives back the stored score
+        cur.execute("SELECT max(abs(1 / (1 + exp(-(e.base + (SELECT sum(x) FROM "
+                    "unnest(e.contribs) x)))) - t.score)) FROM explanations e "
+                    "JOIN transactions t USING (event_id)")  # fmt: skip
+        assert cur.fetchone()[0] < 1e-5
