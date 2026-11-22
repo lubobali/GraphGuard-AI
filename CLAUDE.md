@@ -349,6 +349,10 @@ the local bundle reproduces every stored score). FINDING-018: weekday is a simul
 (`.secrets/demo-api.env`). `just demo-api-up | demo-api-down | demo-api-logs`. **Every compose
 call needs `--env-file .secrets/mlflow.env`** (a bare `docker compose up` recreated Postgres once;
 a test now enforces it).
+**The frontend (S7.7):** `web/` (Next.js 16 Pages Router, static export, built with `--webpack`
+— Turbopack inlines a script the CSP blocks), `just web-install | web-build | web-test` in the CI
+image, never on the host; npm installs with `--before=<today-14d>`. The API serves `web/out`
+(open http://127.0.0.1:8130 through the ssh tunnel).
 
 ## Shadow scoring (S6.10, 2026-11-21)
 

@@ -1,0 +1,23 @@
+{
+  "name": "graphguard-web",
+  "private": true,
+  "version": "0.1.0",
+  "description": "GraphGuard investigator demo (S7.7): static Next.js export served by the demo API",
+  "scripts": {
+    "build": "next build --webpack",
+    "test": "node --test tests/*.test.mjs",
+    "check-export": "node scripts/check-export.mjs out"
+  },
+  "dependencies": {
+    "next": "16.4.5",
+    "react": "19.2.9",
+    "react-dom": "19.2.9"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "@types/react": "19.2.18",
+    "@types/react-dom": "19.2.7",
+    "typescript": "6.0.3"
+  },
+  "type": "module"
+}

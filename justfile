@@ -565,6 +565,19 @@ demo-api-down:
 demo-api-logs:
     docker logs --tail 100 graphguard-demo-api
 
+# S7.7: the frontend, built in our pinned CI image (Node 22) in a capped throwaway container --
+# nothing installed on the box. Exact versions, lockfile committed, install scripts disabled.
+WEB_RUN := "docker run --rm --memory 2g --pids-limit 512 --cap-drop ALL --security-opt no-new-privileges -v " + justfile_directory() / "web" + ":/w -w /w graphguard/ci:1"
+
+web-install:
+    {{WEB_RUN}} npm ci --ignore-scripts --no-audit --no-fund
+
+web-build:
+    {{WEB_RUN}} sh -c 'NEXT_TELEMETRY_DISABLED=1 npx next build --webpack && node scripts/check-export.mjs out'
+
+web-test:
+    docker run --rm --network none --memory 512m --cap-drop ALL --security-opt no-new-privileges -v {{justfile_directory()}}/web:/w -w /w graphguard/ci:1 sh -c 'node --test tests/*.test.mjs'
+
 stream-reset:
     {{UV}} run python -c "from graphguard.stream import e2e; e2e.reset()"
 

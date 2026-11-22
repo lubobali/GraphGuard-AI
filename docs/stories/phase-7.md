@@ -437,13 +437,62 @@ fails any compose call in the justfile without it. LuBot not involved (own conta
 
 ## S7.7 — The Queue page, with the slider
 
-**As** a manager, **I want** one screen that shows the work and the trade-off, **so that**
-I understand the system in a minute.
-- Honesty banner (synthetic data, validation window, date). Slider with the plain
-  sentence (default 100/day, D2) and the capacity curve against the rules and random.
-  The queue: grouped by account, due time, rank/percentile, top reason, new-account tag.
-  A three-layer strip: measured offline (solid), estimated live (dashed, with its
-  warning), confirmed so far (with "% still unlabelled" and the label-bias note).
+**As** a manager, **I want** one screen that shows the work and the trade-off, **so that** I
+understand the system in a minute.
+
+**Design.**
+- `web/`: **Next.js 16.4.5, Pages Router, static export** (`output: 'export'`), React 19.2.9,
+  TypeScript 6.0.3. Pages Router, not App Router: the App Router's export puts inline
+  `<script>` tags in every page, which the API's strict CSP (`script-src 'self'`) blocks; a
+  test fails the build if any exported HTML carries an executable inline script.
+  Served by the demo API from `web/out` (no Node server at all, ADR 0008 D5).
+- **Supply chain** like the Python side: exact versions, each **≥ 14 days old** when chosen,
+  `package-lock.json` committed, `npm ci --ignore-scripts`, built in our pinned CI image
+  (Node 22.23.5) in a capped throwaway container — nothing installed on the box. Few
+  dependencies: no CSS framework (CSS modules), no chart library (the one chart is hand-drawn
+  SVG); React Flow arrives with S7.8.
+- **The page, top to bottom:**
+  1. Honesty banner: synthetic data (IBM AMLworld), validation window, the model.
+  2. **The slider**: "my team works N alerts a day" (10–1,000, default 100), and the plain
+     sentence: *"A team of ~5 working 100 alerts a day catches 167 of 1,083 laundering
+     transactions and 35 of 168 rings; it misses 916. Simple rules alone, same workload: 1."*
+  3. **The capacity chart**: laundering caught vs alerts a day — system, rules, random —
+     with the slider's point marked; a table view of the same numbers beside it (accessible).
+  4. **What is confirmed so far**: measured offline (solid), and the late labels known by the
+     end of the window, with the share still unknown and the bias note (FINDING-017). No
+     "estimated live" line (our scores are not calibrated — S7.6).
+  5. **The queue**: the alerts inside the slider's workload, grouped by sending account —
+     rank, top-percentile, due time, amount in its own currency, the top reason, rule chips,
+     new-account tag; each row opens the case (S7.8).
+- Light and dark from the system setting; keyboard-usable; text contrast ≥ 4.5:1, chart lines
+  ≥ 3:1 (WCAG 2.2).
+
+**Acceptance criteria**
+- [ ] `just web-install | web-build | web-test` (in the CI image); `web/out` produced.
+- [ ] Tests (first, Node's built-in test runner — no extra dependency): the sentence builder
+      (counts, plural, team size), the per-day ↔ k conversion matching the API's, the chart's
+      scales; and a post-build check: no inline executable script in any exported HTML,
+      no external URL in any asset, no secret-looking string in the bundle.
+- [ ] Live: the page served by the API on 127.0.0.1:8130 renders the slider sentence with the
+      API's own numbers (checked by fetching both), and the headers include the CSP.
+- [ ] Bundle size recorded; the API's memory unchanged (static files only).
+
+**Done 2026-11-22.** `web/`: Next.js 16.4.5 Pages Router static export (React 19.2.9, TS 6.0.3),
+four dependencies + types; **every package in the tree ≥ 14 days old** (`npm install
+--before=<today-14d>`, lockfile committed, 30 packages), `npm ci --ignore-scripts`, built in our
+CI image in a capped container (`just web-install | web-build | web-test`). The Queue page:
+banner, slider + plain sentence, the capacity chart (hand-drawn SVG: 2 px lines, legend + direct
+labels, crosshair/tooltip on pointer and keyboard, table view; series colours validated for colour
+blindness in light and dark with the data-viz validator), "what we know, and when", the queue
+grouped by account. Site 564 KB (JS 440 KB); the API serves it (image 0.1.15: mounts `web/`, not
+`web/out`, which `next build` recreates). **Found by the export check:** Next 16's default bundler
+(Turbopack) injects an inline script even with the Pages Router — the strict CSP would block it;
+built with webpack instead (`next build --webpack`), the check is now green and runs in every
+build. CI runs the web tests (no install needed). Live: every page and every asset loads with the
+CSP; the sentence built from the live API's numbers reads "…catches 167 of 1,083 laundering
+transactions and 35 of 168 rings. It misses 916. Simple rules alone, same workload: 1 transaction
+and 0 rings." **Not done: a visual check** — no browser could be run on the box (the safety check
+refused a browser container); Lubo looks at it over the tunnel.
 
 ## S7.8 — The Case page
 

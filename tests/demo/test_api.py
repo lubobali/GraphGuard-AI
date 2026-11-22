@@ -122,3 +122,14 @@ def test_the_api_imports_nothing_heavy():
     code = f"import sys, graphguard.demo.api; print(sorted(m for m in {heavy} if m in sys.modules))"
     out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, check=True)
     assert out.stdout.strip() == "[]"
+
+
+def test_the_static_site_is_served_and_survives_its_folder_being_recreated(tmp_path):
+    out = tmp_path / "out"
+    c = TestClient(A.create_app(repo=FakeRepo(), web_dir=str(out)))  # not there yet
+    out.mkdir()
+    (out / "index.html").write_text("<h1>queue</h1>")
+    r = c.get("/")
+    assert r.status_code == 200 and "queue" in r.text
+    assert "Content-Security-Policy" in r.headers
+    assert c.get("/api/health").json() == {"status": "ok"}  # the API still wins on /api

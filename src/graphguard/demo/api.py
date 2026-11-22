@@ -13,7 +13,6 @@ from __future__ import annotations
 import asyncio
 import threading
 import time
-from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Query, Request
@@ -200,12 +199,13 @@ def create_app(repo=None, limiter: RateLimiter | None = None, web_dir: str | Non
         return response
 
     app.include_router(router)
-    web = Path(web_dir) if web_dir else None
-    if web is not None and web.is_dir():
+    if web_dir:
         from fastapi.staticfiles import StaticFiles
 
-        app.mount("/", StaticFiles(directory=web, html=True), name="web")
+        # check_dir=False: `next build` deletes and recreates out/, so the folder may appear
+        # (or be replaced) after start-up; the parent web/ is what the container mounts.
+        app.mount("/", StaticFiles(directory=web_dir, html=True, check_dir=False), name="web")
     return app
 
 
-app = create_app(web_dir="/srv/web")
+app = create_app(web_dir="/srv/webroot/out")

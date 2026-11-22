@@ -50,6 +50,9 @@ jobs:
       - name: Leakage contract guards
         run: ./.tools/bin/just guards
 
+      - name: Web tests (S7.7; pure logic + the export checker, no npm install)
+        run: node --test web/tests/*.test.mjs
+
       - name: Secret scan (every commit, every branch)
         run: ./.tools/bin/just secrets-history
 

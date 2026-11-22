@@ -1,0 +1,10 @@
+.banner { background: var(--warn-bg); color: var(--warn-ink); font-size: 13px; padding: 7px 0; }
+.header { border-bottom: 1px solid var(--ring); background: var(--surface); }
+.bar { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.brand { font-weight: 700; font-size: 17px; color: var(--ink); text-decoration: none; }
+.sub { font-weight: 400; color: var(--muted); font-size: 14px; margin-left: 6px; }
+.link, .on { margin-left: 18px; text-decoration: none; color: var(--ink-2); font-size: 14px;
+  padding: 6px 0; }
+.on { color: var(--ink); border-bottom: 2px solid var(--accent); }
+.footer { color: var(--muted); font-size: 13px; padding: 32px 16px 48px; }
+@media (max-width: 560px) { .sub { display: none; } }
