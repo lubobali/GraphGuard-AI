@@ -20,6 +20,11 @@
   --warn-ink: #6b4a00;
   --chip: #eceae4;
   --good: #006300;
+  --edge: #8f8d86;
+  --ring-hl: #e34948;
+  --ring-hl-ink: #b42b2a;
+  --up: #e34948;
+  --down: #2a78d6;
   --radius: 10px;
   --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
     sans-serif;
@@ -46,6 +51,11 @@
     --warn-ink: #f2d38a;
     --chip: #2c2c2a;
     --good: #0ca30c;
+    --edge: #77756f;
+    --ring-hl: #e66767;
+    --ring-hl-ink: #f09a9a;
+    --up: #e66767;
+    --down: #3987e5;
   }
 }
 * { box-sizing: border-box; }

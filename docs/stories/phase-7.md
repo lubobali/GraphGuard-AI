@@ -498,10 +498,47 @@ refused a browser container); Lubo looks at it over the tunnel.
 
 **As** an investigator, **I want** an alert opened into everything I need, **so that** I can
 decide in minutes.
-- The ring (React Flow, left to right by day, money animated in time order, table beside
-  it), the three reasons, rule hits, the account's recent history in its own currency,
-  the agent's report (after S7.10), a separate "answer key" tab, and escalate / close
-  with a note → audit table (D7). Keyboard usable; reduced motion respected.
+
+**Design** (`/case/?id=<event>`):
+1. **Header** — rank and top-share (never "chance"), sender → receiver with names and banks,
+   amount in its own currency, time, payment format, new-account tag, due time.
+2. **Why** — the three plain reasons (S7.4), then a small diverging bar chart of the biggest
+   pushes up and down (log-odds, labelled in words: "raises risk" / "lowers risk"), raw
+   values one click away; rule hits word for word.
+3. **The ring** — React Flow 12.12.1 + dagre 3.1.3 (both ≥ 14 days old), laid out **left to
+   right in time**; accounts as nodes (name, bank; sender and receiver marked), transactions
+   as edges labelled with amount and currency; the alert's edge emphasised; "+N more" nodes
+   for capped hubs. **Play** reveals the money in time order (off when the reader prefers
+   reduced motion). A table of the same transactions beside it (accessible, and for people
+   who find graphs hard — Quantexa's own users said so).
+4. **History** — both accounts' recent payments in the window.
+5. **Answer key** — closed by default, its own button and its own API path: was it
+   laundering, which ring type, which of the drawn transactions belong to the ring
+   (highlighted when opened). Labelled as what a bank would *not* know on the day.
+6. **Verdict** — escalate / close with a note, saved to the audit table; past verdicts listed.
+7. The agent's report slot (filled by S7.10).
+
+**Acceptance criteria**
+- [ ] Unit (first, Node runner, no install): graph → flow nodes/edges (ids, roles, the alert
+      edge marked, "+N more" nodes), the time order for Play, plain feature names for all 15,
+      the contribution bars' split into up/down and their scale.
+- [ ] The diverging pair validated with the data-viz validator (light and dark).
+- [ ] Build: export check still green (no inline script; React Flow's CSS is a file).
+- [ ] Live: `/case/?id=` for a top alert loads; its assets load with the CSP; the API calls the
+      page makes (`/api/alerts/{id}`, `/answer` only on click, `/verdict` POST) answer.
+- [ ] Keyboard: every control reachable; the graph has a table equivalent.
+
+**Done 2026-11-22.** `/case/?id=`: header (rank, top-share, names, banks, amount in its own
+currency, format, due), **Why** (three reasons, rule hits verbatim, a diverging bar chart of the
+eight biggest pushes — red raises / blue lowers, the pair validated for colour blindness in both
+modes, direction also said in words — raw numbers one click away), **the money around it**
+(React Flow 12.12.1 + dagre 3.1.3, both ≥ 14 days old; left to right in time; Play reveals the
+payments in time order, off under reduced motion; legend; a table of the same payments as the
+accessible view — the canvas itself is hidden from screen readers), the **answer key** behind
+its own button and API path (highlights the ring's payments, says a bank would not know this
+on the day), the **decision** (escalate / close + note → audit table, past verdicts listed) and
+both accounts' recent history. Logic tested in Node (13 tests, no install). Site 832 KB; export
+check green. As in S7.7, no visual check could be run here.
 
 ## S7.9 — The About page
 

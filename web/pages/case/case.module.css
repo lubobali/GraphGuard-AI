@@ -1,0 +1,34 @@
+.back { margin: 18px 0 8px; font-size: 14px; }
+.error { color: var(--warn-ink); background: var(--warn-bg); padding: 10px 14px; border-radius: 8px; margin-top: 24px; }
+.head { display: flex; gap: 20px; align-items: flex-start; margin-bottom: 16px; }
+.rankBox { text-align: center; min-width: 96px; padding-right: 16px; border-right: 1px solid var(--grid); }
+.rank { font-size: 28px; font-weight: 700; }
+.headMain p { margin: 4px 0 0; }
+.h1 { font-size: 22px; }
+.h2 { font-size: 17px; margin-bottom: 10px; }
+.h3 { font-size: 14px; margin: 0 0 6px; }
+.grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 16px; margin-bottom: 16px; }
+.reasons { margin: 0; padding-left: 20px; }
+.reasons li { margin-bottom: 6px; }
+.rules { margin-top: 10px; font-size: 13px; }
+.rules p { margin: 4px 0; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; }
+.note { width: 100%; min-height: 84px; margin: 6px 0 10px; font: inherit; padding: 8px; border-radius: 8px;
+  border: 1px solid var(--axis); background: var(--surface); color: var(--ink); }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.escalate, .close { font: inherit; font-size: 14px; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+.escalate { background: var(--accent); color: #fff; border: 0; }
+.close { background: var(--surface-2); color: var(--ink); border: 1px solid var(--ring); }
+.saved { color: var(--good); margin: 8px 0 0; }
+.audit { font-size: 13px; padding-left: 18px; color: var(--ink-2); }
+.ringCard { margin-bottom: 16px; }
+.ringHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
+.keyBtn { font: inherit; font-size: 13px; background: none; border: 1px dashed var(--axis); border-radius: 8px;
+  padding: 5px 10px; color: var(--ink-2); cursor: pointer; }
+.yes, .no { font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
+.yes { background: var(--warn-bg); color: var(--warn-ink); }
+.no { background: var(--surface-2); color: var(--ink-2); }
+.histCard { margin-bottom: 8px; }
+.hist { width: 100%; border-collapse: collapse; font-size: 13px; }
+.hist th, .hist td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--grid); }
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } .head { flex-direction: column; }
+  .rankBox { border-right: 0; text-align: left; } }

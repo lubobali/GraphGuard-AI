@@ -9,6 +9,8 @@
     "check-export": "node scripts/check-export.mjs out"
   },
   "dependencies": {
+    "@dagrejs/dagre": "3.1.3",
+    "@xyflow/react": "12.12.1",
     "next": "16.4.5",
     "react": "19.2.9",
     "react-dom": "19.2.9"
