@@ -542,10 +542,39 @@ check green. As in S7.7, no visual check could be run here.
 
 ## S7.9 — The About page
 
-**As** a hiring manager, **I want** the proof on one page, **so that** I can judge the work.
-- Architecture diagram, headline result against rules and dumb baselines, the GNN
-  finding, the leakage contract, the SR 26-2 model-risk summary, PR-AUC for validators,
-  links to findings and ADRs.
+**As** a hiring manager, **I want** the proof on one page, **so that** I can judge the work in
+two minutes.
+
+**Design** (prerendered, readable without JavaScript; live numbers where the API has them):
+1. **What it is** in three sentences, and the honesty line (synthetic data, one box, replay).
+2. **The architecture**, drawn: CSV → lakehouse (bronze/silver/gold, sealed test window) →
+   features → XGBoost (MLflow, S3 by hash) → Kafka replay → consumer on k3s (live features in
+   Redis, model in process, rules) → Postgres decisions → demo copy → this API → these pages.
+3. **The result against the baselines** — PR-AUC and laundering caught at 5,000 for the model,
+   rules, by-amount, random, and the GNN that lost (FINDING-007), from the evaluation records.
+4. **The findings that shaped it** — one line each, linked to `docs/findings.md`: the ring is
+   in the shape not the row, stale features cost 83%, the GNN lost, rules barely work here,
+   labels arrive late, weekday is a simulator artifact.
+5. **The leakage contract** in five lines, and how it is enforced (the three guards).
+6. **Model risk, SR 26-2's headings** (April 2026, guidance): purpose, data, limits,
+   monitoring, validation — and that the LLM agent sits outside its scope.
+7. **Limits, said plainly** and links (repo, findings, ADRs).
+
+**Acceptance criteria**
+- [ ] Every number on the page is either fetched from the API or copied from a committed
+      analysis file — a test compares the page's static numbers with those files.
+- [ ] The export check allows plain links to other sites (navigation) but still fails on
+      anything *loaded* from another host.
+- [ ] Prerendered: the key text is in the exported HTML (works without JS).
+
+**Done 2026-11-22.** `/about/`: what it is + the honesty line, the architecture drawn (offline
+row and live row, the model loaded at start with its hash checked), the result against the
+baselines (XGBoost 0.28155 · GNN 0.04470 · rules 0.00186 · by amount 0.00170 · random 0.00103;
+542 / 21 / 7 caught at 5,000), six findings with links, the leakage contract, model risk under
+SR 26-2's headings, links. Every fixed number lives in `web/lib/aboutNumbers.json` with its
+source, and `test_about_numbers.py` checks each against the committed analysis files.
+Prerendered (live test: the key text is in the HTML). The export check now allows plain links
+(navigation) and still fails on anything loaded from another host.
 
 ## S7.10 — The investigator agent, with a measured error rate
 

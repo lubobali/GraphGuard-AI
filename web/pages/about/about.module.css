@@ -1,0 +1,20 @@
+.page section { margin-bottom: 16px; }
+.intro { padding: 28px 0 4px; max-width: 800px; }
+.intro h1 { font-size: 26px; margin-bottom: 8px; }
+.honest { background: var(--warn-bg); color: var(--warn-ink); padding: 10px 14px; border-radius: 8px; }
+.h2 { font-size: 17px; margin-bottom: 10px; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { text-align: left; font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.03em;
+  padding: 6px 8px; border-bottom: 1px solid var(--axis); }
+.table td { padding: 8px; border-bottom: 1px solid var(--grid); }
+.strong td { font-weight: 600; }
+.findings { padding-left: 18px; margin: 0; }
+.findings li { margin-bottom: 8px; }
+.ref { font-size: 12px; margin-left: 4px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.list { padding-left: 20px; margin: 0; }
+.dl { display: grid; grid-template-columns: 96px 1fr; gap: 6px 12px; margin: 0; font-size: 14px; }
+.dl dt { font-weight: 600; color: var(--ink-2); }
+.dl dd { margin: 0; }
+.links { font-size: 14px; padding: 4px 0 8px; }
+@media (max-width: 860px) { .grid { grid-template-columns: 1fr; } }

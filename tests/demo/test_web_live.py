@@ -38,9 +38,16 @@ def test_each_page_and_every_asset_it_references_loads_with_the_csp(page):
     for a in assets:
         s, h, _ = _get(a)
         assert s == 200 and "content-security-policy" in h, a
-    assert not re.search(r'(?:src|href)="(?:https?:)?//', html)
+    # nothing LOADED from another host (a plain <a href> link is navigation, allowed)
+    assert not re.search(r'src="(?:https?:)?//|<link\b[^>]*href="(?:https?:)?//', html)
 
 
 def test_the_queue_page_carries_the_synthetic_data_banner():
     _, _, html = _get("/")
     assert "Synthetic data." in html and "How many alerts can your team work?" in html
+
+
+def test_the_about_page_is_prerendered_with_its_numbers():
+    _, _, html = _get("/about/")
+    for text in ("What this is", "The leakage contract", "0.28155", "542 of 1,083", "SR 26-2"):
+        assert text in html, text

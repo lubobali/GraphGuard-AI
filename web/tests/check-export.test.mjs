@@ -12,6 +12,8 @@ test("loads from another host are found", () => {
   assert.equal(externalLoads('<link href="https://fonts.example/x.css">').length, 1);
   assert.equal(externalLoads('a{background:url(//cdn.example/x.png)}').length, 1);
   assert.equal(externalLoads('<link href="/_next/static/x.css">').length, 0);
+  assert.equal(externalLoads('<script src="https://cdn.example/x.js"></script>').length, 1);
+  assert.equal(externalLoads('<a href="https://github.com/x/y">repo</a>').length, 0); // a link
 });
 
 test("secret-looking strings are found", () => {

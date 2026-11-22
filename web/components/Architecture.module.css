@@ -1,0 +1,10 @@
+.fig { margin: 0; overflow-x: auto; }
+.svg { width: 100%; min-width: 720px; height: auto; display: block; }
+.box { fill: var(--surface-2); stroke: var(--axis); stroke-width: 1; }
+.title { fill: var(--ink); font-size: 13px; font-weight: 600; }
+.sub { color: var(--muted); font-size: 11px; line-height: 1.3; }
+.arrow, .load { stroke: var(--edge); stroke-width: 1.5; fill: none; }
+.load { stroke-dasharray: 4 4; }
+.head { fill: var(--edge); }
+.lane { fill: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; }
+.loadText { fill: var(--muted); font-size: 11px; }

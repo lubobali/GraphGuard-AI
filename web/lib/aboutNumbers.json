@@ -1,0 +1,19 @@
+{
+  "_note": "Every number on the About page that is not fetched live. tests/demo/test_about_numbers.py checks each against its source.",
+  "pr_auc": {
+    "model": {"value": 0.28155, "source": "docs/analysis/s6.8-rules.json model_only.pr_auc"},
+    "rules": {"value": 0.00186, "source": "docs/analysis/s6.8-rules.json rules_only.pr_auc"},
+    "by_amount": {"value": 0.00170, "source": "docs/findings.md FINDING-004"},
+    "random": {"value": 0.00103, "source": "docs/findings.md FINDING-004"},
+    "gnn": {"value": 0.04470, "source": "docs/model_comparison.md (GraphSAGE)"},
+    "model_without_weekday": {"value": 0.28253, "source": "docs/analysis/finding-018-calendar.json"}
+  },
+  "caught_at_5000": {
+    "model": {"value": 542, "source": "docs/analysis/s7.3-capacity.json rankings.model.5000.caught"},
+    "rules": {"value": 21, "source": "docs/analysis/s7.3-capacity.json rankings.rules.5000.caught"},
+    "random": {"value": 7, "source": "docs/analysis/s7.3-capacity.json rankings.random.5000.caught"}
+  },
+  "rings_caught_at_5000": {"value": 127, "of": 168, "source": "docs/analysis/s7.3-capacity.json rankings.model.5000"},
+  "laundering_in_window": {"value": 1083, "source": "docs/analysis/s6.8-rules.json laundering"},
+  "transactions_in_window": {"value": 1015300, "source": "docs/analysis/s6.8-rules.json validation_rows"}
+}

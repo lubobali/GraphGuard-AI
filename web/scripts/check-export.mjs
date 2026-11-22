@@ -18,8 +18,10 @@ export function inlineScripts(html) {
   return out;
 }
 
+// Loads, not links: src=, <link href> (stylesheets, preloads) and CSS url(). A plain <a href>
+// to another site is navigation, which the CSP does not and need not stop.
 export function externalLoads(text) {
-  const re = /(?:src|href)=["'](?:https?:)?\/\/[^"']+|url\(\s*["']?(?:https?:)?\/\/[^)]+/gi;
+  const re = /src=["'](?:https?:)?\/\/[^"']+|<link\b[^>]*href=["'](?:https?:)?\/\/[^"']+|url\(\s*["']?(?:https?:)?\/\/[^)]+/gi;
   return [...text.matchAll(re)].map((m) => m[0]);
 }
 
