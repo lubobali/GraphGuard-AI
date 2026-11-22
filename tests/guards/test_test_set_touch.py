@@ -73,3 +73,39 @@ def test_other_namespaces_are_ignored():
 @pytest.mark.unit
 def test_words_containing_sealed_are_ignored():
     assert find_sealed_refs("src/graphguard/m.py", 'msg = "the envelope was unsealed"\n') == []
+
+
+# --- S7.2: raw files hold every window; naming them must be a listed decision --------------
+@pytest.mark.unit
+def test_features_for_split_on_the_test_window_counts_as_a_test_load():
+    hits = find_test_loads("src/graphguard/m.py", 'features_for_split(lf, "test", b)\n')
+    assert len(hits) == 1
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("name", ["TRANSACTIONS_FILE", "PATTERNS_FILE"])
+def test_naming_a_raw_file_is_found(name):
+    from test_set_touch_check import find_raw_refs
+
+    src = f"from graphguard.config import {name}\nx = load({name})\n"
+    assert len(find_raw_refs("src/graphguard/m.py", src)) >= 1
+
+
+@pytest.mark.unit
+def test_the_accounts_file_is_not_a_raw_window_file():
+    from test_set_touch_check import find_raw_refs
+
+    # account names carry no time window (S7.1 reads them)
+    src = "from graphguard.config import ACCOUNTS_FILE\n"
+    assert find_raw_refs("src/graphguard/m.py", src) == []
+
+
+@pytest.mark.unit
+def test_every_raw_reader_in_the_tree_is_listed_with_a_reason():
+    import test_set_touch_check as g
+
+    for rel, reason in g.RAW_ALLOWLIST.items():
+        assert (g.REPO_ROOT / rel).exists(), rel
+        assert len(reason) > 20, rel
+    assert "src/graphguard/demo/build.py" not in g.RAW_ALLOWLIST  # the screens never do
+    assert g.main() == 0

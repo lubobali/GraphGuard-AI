@@ -104,3 +104,13 @@ def test_the_build_is_recorded():
         cur.execute("SELECT info FROM build_info")
         info = cur.fetchone()[0]
     assert info["rows"]["transactions"] == 1_015_300 and len(info["fingerprints"]) == 3
+
+
+def test_the_answer_key_holds_the_168_validation_rings_and_no_other():
+    with _conn(db.READER) as c, c.cursor() as cur:
+        cur.execute("SELECT count(DISTINCT pattern_id) FROM truth WHERE pattern_id IS NOT NULL")
+        assert cur.fetchone()[0] == 168
+        # every ring row is a validation transaction (truth only holds the window's rows)
+        cur.execute("SELECT count(*) FROM truth t LEFT JOIN transactions x USING (event_id) "
+                    "WHERE x.event_id IS NULL")  # fmt: skip
+        assert cur.fetchone()[0] == 0

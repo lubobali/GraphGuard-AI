@@ -182,10 +182,56 @@ anon, the rest cache). `demo-db.env` registered (44 secrets, 0 problems), rotati
 ## S7.2 — The ring list in the lakehouse, with the test window sealed
 
 **As** the leakage contract, **I want** ring labels in the lakehouse split like the
-transactions, **so that** the UI and the agent can never see a test-window ring.
-- Rings from the patterns file → `gold.rings` (train + validation) and `sealed.rings`
-  (test). `test_set_touch_check` extended to catch raw patterns/CSV reads past
-  validation. A test proves the API never returns a test-window ring.
+transactions, **so that** the screens, the agent and training can never see a test-window
+ring by accident.
+
+Today the ring list exists only as the raw patterns file, which holds **every** window,
+test included. The trainer job is still allowed to read it (ADR 0003's open follow-up), and
+the test-set guard does not notice raw-file reads at all.
+
+**Design.**
+- `gold.rings` (train + validation) and `sealed.rings` (test): one row per ring
+  transaction — `source_row`, time, `pattern_id`, `pattern_type`, `pattern_detail`, `hop`.
+  Written by `just lakehouse-build` (builder), matched to bronze on the evaluation's own
+  key (`_MATCH_KEY`, first match kept — the same rule as `attach_pattern_ids`). Governance
+  is per namespace, so trainer/reader see `gold.rings` and never `sealed.rings`, with no
+  policy change.
+- `build_artifacts` (the trainer) attaches ring ids from `gold.rings` instead of the raw
+  file; the trainer job loses its raw-file permission.
+- The demo's `truth` gains `pattern_id`, `pattern_type`, `hop` from `gold.rings`
+  (the answer key's tab, S7.8; never the queue, never the agent).
+- The guard learns two things: naming the raw transaction or pattern file is allowed
+  only in listed files, each with its reason; `features_for_split(..., "test")` counts as
+  loading the test split.
+
+**Acceptance criteria**
+- [ ] Unit (first): `ring_rows()` gives exactly `attach_pattern_ids`' ring id for every
+      transaction (same key, same tie rule); rows ≥ `val_end` go only to the sealed frame.
+- [ ] Unit: the guard flags a raw-file name in an unlisted file and `features_for_split(x,
+      "test")`; the current tree passes with every raw reader listed and explained.
+- [ ] Live: after the build, `gold.rings` has no row at or after `val_end`; the reader
+      identity cannot load `sealed.rings`; the validation window holds **168** rings (the
+      number every evaluation reports).
+- [ ] Slow parity: ring ids from `gold.rings` == from the raw file on all of silver, so
+      switching the trainer changes nothing (no retraining needed: rings are only for
+      evaluation, never features).
+- [ ] The trainer profile no longer lists the patterns file; `test_jobs_live` proves it
+      cannot read it. ADR 0003's follow-up marked closed.
+- [ ] `just labels publish` re-run after the build (the build resets `label_known_at`).
+- [ ] Demo rebuilt with ring columns; live test: 168 distinct rings in `truth`, every one
+      from the validation window.
+
+**Done 2026-11-22.** `gold.rings` 1,870 rows (train + validation), `sealed.rings` 684 (test),
+written by `just lakehouse-build`; live: no gold row at or after `val_end`, the reader cannot
+open `sealed.rings`, **168** validation rings. Training (`build_artifacts`) reads ring ids from
+`gold.rings` (snapshot pinned in its lineage); the trainer job lost the raw file
+(`test_jobs_live`: no job but the builder can read any raw file). Slow parity on all 4,061,486
+silver rows: same ids, same order. **Found on the way:** the old `attach_pattern_ids` join did
+not keep row order, and features break same-minute ties by order; measured 0 changed feature
+values on train and validation, now guaranteed with `maintain_order` (note under FINDING-015).
+The guard now fails on any raw-file name outside `RAW_ALLOWLIST` (19 files, each with its
+reason) and counts `features_for_split(..., "test")`. Demo `truth` carries ring id/type/hop
+(168 rings, live test). Labels re-published after the build (5 known at stream end, as before).
 
 ## S7.3 — The capacity numbers, from the one evaluation entry point
 

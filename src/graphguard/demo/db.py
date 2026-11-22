@@ -83,6 +83,10 @@ CREATE TABLE IF NOT EXISTS truth (
     event_id      bigint PRIMARY KEY,
     is_laundering boolean NOT NULL
 );
+-- S7.2: the ring each transaction belongs to (gold.rings -- train + validation only).
+ALTER TABLE truth ADD COLUMN IF NOT EXISTS pattern_id integer;
+ALTER TABLE truth ADD COLUMN IF NOT EXISTS pattern_type text;
+ALTER TABLE truth ADD COLUMN IF NOT EXISTS hop integer;
 -- Investigators' verdicts (D7): append-only audit trail; survives every rebuild.
 CREATE TABLE IF NOT EXISTS verdicts (
     id        bigserial PRIMARY KEY,
@@ -214,7 +218,9 @@ def load(tables: dict[str, pl.DataFrame], info: dict) -> None:
     frames = {
         "transactions": tables["transactions"].select(list(TX_COLUMNS)),
         "accounts": tables["accounts"].select("bank_id", "account", "bank_name", "entity_name"),
-        "truth": tables["truth"].select("event_id", "is_laundering"),
+        "truth": tables["truth"].select(
+            "event_id", "is_laundering", "pattern_id", "pattern_type", "hop"
+        ),
     }
     with connect(OWNER, secrets_dir=REPO_ROOT / ".secrets") as conn, conn.cursor() as cur:
         cur.execute("TRUNCATE transactions, accounts, truth, build_info")

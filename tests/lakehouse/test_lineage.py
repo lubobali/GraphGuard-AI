@@ -16,6 +16,7 @@ from graphguard.lakehouse.tables import (
     write_bronze,
     write_gold_features,
     write_gold_labels,
+    write_rings,
     write_silver,
 )
 
@@ -42,6 +43,20 @@ def cat(tmp_path):
     write_silver(c, boundaries=(dt.datetime(2022, 9, 2), dt.datetime(2022, 9, 3)))
     write_gold_features(c, as_of=dt.datetime(2022, 9, 2))
     write_gold_labels(c)
+    # S7.2: the ring list is a tracked table (training reads it); one ring row here
+    patterns = (
+        pl.DataFrame([row])
+        .select(
+            pl.col("timestamp").cast(pl.Datetime("us")), "from_account", "to_account", "amount_paid"
+        )
+        .with_columns(
+            pl.lit(0, dtype=pl.Int32).alias("pattern_id"),
+            pl.lit("FAN-OUT").alias("pattern_type"),
+            pl.lit("").alias("pattern_detail"),
+            pl.lit(0, dtype=pl.Int32).alias("hop"),
+        )
+    )
+    write_rings(c, patterns, (dt.datetime(2022, 9, 2), dt.datetime(2022, 9, 3)))
     return c
 
 

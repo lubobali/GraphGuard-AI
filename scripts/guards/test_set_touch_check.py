@@ -32,7 +32,8 @@ def _sources() -> list[Path]:
 
 
 # Loading the test split looks like load_split("test") or similar.
-LOADER_NAMES = {"load_split", "read_split", "get_split"}
+# features_for_split(lf, "test", b) builds the test window's features (S7.2).
+LOADER_NAMES = {"load_split", "read_split", "get_split", "features_for_split"}
 TEST_SPLIT_LITERALS = {"test"}
 
 # Files permitted to load the test split, with the reason. Anything not listed
@@ -55,6 +56,53 @@ SEALED_ALLOWLIST: dict[str, str] = {
         "the access policy: names it only to deny it to trainer and reader (S5.6d)"
     ),
 }
+
+
+# The raw files hold EVERY window, the test window included (S7.2). Reading one is allowed
+# where the reader then keeps train/validation only (frozen boundaries) -- and only in the
+# files listed here, each with its reason. New code (the screens, the API, the agent) reads
+# the lakehouse or the demo database instead, so it can never touch the test window.
+RAW_NAMES = {"TRANSACTIONS_FILE", "PATTERNS_FILE"}
+_SPLIT = "filters to train/validation by the frozen boundaries"
+RAW_ALLOWLIST: dict[str, str] = {
+    "src/graphguard/config.py": "defines the raw file paths, reads nothing",
+    "src/graphguard/lakehouse/build.py": (
+        "the builder: CSV -> bronze/silver/sealed, rings -> gold/sealed"
+    ),
+    "src/graphguard/evaluation/dataset.py": f"load_split: {_SPLIT}; 'test' is counted above",
+    "src/graphguard/evaluation/freeze_split.py": "computes the frozen boundaries once (Phase 2)",
+    "src/graphguard/data/summary.py": "dataset summary counts (Phase 0), no model input",
+    "src/graphguard/analysis/cold_accounts.py": f"FINDING-014 measurement; {_SPLIT}",
+    "src/graphguard/models/train_tabular.py": f"Phase 3 training; {_SPLIT}",
+    "src/graphguard/models/tune_tabular.py": f"Phase 3 tuning on validation; {_SPLIT}",
+    "src/graphguard/graph/run_gnn.py": f"Phase 4 GNN; {_SPLIT}",
+    "src/graphguard/graph/tune_gnn.py": f"Phase 4 GNN tuning on validation; {_SPLIT}",
+    "src/graphguard/serving/measure_staleness.py": f"FINDING-008 measurement; {_SPLIT}",
+    "src/graphguard/serving/measure_latency.py": "latency sample rows (no labels used)",
+    "src/graphguard/serving/perf_k8s.py": "load-test request rows (no labels used)",
+    "src/graphguard/stream/e2e.py": f"offline scores to check the stream; {_SPLIT}",
+    "src/graphguard/stream/chaos.py": f"offline scores to check chaos runs; {_SPLIT}",
+    "src/graphguard/stream/proof.py": f"S6.3 full-replay proof; {_SPLIT}",
+    "src/graphguard/stream/rules.py": f"rule thresholds from train only; {_SPLIT}",
+    "src/graphguard/stream/labels.py": f"late-label simulation on validation; {_SPLIT}",
+    "src/graphguard/stream/shadow.py": f"challenger training on train only; {_SPLIT}",
+}
+
+
+def find_raw_refs(rel: str, source: str) -> list[str]:
+    """Any use of a raw-file name: an import of it or a reference to it."""
+    hits: list[str] = []
+    for node in ast.walk(ast.parse(source, filename=rel)):
+        name = None
+        if isinstance(node, ast.Name):
+            name = node.id
+        elif isinstance(node, ast.Attribute):
+            name = node.attr
+        elif isinstance(node, ast.alias):
+            name = node.name
+        if name in RAW_NAMES:
+            hits.append(f"{rel}:{getattr(node, 'lineno', '?')}: reads a raw file ({name})")
+    return hits
 
 
 def find_sealed_refs(rel: str, source: str) -> list[str]:
@@ -111,6 +159,9 @@ def main() -> int:
         sealed = find_sealed_refs(rel, source)
         if sealed and rel not in SEALED_ALLOWLIST:
             violations.extend(sealed)
+        raw = find_raw_refs(rel, source)
+        if raw and rel not in RAW_ALLOWLIST:
+            violations.extend(raw)
 
     if violations:
         print("TEST SET TOUCH CHECK FAILED\n")

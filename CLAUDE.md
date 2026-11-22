@@ -61,6 +61,8 @@ enough for a portfolio."
 
 Three lint guards enforce this mechanically, so it is a build failure and not a document
 nobody rereads: `leakage_guard.py`, `split_integrity_check.py`, `test_set_touch_check.py`.
+Since S7.2 the last one also fails on any file that names a raw data file (`TRANSACTIONS_FILE`,
+`PATTERNS_FILE` — they hold every window) unless it is listed in `RAW_ALLOWLIST` with a reason.
 
 ---
 
@@ -219,6 +221,7 @@ Lakekeeper REST catalog, governance, Feast).
 | `gold.labels` | labels + `label_known_at` (null until Phase 6's label-delay policy) |
 | `gold.account_recent_sends` | each send in the 24 h before `train_end` — the stream's seed for the 24 h count (S6.2) |
 | `gold.account_edges` | every (from, to) pair seen before `train_end` — the stream's seed for distinct counts (S6.3) |
+| `gold.rings` | one row per ring transaction (ring id, type, hop), train + validation; the test window's in `sealed.rings` (S7.2) — training and the demo read rings only here |
 
 ```
 just lakehouse-build   # CSV -> Iceberg on S3, ~35s, peak ~1.3GB, keeps last 5 snapshots, cleans orphans

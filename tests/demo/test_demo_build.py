@@ -99,3 +99,14 @@ def test_the_fast_priority_is_exactly_the_streams_priority():
                        "score": [0.3] * len(cases), "rules": cases})  # fmt: skip
     got = b.ranked(df).sort("event_id")["priority"].to_list()
     assert got == [priority(0.3, tuple(r)) for r in cases]
+
+
+def test_the_answer_key_carries_the_ring_and_only_the_answer_key():
+    df = pl.DataFrame({"event_id": [1, 2], "score": [0.1, 0.2], "is_laundering": [0, 1]})
+    rings = pl.DataFrame({"source_row": [2], "pattern_id": [7], "pattern_type": ["CYCLE"],
+                          "hop": [3]})  # fmt: skip
+    tx, truth = b.split_truth(df, rings)
+    assert not {"pattern_id", "pattern_type", "hop"} & set(tx.columns)
+    assert truth.filter(pl.col("event_id") == 2).select("pattern_id", "pattern_type", "hop").row(
+        0) == (7, "CYCLE", 3)  # fmt: skip
+    assert truth.filter(pl.col("event_id") == 1)["pattern_id"].item() is None

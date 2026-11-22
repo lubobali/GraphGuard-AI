@@ -88,8 +88,20 @@ def with_names(tx: pl.DataFrame, accounts: pl.DataFrame) -> pl.DataFrame:
     return out
 
 
-def split_truth(df: pl.DataFrame) -> tuple[pl.DataFrame, pl.DataFrame]:
+def split_truth(
+    df: pl.DataFrame, rings: pl.DataFrame | None = None
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """(queue table, answer key). The answer key carries the ring id, type and hop
+    (gold.rings, S7.2) -- never the queue table, never the agent."""
     truth = df.select("event_id", pl.col("is_laundering").cast(pl.Boolean)).sort("event_id")
+    if rings is not None:
+        truth = truth.join(
+            rings.select(
+                pl.col("source_row").alias("event_id"),
+                "pattern_id", "pattern_type", "hop",
+            ),
+            on="event_id", how="left", maintain_order="left",
+        )  # fmt: skip
     return df.drop("is_laundering"), truth
 
 
@@ -177,7 +189,10 @@ def assemble() -> tuple[dict[str, pl.DataFrame], dict]:
     accounts = accounts_table(pl.read_csv(ACCOUNTS_FILE, infer_schema_length=0).with_columns(
         pl.col("Bank ID").cast(pl.Int64)))  # fmt: skip
     tx = with_names(tx, accounts)
-    tx, truth = split_truth(tx)
+    from graphguard.lakehouse.catalog import open_catalog
+    from graphguard.lakehouse.tables import read_rings
+
+    tx, truth = split_truth(tx, read_rings(open_catalog("reader")))
     tables = {"transactions": tx, "truth": truth, "accounts": accounts}
     info = {
         "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),

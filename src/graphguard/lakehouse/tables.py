@@ -50,10 +50,14 @@ GOLD_FEATURES = "gold.account_features_asof"
 GOLD_LABELS = "gold.labels"
 GOLD_RECENT_SENDS = "gold.account_recent_sends"
 GOLD_EDGES = "gold.account_edges"
+# The ring list (S7.2): train + validation in gold, the test window in sealed -- split like
+# the transactions, so nothing that reads gold can see a test-window ring.
+GOLD_RINGS = "gold.rings"
+_SEALED_RINGS = "sealed.rings"
 
 # Tables whose snapshot ids a training run records. The sealed table is
 # deliberately absent: a training run must not even know which version of it exists.
-TRACKED_TABLES = (BRONZE_TX, SILVER_TX, GOLD_FEATURES, GOLD_LABELS)
+TRACKED_TABLES = (BRONZE_TX, SILVER_TX, GOLD_FEATURES, GOLD_LABELS, GOLD_RINGS)
 # Snapshot upkeep (expire + orphans) covers these too. The stream's seed is not a training
 # input, so a training run does not record it.
 MAINTAINED_TABLES = (*TRACKED_TABLES, GOLD_RECENT_SENDS, GOLD_EDGES)
@@ -257,6 +261,59 @@ def write_gold_labels(catalog: Catalog) -> None:
         .with_columns(pl.lit(None, dtype=pl.Datetime("us")).alias("label_known_at"))
     )
     _overwrite_streaming(catalog, GOLD_LABELS, labels, by_day=False)
+
+
+def split_rings(
+    rings: pl.DataFrame, boundaries: tuple[dt.datetime, dt.datetime]
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    """(gold part, sealed part): a ring row goes where its transaction went."""
+    _, val_end = boundaries
+    return rings.filter(pl.col("timestamp") < val_end), rings.filter(pl.col("timestamp") >= val_end)
+
+
+def write_rings(
+    catalog: Catalog,
+    patterns: pl.DataFrame,
+    boundaries: tuple[dt.datetime, dt.datetime],
+    tail_cutoff: dt.datetime = TAIL_CUTOFF,
+) -> tuple[int, int]:
+    """The ring list onto bronze's transaction keys, split like silver / sealed (S7.2).
+    Returns (gold rows, sealed rows)."""
+    from graphguard.evaluation.dataset import ring_rows
+
+    bronze = _scan(catalog, BRONZE_TX).filter(pl.col("timestamp") < tail_cutoff)
+    rings = (
+        ring_rows(bronze, patterns)
+        .with_columns(pl.col("timestamp").cast(pl.Datetime("us")))
+        .sort(SOURCE_ROW)
+        .collect()
+    )
+    gold, sealed = split_rings(rings, boundaries)
+    _overwrite(catalog, GOLD_RINGS, gold)
+    _overwrite(catalog, _SEALED_RINGS, sealed)
+    return gold.height, sealed.height
+
+
+def read_rings(catalog: Catalog) -> pl.DataFrame:
+    return _scan(catalog, GOLD_RINGS).sort(SOURCE_ROW).collect()
+
+
+def scan_silver_with_ring_ids(
+    catalog: Catalog, snapshot_id: int | None = None, rings_snapshot_id: int | None = None
+) -> pl.LazyFrame:
+    """Silver in source order with each row's ring id (NO_PATTERN if none), from gold.rings
+    -- what `attach_pattern_ids(scan_in_source_order(...), raw patterns)` gave, without the
+    raw file (S7.2; a slow test holds them equal)."""
+    from graphguard.evaluation.evaluate import NO_PATTERN
+
+    ids = _scan(catalog, GOLD_RINGS, rings_snapshot_id).select(SOURCE_ROW, "pattern_id")
+    return (
+        _scan(catalog, SILVER_TX, snapshot_id)
+        .sort(SOURCE_ROW)
+        .join(ids, on=SOURCE_ROW, how="left", maintain_order="left")
+        .with_columns(pl.col("pattern_id").fill_null(NO_PATTERN).cast(pl.Int32))
+        .drop(SOURCE_ROW)
+    )
 
 
 # --- readers ------------------------------------------------------------------

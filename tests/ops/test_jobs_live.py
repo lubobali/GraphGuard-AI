@@ -71,6 +71,8 @@ FORBIDDEN_FOR_ALL = [
     "/etc/rancher/k3s/k3s.yaml",
 ]
 CSV = [RAW_DIR / "HI-Small_Trans.csv", RAW_DIR / "HI-Small_accounts.csv"]
+# Every raw file, the ring list included: it holds test-window rings (S7.2 moved it to gold).
+RAW_FILES = [*CSV, RAW_DIR / "HI-Small_Patterns.txt"]
 
 
 def _blocked(v):
@@ -97,9 +99,9 @@ def test_a_job_holds_only_its_own_key_and_reaches_nothing_else(job, own, other_i
 
 
 @pytest.mark.parametrize("job", ["build-artifacts", "store-load", "sql"])
-def test_trainer_and_reader_cannot_read_the_raw_csvs(job):
-    got = _probe(job, CSV)
-    assert all(_blocked(got[str(p)]) for p in CSV), got
+def test_trainer_and_reader_cannot_read_any_raw_file(job):
+    got = _probe(job, RAW_FILES)
+    assert all(_blocked(got[str(p)]) for p in RAW_FILES), got
 
 
 def test_the_builder_can_read_the_raw_csvs():

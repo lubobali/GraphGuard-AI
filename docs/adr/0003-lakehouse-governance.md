@@ -69,8 +69,8 @@ OpenFGA is pinned to 1.14, not the newest 1.22, because it is the version Lakeke
   trainer and reader — the raw CSVs; proven from inside each job
   (`tests/ops/test_jobs_live.py`). **What remains:** root can still read everything;
   MLflow required no login until S5b.7 (now closed: one login per caller); the retained S5.6b key
-  until S5b.6; the trainer still reads the raw ring list (`HI-Small_Patterns.txt`, joined
-  onto silver only) — moving it into the lakehouse with its test-window part in `sealed`
-  is a follow-up.
+  until S5b.6; the trainer read the raw ring list (`HI-Small_Patterns.txt`) until S7.2 (2026-11-22),
+  which moved it into the lakehouse — `gold.rings` (train + validation) and `sealed.rings`
+  (test) — and took the file away from the trainer job (closed).
 - The final test-set evaluation will need an `evaluator` identity with a one-time
   grant on `sealed` — created only then (contract rule 4).

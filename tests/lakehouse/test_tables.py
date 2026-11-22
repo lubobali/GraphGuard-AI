@@ -91,6 +91,9 @@ def _build(cat, raw):
     write_gold_recent_sends(cat, as_of=TRAIN_END)
     write_gold_edges(cat, as_of=TRAIN_END)
     write_gold_labels(cat)
+    from graphguard.lakehouse.tables import write_rings  # S7.2: a tracked table
+
+    write_rings(cat, _patterns(raw), (TRAIN_END, VAL_END), tail_cutoff=TAIL)
 
 
 def _read(cat, name):
@@ -209,7 +212,7 @@ def test_expire_keeps_only_the_last_n_snapshots(cat, raw):
 def test_snapshot_ids_are_reported_for_every_table(cat, raw):
     _build(cat, raw)
     ids = current_snapshot_ids(cat)
-    assert set(ids) == {BRONZE_TX, SILVER_TX, GOLD_FEATURES, GOLD_LABELS}
+    assert set(ids) == {BRONZE_TX, SILVER_TX, GOLD_FEATURES, GOLD_LABELS, "gold.rings"}
     assert all(isinstance(v, int) for v in ids.values())
 
 
@@ -348,3 +351,44 @@ def test_gold_edges_hold_every_pair_seen_before_train_end_once(cat, raw):
     _build(cat, raw)
     got = read_edges(cat, as_of=TRAIN_END)
     assert sorted(got.iter_rows()) == [("A", "B"), ("A", "C"), ("B", "A"), ("C", "B")]
+
+
+# --- S7.2: the ring list, split like the transactions ---------------------------------
+def _patterns(raw):
+    # rings on train rows (A->C, B->A), the validation row (D->A), the test-window row (B->D)
+    frm, to = pl.col("from_account"), pl.col("to_account")
+    picked = raw.filter(frm.is_in(["D", "B"]) & to.is_in(["A", "D"]) | ((frm == "A") & (to == "C")))
+    return picked.select("timestamp", "from_account", "to_account", "amount_paid").with_columns(
+        pl.Series("pattern_id", list(range(picked.height)), dtype=pl.Int32),
+        pl.lit("FAN-OUT").alias("pattern_type"),
+        pl.lit("").alias("pattern_detail"),
+        pl.lit(0, dtype=pl.Int32).alias("hop"),
+    )
+
+
+def test_rings_are_split_like_the_transactions(cat, raw):
+    from graphguard.lakehouse.tables import GOLD_RINGS, read_rings, write_rings
+
+    _build(cat, raw)
+    gold_n, sealed_n = write_rings(cat, _patterns(raw), (TRAIN_END, VAL_END), tail_cutoff=TAIL)
+    gold = read_rings(cat)
+    assert gold_n == gold.height == 3 and sealed_n == 1  # A->C, B->A, D->A | B->D
+    assert gold["timestamp"].max() < VAL_END
+    sealed = _read(cat, "sealed.rings")
+    assert sealed["timestamp"].min() >= VAL_END
+    assert GOLD_RINGS.startswith("gold.")
+
+
+def test_silver_with_ring_ids_equals_attaching_the_raw_ring_list(cat, raw):
+    from graphguard.evaluation.dataset import attach_pattern_ids
+    from graphguard.lakehouse.tables import (
+        scan_in_source_order,
+        scan_silver_with_ring_ids,
+        write_rings,
+    )
+
+    _build(cat, raw)
+    write_rings(cat, _patterns(raw), (TRAIN_END, VAL_END), tail_cutoff=TAIL)
+    new = scan_silver_with_ring_ids(cat).collect()
+    old = attach_pattern_ids(scan_in_source_order(cat, SILVER_TX), _patterns(raw)).collect()
+    assert new.equals(old.select(new.columns))

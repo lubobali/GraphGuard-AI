@@ -70,9 +70,9 @@ JOBS: dict[str, Job] = {
             ("identity-trainer.env", "mlflow-trainer.env"),
             memory="2560M",  # measured peak 2,042 MiB (2026-11-19)
             writes=("lakehouse/lineage", "models/production"),
-            # The ring list, joined onto silver (train + validation) only. The CSVs stay
-            # hidden. Moving the ring list into the lakehouse is a follow-up.
-            raw_allowed=("HI-Small_Patterns.txt",),
+            # No raw file at all: ring ids come from gold.rings since S7.2 (the raw ring
+            # list holds test-window rings).
+            raw_allowed=(),
             extra={"GRAPHGUARD_MLFLOW_USER": "trainer"},
         ),
         Job(

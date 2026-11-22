@@ -43,8 +43,35 @@ def attach_pattern_ids(transactions: pl.LazyFrame, patterns: pl.DataFrame) -> pl
     """
     lookup = patterns.select([*_MATCH_KEY, "pattern_id"]).unique(subset=_MATCH_KEY, keep="first")
 
-    return transactions.join(lookup.lazy(), on=_MATCH_KEY, how="left").with_columns(
-        pl.col("pattern_id").fill_null(NO_PATTERN).cast(pl.Int32)
+    # maintain_order: features break same-minute ties by input order (FINDING-015); a plain
+    # left join may reorder rows. Measured in S7.2: no feature value changed, train or
+    # validation -- now guaranteed rather than lucky.
+    return transactions.join(
+        lookup.lazy(), on=_MATCH_KEY, how="left", maintain_order="left"
+    ).with_columns(pl.col("pattern_id").fill_null(NO_PATTERN).cast(pl.Int32))
+
+
+RING_COLUMNS = ("pattern_id", "pattern_type", "pattern_detail", "hop")
+
+
+def ring_rows(transactions: pl.LazyFrame, patterns: pl.DataFrame) -> pl.LazyFrame:
+    """One row per transaction that belongs to a laundering ring (S7.2): its `source_row`,
+    time, ring id, ring type and hop. Same key and same first-match rule as
+    `attach_pattern_ids`, so the two can never disagree about a ring id."""
+    lookup = patterns.select([*_MATCH_KEY, *RING_COLUMNS]).unique(
+        subset=_MATCH_KEY, keep="first", maintain_order=True
+    )
+    return (
+        transactions.select("source_row", *_MATCH_KEY)
+        .join(lookup.lazy(), on=_MATCH_KEY, how="inner")
+        .select(
+            pl.col("source_row").cast(pl.Int64),
+            pl.col("timestamp"),
+            pl.col("pattern_id").cast(pl.Int32),
+            pl.col("pattern_type"),
+            pl.col("pattern_detail"),
+            pl.col("hop").cast(pl.Int32),
+        )
     )
 
 

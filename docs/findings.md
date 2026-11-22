@@ -610,6 +610,12 @@ a last-digit gap in a running total never shrinks. And "the same tie order" was 
 by luck — Polars kept same-minute ties in source order without being asked; every history
 sort now says `maintain_order=True`.
 
+*Update 2026-11-22 (S7.2):* `attach_pattern_ids` joined without `maintain_order`, so its
+output was **not** in source order — and features break same-minute ties by input order.
+Measured on the real data: **0 feature values changed** on train (3,046,186 rows) or validation
+(1,015,300), so no model and no number moves; the join now says `maintain_order="left"`, so
+that is guaranteed rather than lucky.
+
 ## FINDING-016 — Simple AML rules barely work on AMLworld; the model catches 26x more in the same queue
 
 *Found: 2026-11-21, Phase 6 (S6.8). Acts on: the rules layer, the pitch, Phase 7's queue.*

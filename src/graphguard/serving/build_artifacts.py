@@ -20,13 +20,12 @@ from pathlib import Path
 
 from mlflow.tracking import MlflowClient
 
-from graphguard.analysis.patterns import parse_patterns
-from graphguard.config import PATTERNS_FILE, REPO_ROOT, SEED
-from graphguard.evaluation.dataset import attach_pattern_ids, frozen_boundaries
+from graphguard.config import REPO_ROOT, SEED
+from graphguard.evaluation.dataset import frozen_boundaries
 from graphguard.lakehouse.catalog import open_catalog
 from graphguard.lakehouse.lineage import training_lineage
 from graphguard.lakehouse.lineage_events import lineage_run
-from graphguard.lakehouse.tables import SILVER_TX, scan_in_source_order
+from graphguard.lakehouse.tables import GOLD_RINGS, SILVER_TX, scan_silver_with_ring_ids
 from graphguard.models.pipeline import features_for_split
 from graphguard.models.tabular import (
     FEATURE_COLUMNS,
@@ -76,8 +75,11 @@ def _train(catalog, lineage: dict, t0: float) -> str:
     # Silver holds train + validation with the tail already removed; the test
     # window is in `sealed`, which training never opens.
     # In source order, so features match the CSV path bit for bit (S5.6a).
-    silver = scan_in_source_order(catalog, SILVER_TX, lineage[f"snapshot.{SILVER_TX}"])
-    base = attach_pattern_ids(silver, parse_patterns(PATTERNS_FILE))
+    # Ring ids from gold.rings (S7.2), no longer the raw ring list -- a slow test holds
+    # the two equal on all of silver.
+    base = scan_silver_with_ring_ids(
+        catalog, lineage[f"snapshot.{SILVER_TX}"], lineage[f"snapshot.{GOLD_RINGS}"]
+    )
 
     train_df = features_for_split(base, "train", boundaries=(train_end, val_end))
     keep = tuple(c for c in FEATURE_COLUMNS if c not in ARTIFACT_FEATURES)

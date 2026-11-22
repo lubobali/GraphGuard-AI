@@ -12,7 +12,8 @@ from __future__ import annotations
 import sys
 import time
 
-from graphguard.config import REPO_ROOT, TRANSACTIONS_FILE
+from graphguard.analysis.patterns import parse_patterns
+from graphguard.config import PATTERNS_FILE, REPO_ROOT, TRANSACTIONS_FILE
 from graphguard.data.loader import load_transactions
 from graphguard.evaluation.dataset import frozen_boundaries
 from graphguard.lakehouse.catalog import open_catalog
@@ -28,6 +29,7 @@ from graphguard.lakehouse.tables import (
     write_gold_features,
     write_gold_labels,
     write_gold_recent_sends,
+    write_rings,
     write_silver,
 )
 
@@ -39,6 +41,7 @@ KEEP_SNAPSHOTS = 5
 def main() -> int:
     with lineage_run("lakehouse-build") as run:
         run.read(str(TRANSACTIONS_FILE.relative_to(REPO_ROOT)), None, namespace="file://graphguard")
+        run.read(str(PATTERNS_FILE.relative_to(REPO_ROOT)), None, namespace="file://graphguard")
         _build()
         # Every table the build wrote, with the snapshot it ended on -- listed from
         # the catalog, so the test window's table is recorded without being named here.
@@ -67,6 +70,9 @@ def _build() -> None:
     print(f"gold edges written: {n:,} ({time.time() - t0:.1f}s)", flush=True)
     write_gold_labels(catalog)
     print(f"gold labels written ({time.time() - t0:.1f}s)", flush=True)
+    g, sealed = write_rings(catalog, parse_patterns(PATTERNS_FILE), boundaries)
+    print(f"rings written: {g:,} rows to gold, {sealed:,} sealed ({time.time() - t0:.1f}s)",
+          flush=True)  # fmt: skip
 
     removed = 0
     for name in MAINTAINED_TABLES:
