@@ -99,15 +99,18 @@ def test_an_optional_secret_may_be_missing_but_is_checked_once_present():
 
     from graphguard.ops import secrets_registry as sr
 
-    reg = {"nim.env": sr.Secret("agent", "NVIDIA console", 365, optional=True)}
+    reg = {"openrouter.env": sr.Secret("agent", "OpenRouter console", 365, optional=True)}
     today = dt.date(2026, 11, 22)
     assert sr.problems({}, {}, today, registry=reg) == []
-    found = sr.problems({"nim.env": (0o644, 0)}, {"nim.env": "2026-11-22"}, today, registry=reg)
+    found = sr.problems(
+        {"openrouter.env": (0o644, 0)}, {"openrouter.env": "2026-11-22"}, today, registry=reg
+    )
     assert any("mode" in p for p in found)
 
 
-def test_secret_set_takes_the_nim_key():
+def test_secret_set_takes_the_openrouter_key():
     from graphguard.ops import secrets_registry as sr
 
-    assert "nim.env" in sr.REGISTRY and sr.REGISTRY["nim.env"].optional
-    assert sr.NIM.match("nvapi-" + "a" * 64) and not sr.NIM.match("sk-abc")
+    assert "openrouter.env" in sr.REGISTRY and sr.REGISTRY["openrouter.env"].optional
+    assert sr.OPENROUTER.match("sk-or-v1-" + "a" * 64)
+    assert not sr.OPENROUTER.match("nvapi-abc")

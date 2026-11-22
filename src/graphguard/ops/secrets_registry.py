@@ -128,10 +128,14 @@ REGISTRY: dict[str, Secret] = {
         "just rotate-pg demo_reader, demo_writer",
         BOX_DAYS,
     ),
-    # The investigator agent's model (S7.10, ADR 0008 D6): NVIDIA NIM, typed by Lubo.
-    "nim.env": S(
-        "investigator agent (S7.10)", "NVIDIA build.nvidia.com console", CONSOLE_DAYS, optional=True
-    ),  # fmt: skip
+    # The investigator agent's models (S7.10, ADR 0008 D6): OpenRouter (LuBot's main LLM
+    # path), its OWN key with a credit limit set in the OpenRouter console; typed by Lubo.
+    "openrouter.env": S(
+        "investigator agent (S7.10)",
+        "OpenRouter console (own key, credit limit)",
+        CONSOLE_DAYS,
+        optional=True,
+    ),
     # Kafka (S6.4): all passwords + cluster id, and one file per login.
     "kafka.env": S("Kafka logins (all) + cluster id", "just rotate-kafka", BOX_DAYS),
     **{
@@ -214,7 +218,7 @@ AWS_ID = re.compile(r"^AKIA[0-9A-Z]{16}$")
 AWS_SECRET = re.compile(r"^[A-Za-z0-9/+]{40}$")
 HETZNER = re.compile(r"^[A-Za-z0-9]{64}$")
 FORGEJO = re.compile(r"^[0-9a-f]{40}$")
-NIM = re.compile(r"^nvapi-[A-Za-z0-9_\-]{20,}$")
+OPENROUTER = re.compile(r"^sk-or-v1-[A-Za-z0-9]{32,}$")
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -259,8 +263,8 @@ def secret_set(name: str) -> None:
         }
     elif name == "forgejo-ci-read.env":
         values = {"FORGEJO_TOKEN": _ask("Forgejo read-only token", FORGEJO)}
-    elif name == "nim.env":
-        values = {"NIM_API_KEY": _ask("NVIDIA NIM API key (nvapi-...)", NIM)}
+    elif name == "openrouter.env":
+        values = {"OPENROUTER_API_KEY": _ask("OpenRouter API key (sk-or-v1-...)", OPENROUTER)}
     elif name == "hetzner-readonly.env":
         values = {"HETZNER_TOKEN": _ask("Hetzner API token", HETZNER)}
     else:

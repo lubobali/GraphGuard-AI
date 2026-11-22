@@ -581,11 +581,12 @@ Prerendered (live test: the key text is in the HTML). The export check now allow
 **As** an investigator, **I want** a draft case report I can check, **so that** I save time
 without trusting a black box.
 
-**Model (D6, decided 2026-11-22):** NVIDIA NIM's free tier (PLAN.md), OpenAI-compatible
-endpoint, a tool-calling model chosen from the live catalog at run time and recorded with
-every result. The key is `.secrets/nim.env`, registered, **typed by Lubo** (`just secret-set
-nim.env`) — the one step of this phase that needs him. Rate limits are unpublished (~40/min
-reported), so the runner paces itself.
+**Model (D6, decided 2026-11-22, changed the same day):** **OpenRouter** — LuBot's main LLM
+path (Lubo stopped using NVIDIA's free tier: unreliable). One OpenAI-compatible key reaches many
+models, so the same 64 cases run on a cheap open model (DeepSeek) and one Claude model, side by
+side. GraphGuard gets **its own key with a credit limit** set in the OpenRouter console, plus a
+hard cap on calls per run in the code. `.secrets/openrouter.env`, **typed by Lubo** (`just
+secret-set openrouter.env`). Estimated cost: under $1 per full DeepSeek run, ~$10 to build.
 
 **Design.**
 - **Tools** (`graphguard/agent/tools.py`, also served over **MCP** by `agent/mcp_server.py`):
@@ -628,8 +629,8 @@ path to the answer key, and a live spy shows the tools only ever call the alert 
 (`docs/analysis/s7.10-baseline.json`): 149 claims, **0 unsupported** (95% CI 0–2.5%) — after the
 baseline exposed a real checker bug (numbers inside account names, "Corporation #35871", were
 read as invented amounts; test + fix); ring type right **7 of 40**; "none evident" right on
-**11 of 24** clean alerts. That is the bar. `nim.env` is registered as an optional secret
-(health stays green until it exists) and `just secret-set nim.env` takes it, format-checked,
+**11 of 24** clean alerts. That is the bar. `openrouter.env` is registered as an optional secret
+(health stays green until it exists) and `just secret-set openrouter.env` takes it, format-checked,
 nothing printed. **Waiting on Lubo for the key**; then: the MCP server, the LLM runner, the run
 on all 64, `s7.10-agent.json`, a FINDING, and the report on the Case page.
 
