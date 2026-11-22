@@ -18,7 +18,7 @@ The numbers the screens rest on (validation window, `docs/analysis/s6.8-rules.js
 | | |
 |---|---|
 | Transactions / laundering | 1,015,300 / 1,083 |
-| Model, top 5,000 | 542 laundering caught, 541 missed; 127 of 168 rings touched |
+| Model, top 5,000 | 542 laundering caught, 541 missed; 127 of 168 rings caught (≥ half their hops), 140 touched (any hop) |
 | Rules, top 5,000 | 21 caught |
 | Alert line (ADR 0007) | 5,000 per ~50.6 h of traffic ≈ 2,370 a day |
 

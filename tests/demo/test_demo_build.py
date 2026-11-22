@@ -110,3 +110,35 @@ def test_the_answer_key_carries_the_ring_and_only_the_answer_key():
     assert truth.filter(pl.col("event_id") == 2).select("pattern_id", "pattern_type", "hop").row(
         0) == (7, "CYCLE", 3)  # fmt: skip
     assert truth.filter(pl.col("event_id") == 1)["pattern_id"].item() is None
+
+
+def test_strict_order_breaks_ties_by_event_order_like_the_queue():
+    df = pl.DataFrame({"event_id": [3, 1, 2], "event_time": [T, T, T], "score": [0.5, 0.5, 0.9]})
+    sig = b.strict_order(df, "score")
+    order = df.with_columns(pl.Series("s", sig)).sort("s", descending=True)["event_id"].to_list()
+    assert order == [2, 1, 3] and len(set(sig)) == 3
+
+
+def test_capacity_has_four_rankings_and_counts_that_add_up():
+    n = 400
+    tx = pl.DataFrame({
+        "event_id": list(range(n)), "event_time": [T] * n,
+        "priority": [i / n for i in range(n)], "score": [i / n for i in range(n)],
+        "rules": [["structuring"] if i % 7 == 0 else [] for i in range(n)],
+        "amount_paid": [float(i) for i in range(n)],
+    })  # fmt: skip
+    truth = pl.DataFrame(
+        {
+            "event_id": list(range(n)),
+            "is_laundering": [i % 10 == 0 for i in range(n)],
+            "pattern_id": [i % 3 if i % 10 == 0 else None for i in range(n)],
+        }
+    )
+    cap = b.capacity_table(tx, truth, seed=1, max_k=100)
+    assert set(cap["ranking"]) == {"system", "model", "rules", "random"}
+    assert cap.height == 400
+    assert (cap["caught"] + cap["missed"] == 40).all()
+    top = cap.filter((pl.col("ranking") == "model") & (pl.col("k") == 10))
+    assert top["caught"].item() == 1  # the 10 highest scores (390..399) hold one launderer (390)
+    point = b.checkpoints(cap)["rankings"]["system"]["100"]
+    assert point["rings_total"] == 3

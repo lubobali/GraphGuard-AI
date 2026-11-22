@@ -21,6 +21,7 @@ import io
 import json
 import sys
 
+import numpy as np
 import polars as pl
 
 EXPECTED_ROWS = 1_015_300  # the validation window (S6.3, S6.11)
@@ -120,6 +121,51 @@ def fingerprint(df: pl.DataFrame) -> str:
     return h.hexdigest()
 
 
+WINDOW_DAYS = 50.5667 / 24  # 2022-09-06 13:34 -> 2022-09-08 16:08 (the validation window)
+CHECKPOINTS = (50, 100, 211, 500, 1_000, 5_000)  # 211 = a 100-a-day team over the window
+
+
+def strict_order(df: pl.DataFrame, key: str, descending: bool = True) -> np.ndarray:
+    """A strict ranking signal (higher = sooner) from `key`, ties broken by event order --
+    the same tie rule as the queue (ranked())."""
+    ordered = df.with_row_index("_i").sort(
+        [key, "event_time", "event_id"], descending=[descending, False, False]
+    )
+    sig = np.empty(df.height, dtype=float)
+    sig[ordered["_i"].to_numpy()] = np.arange(df.height, 0, -1, dtype=float)
+    return sig
+
+
+def capacity_table(tx: pl.DataFrame, truth: pl.DataFrame, seed: int, max_k: int = 5_000):
+    """The slider's numbers (S7.3) for four rankings of the same validation rows."""
+    from graphguard.evaluation.capacity import capacity_curve
+    from graphguard.evaluation.evaluate import NO_PATTERN
+    from graphguard.stream.rules import rules_only_rank
+
+    df = tx.select("event_id", "event_time", "priority", "score", "rules", "amount_paid").join(
+        truth.select("event_id", "is_laundering", "pattern_id"), on="event_id", how="left"
+    )
+    y = df["is_laundering"].cast(pl.Int8).to_numpy()
+    pids = df["pattern_id"].fill_null(NO_PATTERN).to_numpy()
+    rules_rank = [
+        rules_only_rank(tuple(r), a)
+        for r, a in zip(df["rules"].to_list(), df["amount_paid"].to_list(), strict=True)
+    ]
+    df = df.with_columns(pl.Series("rules_rank", rules_rank, dtype=pl.Float64))
+    rankings = {
+        "system": strict_order(df, "priority"),
+        "model": strict_order(df, "score"),
+        "rules": strict_order(df, "rules_rank"),
+        "random": np.random.default_rng(seed).permutation(df.height).astype(float) + 1.0,
+    }
+    rows = [
+        {"ranking": name, **r}
+        for name, sig in rankings.items()
+        for r in capacity_curve(y, sig, pids, max_k=max_k)
+    ]
+    return pl.DataFrame(rows)
+
+
 # --- the load ------------------------------------------------------------------------------
 def _decisions() -> tuple[pl.DataFrame, list[str], list[str]]:
     from graphguard.config import REPO_ROOT
@@ -193,23 +239,49 @@ def assemble() -> tuple[dict[str, pl.DataFrame], dict]:
     from graphguard.lakehouse.tables import read_rings
 
     tx, truth = split_truth(tx, read_rings(open_catalog("reader")))
-    tables = {"transactions": tx, "truth": truth, "accounts": accounts}
+    from graphguard.config import SEED
+
+    capacity = capacity_table(tx, truth, seed=SEED)
+    tables = {"transactions": tx, "truth": truth, "accounts": accounts, "capacity": capacity}
     info = {
         "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
         "model_version": versions[0],
         "feature_names": feature_names,
         "rows": {k: v.height for k, v in tables.items()},
-        "fingerprints": {k: fingerprint(v) for k, v in tables.items()},
+        "fingerprints": {k: fingerprint(v) for k, v in tables.items() if k != "capacity"}
+        | {"capacity": fingerprint(capacity.sort("ranking", "k"))},
         "window": [str(b) for b in frozen_boundaries()],
     }
     return tables, info
 
 
+def checkpoints(capacity: pl.DataFrame) -> dict:
+    """The numbers worth writing down (docs/analysis/s7.3-capacity.json)."""
+    out = {
+        "window_days": round(WINDOW_DAYS, 4),
+        "per_day_note": "a team working N alerts a day handles k = N x window_days alerts",
+        "rings_note": "caught = >= 50% of a ring's validation hops in the top k; touched = any",
+        "rankings": {},
+    }
+    for (name,), part in capacity.group_by(["ranking"], maintain_order=True):
+        rows = part.filter(pl.col("k").is_in(CHECKPOINTS)).sort("k")
+        out["rankings"][name] = {
+            str(r["k"]): {c: r[c] for c in ("caught", "missed", "precision", "recall",
+                                             "rings_caught", "rings_touched", "rings_total")}
+            for r in rows.to_dicts()
+        }  # fmt: skip
+    return out
+
+
 def main(argv: list[str]) -> int:
+    from graphguard.config import REPO_ROOT
     from graphguard.demo import db as ddb
 
     tables, info = assemble()
     ddb.load(tables, info)
+    (REPO_ROOT / "docs" / "analysis" / "s7.3-capacity.json").write_text(
+        json.dumps(checkpoints(tables["capacity"]), indent=2) + "\n"
+    )
     print(json.dumps(info, indent=2))
     return 0
 

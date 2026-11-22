@@ -103,7 +103,8 @@ def test_the_build_is_recorded():
     with _conn(db.READER) as c, c.cursor() as cur:
         cur.execute("SELECT info FROM build_info")
         info = cur.fetchone()[0]
-    assert info["rows"]["transactions"] == 1_015_300 and len(info["fingerprints"]) == 3
+    assert info["rows"]["transactions"] == 1_015_300
+    assert set(info["fingerprints"]) == {"transactions", "truth", "accounts", "capacity"}
 
 
 def test_the_answer_key_holds_the_168_validation_rings_and_no_other():
@@ -114,3 +115,15 @@ def test_the_answer_key_holds_the_168_validation_rings_and_no_other():
         cur.execute("SELECT count(*) FROM truth t LEFT JOIN transactions x USING (event_id) "
                     "WHERE x.event_id IS NULL")  # fmt: skip
         assert cur.fetchone()[0] == 0
+
+
+def test_the_capacity_numbers_match_the_evaluation():
+    with _conn(db.READER) as c, c.cursor() as cur:
+        cur.execute("SELECT count(*) FROM capacity")
+        assert cur.fetchone()[0] == 20_000
+        cur.execute("SELECT ranking, caught, rings_caught, rings_total FROM capacity "
+                    "WHERE k = 5000 ORDER BY ranking")  # fmt: skip
+        got = {r[0]: r[1:] for r in cur.fetchall()}
+    assert got["model"][:2] == (542, 127)  # s6.8-rules.json; the leakage audit's 127 / 168
+    assert got["rules"][0] == 21  # FINDING-016
+    assert {v[2] for v in got.values()} == {168}

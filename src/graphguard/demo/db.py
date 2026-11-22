@@ -61,7 +61,7 @@ TX_COLUMNS = {
     "to_bank_name": "text",
     "to_name": "text",
 }
-TABLES = ("transactions", "accounts", "truth", "verdicts", "build_info")
+TABLES = ("transactions", "accounts", "truth", "verdicts", "build_info", "capacity")
 
 SCHEMA = (
     "CREATE TABLE IF NOT EXISTS transactions ("
@@ -94,6 +94,19 @@ CREATE TABLE IF NOT EXISTS verdicts (
     verdict   text NOT NULL CHECK (verdict IN ('escalate', 'close')),
     note      text NOT NULL DEFAULT '' CHECK (length(note) <= 2000),
     at        timestamptz NOT NULL DEFAULT now()
+);
+-- S7.3: the slider's numbers -- four rankings x k = 1..5,000 (counts, never money).
+CREATE TABLE IF NOT EXISTS capacity (
+    ranking       text NOT NULL,
+    k             integer NOT NULL,
+    caught        integer NOT NULL,
+    missed        integer NOT NULL,
+    precision     double precision NOT NULL,
+    recall        double precision NOT NULL,
+    rings_caught  integer NOT NULL,
+    rings_touched integer NOT NULL,
+    rings_total   integer NOT NULL,
+    PRIMARY KEY (ranking, k)
 );
 CREATE TABLE IF NOT EXISTS build_info (
     id   smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -218,12 +231,13 @@ def load(tables: dict[str, pl.DataFrame], info: dict) -> None:
     frames = {
         "transactions": tables["transactions"].select(list(TX_COLUMNS)),
         "accounts": tables["accounts"].select("bank_id", "account", "bank_name", "entity_name"),
+        "capacity": tables["capacity"],
         "truth": tables["truth"].select(
             "event_id", "is_laundering", "pattern_id", "pattern_type", "hop"
         ),
     }
     with connect(OWNER, secrets_dir=REPO_ROOT / ".secrets") as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE transactions, accounts, truth, build_info")
+        cur.execute("TRUNCATE transactions, accounts, truth, capacity, build_info")
         for name, df in frames.items():
             cols = ", ".join(df.columns)
             sql = f"COPY {name} ({cols}) FROM STDIN WITH (FORMAT csv)"

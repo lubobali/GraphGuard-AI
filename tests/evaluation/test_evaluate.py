@@ -97,3 +97,29 @@ def test_random_baseline_precision_sits_near_the_base_rate():
     rng.shuffle(y)
     out = evaluate(y, rank_randomly(len(y), seed=7), k_values=(1000,))
     assert out["precision_at_k"][1000] == pytest.approx(0.001, abs=0.002)
+
+
+# --- S7.3: counts, recall and minority-class F1 at k --------------------------------------
+@pytest.mark.unit
+def test_caught_and_missed_are_counts_that_add_up():
+    y = np.array([1, 0, 1, 0, 1, 0])
+    s = np.array([0.9, 0.8, 0.7, 0.6, 0.1, 0.2])
+    out = evaluate(y, s, k_values=(1, 3, 6))
+    assert out["caught_at_k"] == {1: 1.0, 3: 2.0, 6: 3.0}
+    assert all(out["caught_at_k"][k] + out["missed_at_k"][k] == 3 for k in (1, 3, 6))
+
+
+@pytest.mark.unit
+def test_recall_and_minority_f1_at_k():
+    y = np.array([1, 0, 1, 0, 1, 0])
+    s = np.array([0.9, 0.8, 0.7, 0.6, 0.1, 0.2])
+    out = evaluate(y, s, k_values=(3,))
+    p, r = 2 / 3, 2 / 3
+    assert out["recall_at_k"][3] == pytest.approx(r)
+    assert out["f1_at_k"][3] == pytest.approx(2 * p * r / (p + r))
+
+
+@pytest.mark.unit
+def test_f1_is_zero_when_nothing_is_caught():
+    out = evaluate(np.array([0, 1]), np.array([0.9, 0.1]), k_values=(1,))
+    assert out["f1_at_k"][1] == 0.0

@@ -50,6 +50,12 @@ def evaluate(
         "pr_auc": pr_auc(y_true, scores),
         "precision_at_k": {},
         "lift_at_k": {},
+        # S7.3: counts for people who do not read percentages (ADR 0008), and the
+        # minority-class F1 R-2 asked for -- F1 of "laundering" when the top k are called it.
+        "caught_at_k": {},
+        "missed_at_k": {},
+        "recall_at_k": {},
+        "f1_at_k": {},
     }
 
     order = np.argsort(-scores, kind="stable")
@@ -60,6 +66,13 @@ def evaluate(
         result["precision_at_k"][k] = p
         # Lift: how many times better than picking at random.
         result["lift_at_k"][k] = (p / base_rate) if base_rate else float("nan")
+        # Same tie rule as precision@k (prorated), so the counts can never disagree with it.
+        caught = p * k_eff
+        recall = caught / n_positives if n_positives else 0.0
+        result["caught_at_k"][k] = caught
+        result["missed_at_k"][k] = n_positives - caught
+        result["recall_at_k"][k] = recall
+        result["f1_at_k"][k] = 2 * p * recall / (p + recall) if p + recall else 0.0
 
         top = order[:k_eff]
 

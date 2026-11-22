@@ -45,3 +45,9 @@ k, PR-AUC 0.262 vs 0.282 — the override reorders the long tail, not the queue.
   structuring hits at 0.34% precision.
 - **Per-account / peer-group thresholds** — better rules, but that is tuning; a later step,
   measured on its own.
+
+**Update 2026-11-22 (S7.3):** at a small team size the override costs a little. With a
+100-alerts-a-day team (k = 211 over the window) the combined queue catches 167 laundering
+transactions against 170 for the model alone; at k = 5,000 both catch 542
+(`docs/analysis/s7.3-capacity.json`). The override stays (it carries FINDING-014's hard
+rule), and the screen shows the system's own numbers, not the model's.

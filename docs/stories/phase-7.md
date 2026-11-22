@@ -73,7 +73,7 @@ facts, not stale notes.
          in the research), and what would make us change it.
    - [ ] The numbers it rests on, checked against `docs/analysis/s6.8-rules.json`:
          1,083 laundering transactions in validation; top 5,000 → 542 caught (541 missed),
-         rules 21; 127 of 168 rings touched; alert line 5,000 per ~50.6 h ≈ 2,370/day vs
+         rules 21; 127 of 168 rings caught (140 touched — S7.3 corrected the word); alert line 5,000 per ~50.6 h ≈ 2,370/day vs
          the demo's 100/day (why both exist).
 2. **PLAN.md**, changed openly, not silently:
    - [ ] New revision **R-4** under "Plan revisions" (date, cause = the 2026-11-22
@@ -235,12 +235,47 @@ reason) and counts `features_for_split(..., "test")`. Demo `truth` carries ring 
 
 ## S7.3 — The capacity numbers, from the one evaluation entry point
 
-**As** a manager, **I want** "work N a day → catch X, miss Y, rules catch W", **so that** I
-can choose a team size from real numbers.
-- `evaluate()` gains recall@k and minority-class F1 (R-2), test-first.
-- A precomputed curve in **counts per day** (k = 1…5,000): laundering caught, rings
-  touched / caught, missed; same for the rules and random. One stated definition of
-  "ring caught". No currency totals.
+**As** a manager, **I want** "your team works N a day → it catches X laundering transactions
+and Y rings, misses Z; the rules at the same workload catch W", **so that** I can choose a
+team size from real numbers.
+
+**Design.**
+- `evaluate()` gains, per k: `caught` and `missed` (counts — the slider's language),
+  `recall_at_k`, and the minority-class F1 at k (R-2's promise: F1 of the laundering class
+  when the top k are called laundering). Test-first, in `tests/evaluation`.
+- `capacity_curve()` (`src/graphguard/evaluation/capacity.py`): every k from 1 to 5,000 in
+  one vectorised pass (5,000 `evaluate()` calls would each re-sort a million rows). **A test
+  holds it equal to `evaluate()`** at every default k and at random k — so the slider's
+  numbers still come out of the one entry point's definitions.
+- Four rankings, same validation rows: **system** (the queue's priority, ADR 0007), **model**
+  (score only), **rules** (`rules_only_rank`, FINDING-016), **random** (seeded). Rings: both
+  readings — *caught* (≥ 50% of the ring's validation hops flagged) and *touched* (any hop).
+- Per day: the window is 50.6 hours ≈ 2.11 days; "N a day" = k = N × 2.11 (stated on the
+  screen). No money anywhere (ADR 0008).
+- Stored in the demo database (`capacity`: ranking, k, caught, missed, precision, recall,
+  rings caught, rings touched), built by `just demo-build`; `docs/analysis/s7.3-capacity.json`
+  keeps the checkpoints (k = 50, 100, 211, 500, 1,000, 5,000).
+
+**Acceptance criteria**
+- [ ] Unit (first): `caught + missed == n_positives`; recall and F1 on a hand-built case;
+      the curve equals `evaluate()` (precision, caught, rings caught/touched) at the default
+      ks and 20 random ks, on random data with ties.
+- [ ] Live: at k = 5,000 the model curve gives 542 caught (s6.8) and the rules curve 21;
+      the ring numbers at k = 5,000 are written down with their definition, and ADR 0008 /
+      the stories corrected if "127" is not the reading they say.
+- [ ] The 100-a-day point (k = 211) is in the JSON with all four rankings — the demo's
+      opening sentence.
+- [ ] `capacity` readable by `demo_reader`; 20,000 rows; rebuild deterministic.
+
+**Done 2026-11-22.** `evaluate()` reports `caught_at_k`, `missed_at_k`, `recall_at_k`,
+`f1_at_k` (minority-class F1, R-2). `evaluation/capacity.py`: every k in one pass, held equal
+to `evaluate()` k by k (3 seeds, default + 20 random ks). Demo table `capacity` (4 rankings ×
+5,000 k = 20,000 rows) and `docs/analysis/s7.3-capacity.json`. Live: model at k = 5,000 → 542
+caught, **127 rings caught (≥ half their hops) and 140 touched** — so "127" is the *caught*
+reading; ADR 0008 and this file said "touched" and are corrected. Rules 21. **The demo's
+opening sentence (100 a day, k = 211):** the system catches 167 of 1,083 laundering
+transactions and 35 of 168 rings (81 touched); rules alone 1 and 0; random 0. The rule
+override costs 3 at that size (model alone 170) — written into ADR 0007.
 
 ## S7.4 — Why this alert, in plain words
 

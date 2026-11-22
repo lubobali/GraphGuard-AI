@@ -1,0 +1,231 @@
+{
+  "window_days": 2.1069,
+  "per_day_note": "a team working N alerts a day handles k = N x window_days alerts",
+  "rings_note": "caught = >= 50% of a ring's validation hops in the top k; touched = any",
+  "rankings": {
+    "system": {
+      "50": {
+        "caught": 41,
+        "missed": 1042,
+        "precision": 0.82,
+        "recall": 0.03785780240073869,
+        "rings_caught": 3,
+        "rings_touched": 30,
+        "rings_total": 168
+      },
+      "100": {
+        "caught": 89,
+        "missed": 994,
+        "precision": 0.89,
+        "recall": 0.08217913204062789,
+        "rings_caught": 12,
+        "rings_touched": 53,
+        "rings_total": 168
+      },
+      "211": {
+        "caught": 167,
+        "missed": 916,
+        "precision": 0.7914691943127962,
+        "recall": 0.15420129270544783,
+        "rings_caught": 35,
+        "rings_touched": 81,
+        "rings_total": 168
+      },
+      "500": {
+        "caught": 253,
+        "missed": 830,
+        "precision": 0.506,
+        "recall": 0.23361034164358263,
+        "rings_caught": 60,
+        "rings_touched": 101,
+        "rings_total": 168
+      },
+      "1000": {
+        "caught": 333,
+        "missed": 750,
+        "precision": 0.333,
+        "recall": 0.3074792243767313,
+        "rings_caught": 79,
+        "rings_touched": 117,
+        "rings_total": 168
+      },
+      "5000": {
+        "caught": 542,
+        "missed": 541,
+        "precision": 0.1084,
+        "recall": 0.5004616805170822,
+        "rings_caught": 127,
+        "rings_touched": 140,
+        "rings_total": 168
+      }
+    },
+    "model": {
+      "50": {
+        "caught": 48,
+        "missed": 1035,
+        "precision": 0.96,
+        "recall": 0.0443213296398892,
+        "rings_caught": 4,
+        "rings_touched": 34,
+        "rings_total": 168
+      },
+      "100": {
+        "caught": 95,
+        "missed": 988,
+        "precision": 0.95,
+        "recall": 0.08771929824561403,
+        "rings_caught": 14,
+        "rings_touched": 56,
+        "rings_total": 168
+      },
+      "211": {
+        "caught": 170,
+        "missed": 913,
+        "precision": 0.8056872037914692,
+        "recall": 0.1569713758079409,
+        "rings_caught": 36,
+        "rings_touched": 81,
+        "rings_total": 168
+      },
+      "500": {
+        "caught": 253,
+        "missed": 830,
+        "precision": 0.506,
+        "recall": 0.23361034164358263,
+        "rings_caught": 60,
+        "rings_touched": 102,
+        "rings_total": 168
+      },
+      "1000": {
+        "caught": 332,
+        "missed": 751,
+        "precision": 0.332,
+        "recall": 0.30655586334256696,
+        "rings_caught": 79,
+        "rings_touched": 117,
+        "rings_total": 168
+      },
+      "5000": {
+        "caught": 542,
+        "missed": 541,
+        "precision": 0.1084,
+        "recall": 0.5004616805170822,
+        "rings_caught": 127,
+        "rings_touched": 140,
+        "rings_total": 168
+      }
+    },
+    "rules": {
+      "50": {
+        "caught": 0,
+        "missed": 1083,
+        "precision": 0.0,
+        "recall": 0.0,
+        "rings_caught": 0,
+        "rings_touched": 0,
+        "rings_total": 168
+      },
+      "100": {
+        "caught": 0,
+        "missed": 1083,
+        "precision": 0.0,
+        "recall": 0.0,
+        "rings_caught": 0,
+        "rings_touched": 0,
+        "rings_total": 168
+      },
+      "211": {
+        "caught": 1,
+        "missed": 1082,
+        "precision": 0.004739336492890996,
+        "recall": 0.0009233610341643582,
+        "rings_caught": 0,
+        "rings_touched": 0,
+        "rings_total": 168
+      },
+      "500": {
+        "caught": 4,
+        "missed": 1079,
+        "precision": 0.008,
+        "recall": 0.003693444136657433,
+        "rings_caught": 0,
+        "rings_touched": 2,
+        "rings_total": 168
+      },
+      "1000": {
+        "caught": 4,
+        "missed": 1079,
+        "precision": 0.004,
+        "recall": 0.003693444136657433,
+        "rings_caught": 0,
+        "rings_touched": 2,
+        "rings_total": 168
+      },
+      "5000": {
+        "caught": 21,
+        "missed": 1062,
+        "precision": 0.0042,
+        "recall": 0.019390581717451522,
+        "rings_caught": 1,
+        "rings_touched": 13,
+        "rings_total": 168
+      }
+    },
+    "random": {
+      "50": {
+        "caught": 0,
+        "missed": 1083,
+        "precision": 0.0,
+        "recall": 0.0,
+        "rings_caught": 0,
+        "rings_touched": 0,
+        "rings_total": 168
+      },
+      "100": {
+        "caught": 0,
+        "missed": 1083,
+        "precision": 0.0,
+        "recall": 0.0,
+        "rings_caught": 0,
+        "rings_touched": 0,
+        "rings_total": 168
+      },
+      "211": {
+        "caught": 0,
+        "missed": 1083,
+        "precision": 0.0,
+        "recall": 0.0,
+        "rings_caught": 0,
+        "rings_touched": 0,
+        "rings_total": 168
+      },
+      "500": {
+        "caught": 1,
+        "missed": 1082,
+        "precision": 0.002,
+        "recall": 0.0009233610341643582,
+        "rings_caught": 0,
+        "rings_touched": 0,
+        "rings_total": 168
+      },
+      "1000": {
+        "caught": 3,
+        "missed": 1080,
+        "precision": 0.003,
+        "recall": 0.002770083102493075,
+        "rings_caught": 0,
+        "rings_touched": 2,
+        "rings_total": 168
+      },
+      "5000": {
+        "caught": 7,
+        "missed": 1076,
+        "precision": 0.0014,
+        "recall": 0.006463527239150508,
+        "rings_caught": 1,
+        "rings_touched": 5,
+        "rings_total": 168
+      }
+    }
+  }
+}
