@@ -1,7 +1,7 @@
 import dagre from "@dagrejs/dagre";
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow } from "@xyflow/react";
 import type { Edge, Node, NodeProps } from "@xyflow/react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { money, playOrder, toFlow } from "../lib/caseLogic.js";
 import s from "./RingGraph.module.css";
 
@@ -9,7 +9,8 @@ import s from "./RingGraph.module.css";
 // are edges. Play reveals the money in time order; a table holds the same payments.
 type Graph = Parameters<typeof toFlow>[0];
 type AccountData = { name: string; bank: string; kind: string };
-const NW = 180, NH = 54;
+const NW = 160, NH = 54;
+const MIN_READABLE = 0.75; // below this the 11-12 px labels are unreadable (screenshot #21)
 
 function AccountNode({ data }: NodeProps<Node<AccountData>>) {
   return (
@@ -26,7 +27,8 @@ const nodeTypes = { account: AccountNode };
 function layout(flow: ReturnType<typeof toFlow>) {
   const g = new dagre.graphlib.Graph();
   // ranksep leaves room for an amount label between columns (labels ran into boxes at 110)
-  g.setGraph({ rankdir: "LR", nodesep: 26, ranksep: 180, marginx: 10, marginy: 10 });
+  // and stays narrow enough that a 5-column ring is still readable (180 made #21 tiny)
+  g.setGraph({ rankdir: "LR", nodesep: 26, ranksep: 140, marginx: 10, marginy: 10 });
   g.setDefaultEdgeLabel(() => ({}));
   flow.nodes.forEach((n: { id: string }) => g.setNode(n.id, { width: NW, height: NH }));
   flow.edges.forEach((e: { source: string; target: string }) => g.setEdge(e.source, e.target));
@@ -50,6 +52,13 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
   const flow = useMemo(() => toFlow(graph), [graph]);
   const { nodes, size } = useMemo(() => layout(flow), [flow]);
   const [dark, setDark] = useState(false);
+  // Never open below a readable zoom: a wide ring opens centred, with a note to pan or fit.
+  const box = useRef<HTMLDivElement>(null);
+  const [wide, setWide] = useState(false);
+  useEffect(() => {
+    const w = box.current?.clientWidth ?? 0;
+    setWide(w > 0 && (w / size.w) < MIN_READABLE);
+  }, [size.w]);
   useEffect(() => {
     const q = window.matchMedia?.("(prefers-color-scheme: dark)");
     const read = () => {
@@ -108,13 +117,14 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
           {graph.window_hours} h before the alert · nothing after it · at most {graph.cap} payments per account and direction
         </span>
       </div>
-      <div className={s.canvas} style={{ height: canvasHeight(size.h) }} aria-hidden="true">
+      {wide && <p className="muted" style={{ fontSize: 12, margin: "0 0 6px" }}>Wide ring: drag to see more, or press ⛶ (bottom left) to see it all.</p>}
+      <div ref={box} className={s.canvas} style={{ height: canvasHeight(size.h) }} aria-hidden="true">
         {/* colorMode: the controls and attribution were light-on-dark blanks (screenshots) */}
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.2}
-          colorMode={dark ? "dark" : "light"} fitViewOptions={{ padding: 0.08 }}
+          colorMode={dark ? "dark" : "light"} fitViewOptions={{ padding: 0.08, minZoom: MIN_READABLE }}
           nodesConnectable={false} elementsSelectable={false} proOptions={{ hideAttribution: false }}>
           <Background gap={24} size={1} color="var(--grid)" />
-          <Controls showInteractive={false} />
+          <Controls showInteractive={false} fitViewOptions={{ padding: 0.08 }} />
         </ReactFlow>
       </div>
       <ul className={s.legend}>
