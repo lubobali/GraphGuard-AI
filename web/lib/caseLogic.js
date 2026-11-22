@@ -96,3 +96,34 @@ export function agentView(reports) {
     seconds: r.report.seconds ?? null,
   }));
 }
+
+/** The answer key in plain words (screenshot 2026-11-22: "Laundering · ring type
+ *  SCATTER-GATHER · 17 payments" read as jargon). */
+const TYPE_TEXT = {
+  "FAN-OUT": "one account sent money out to many accounts",
+  "FAN-IN": "many accounts sent money into one account",
+  CYCLE: "money went around in a circle back to where it started",
+  "GATHER-SCATTER": "money was collected into one account, then sent out to many",
+  "SCATTER-GATHER": "money was split to many accounts, then collected into one",
+  STACK: "money was passed on through layers of accounts",
+  BIPARTITE: "a group of accounts paid another group of accounts",
+  RANDOM: "money hopped through a random chain of accounts",
+};
+
+export function answerText(answer) {
+  if (!answer.is_laundering) {
+    return { verdict: "NO", headline: "This payment was not money laundering.",
+      detail: "A normal payment that the model ranked high. Closing it would be the right call." };
+  }
+  const how = TYPE_TEXT[answer.pattern_type];
+  const n = answer.ring_hops.length;
+  return {
+    verdict: "YES",
+    headline: "This payment was money laundering.",
+    detail: [
+      n > 1 ? `It is one of ${n} payments in the same laundering scheme.` : null,
+      how ? `The scheme's shape: ${how}.` : null,
+      n > 1 ? "The red arrows are the scheme's payments in this picture." : null,
+    ].filter(Boolean).join(" "),
+  };
+}

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import RingGraph from "../../components/RingGraph";
 import WhyBars from "../../components/WhyBars";
 import { get } from "../../lib/api";
-import { agentView, money } from "../../lib/caseLogic.js";
+import { agentView, answerText, money } from "../../lib/caseLogic.js";
 import { fmt, topShare } from "../../lib/logic.js";
 import s from "./case.module.css";
 
@@ -185,14 +185,18 @@ export default function CasePage() {
               onClick={() => get<Answer>(`/alerts/${id}/answer`).then(setAnswer).catch((e) => setError(String(e)))}>
               Show the answer key
             </button>
-          ) : (
-            <span className={answer.is_laundering ? s.yes : s.no}>
-              {answer.is_laundering ? "Laundering" : "Not laundering"}
-              {answer.pattern_type ? ` · ring type ${answer.pattern_type} · ${answer.ring_hops.length} payments in the window` : ""}
-            </span>
-          )}
+          ) : null}
         </div>
-        {answer && <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>The answer key is the simulator&apos;s truth. A bank would not know this on the day (labels arrive days to weeks later).</p>}
+        {answer && (() => {
+          const t = answerText(answer);
+          return (
+            <div className={answer.is_laundering ? s.answerYes : s.answerNo} role="status">
+              <p className={s.answerHead}><span className={s.verdict}>{t.verdict}</span> {t.headline}</p>
+              {t.detail && <p className={s.answerDetail}>{t.detail}</p>}
+              <p className={s.answerNote}>Answer key = the simulator&apos;s truth. A real bank would not know this on the day: labels arrive days to weeks later.</p>
+            </div>
+          );
+        })()}
         {a.ring ? <RingGraph graph={a.ring} ringTx={answer ? new Set(answer.ring_hops) : null} /> :
           <p className="muted">The picture is kept for the top 20,000 of the queue.</p>}
       </section>

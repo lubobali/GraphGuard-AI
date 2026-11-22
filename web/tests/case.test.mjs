@@ -56,3 +56,12 @@ test("the agent's report keeps checked claims and shows dropped ones with the re
   assert.match(view[0].dropped[0].why, /no cited payment/);
   assert.deepEqual(agentView(undefined), []);
 });
+
+test("the answer key says YES or NO in plain words", async () => {
+  const { answerText } = await import("../lib/caseLogic.js");
+  const yes = answerText({ is_laundering: true, pattern_type: "SCATTER-GATHER", ring_hops: new Array(17) });
+  assert.equal(yes.verdict, "YES");
+  assert.match(yes.detail, /one of 17 payments/);
+  assert.match(yes.detail, /split to many accounts, then collected into one/);
+  assert.equal(answerText({ is_laundering: false, pattern_type: null, ring_hops: [] }).verdict, "NO");
+});

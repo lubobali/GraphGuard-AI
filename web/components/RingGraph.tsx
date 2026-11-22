@@ -85,7 +85,8 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
   const edges: Edge[] = flow.edges.map((e: ReturnType<typeof toFlow>["edges"][number]) => {
     const inRing = ringTx !== null && e.tx !== null && ringTx.has(e.tx);
     const on = e.tx === null || visible.has(e.id);
-    const color = inRing ? "var(--ring-hl)" : e.alert ? "var(--accent)" : "var(--edge)";
+    // the alert stays blue even when it is in the scheme: you must still see which one was flagged
+    const color = e.alert ? "var(--accent)" : inRing ? "var(--ring-hl)" : "var(--edge)";
     return {
       id: e.id, source: e.source, target: e.target,
       label: e.amount !== null ? money(e.amount, e.currency) : undefined,
@@ -130,7 +131,7 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
       <ul className={s.legend}>
         <li><span className={s.swatch} style={{ background: "var(--accent)" }} />the alert</li>
         <li><span className={s.swatch} style={{ background: "var(--edge)" }} />earlier payment</li>
-        {ringTx && <li><span className={s.swatch} style={{ background: "var(--ring-hl)" }} />in the laundering ring (answer key)</li>}
+        {ringTx && <li><span className={s.swatch} style={{ background: "var(--ring-hl)" }} />in the laundering scheme (answer key)</li>}
         <li><span className={s.swatchDash} />more payments, not drawn</li>
       </ul>
       <details className={s.table}>
