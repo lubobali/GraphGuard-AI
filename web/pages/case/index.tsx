@@ -35,11 +35,16 @@ function AgentDraft({ reports }: { reports: Alert["agent"] }) {
         Written by an AI from the same read-only data you see here (never the answer key). A checker
         kept only the claims it could match to a payment; the rest are shown as dropped. The AI drafts, you decide.
       </p>
+      <p className="muted" style={{ fontSize: 13 }}>
+        Measured on 64 test alerts never used to build the checker: before checking, 4-6% of the AI&apos;s claims
+        were unsupported. Its ring-type guesses were right for only 7-8 of 40 laundering alerts, about as often
+        as a guess. Treat the type as a hint, not a finding (FINDING-019).
+      </p>
       <div className={s.agentGrid}>
         {views.map((v) => (
           <div key={v.model}>
-            <h3 className={s.h3}>{v.label} · <span className="ink2">ring type: {v.typology}</span></h3>
-            <p className={s.agentSummary}>{v.summary}</p>
+            <h3 className={s.h3}>{v.label} · <span className="ink2">ring-type guess: {v.typology}</span></h3>
+            <p className={s.agentSummary}><span className="muted">Summary (not checked):</span> {v.summary}</p>
             {v.kept.length > 0 && (
               <ul className={s.claims}>
                 {v.kept.map((c, i) => (

@@ -612,27 +612,33 @@ secret-set openrouter.env`). Estimated cost: under $1 per full DeepSeek run, ~$1
   dropped claims shown as dropped. The agent drafts; the person decides.
 
 **Acceptance criteria**
-- [ ] Unit (first): the checker on hand-built reports (a wrong amount, an uncited id, a made-up
+- [x] Unit (first): the checker on hand-built reports (a wrong amount, an uncited id, a made-up
       number in prose, a wrong count → unsupported; correct ones → supported); the template is
       100% supported on real alerts; tools cannot reach the answer key.
-- [ ] Baseline measured on the eval set **now** (no key needed): ring-type recall, none-evident
+- [x] Baseline measured on the eval set **now** (no key needed): ring-type recall, none-evident
       rate, 0 unsupported.
-- [ ] With the key: the LLM run on all 64; both rates and the comparison published in
+- [x] With the key: the LLM run on all 64; both rates and the comparison published in
       `docs/analysis/s7.10-agent.json` and a FINDING, whatever they say.
 
-**In progress 2026-11-22 — the half that needs no key is done.** `agent/checker.py` (12 tests:
-wrong amount / currency / time / direction / count, uncited ids, invented numbers in prose →
-unsupported; Wilson intervals), `agent/tools.py` (read-only; a test parses the code and finds no
-path to the answer key, and a live spy shows the tools only ever call the alert view),
-`agent/template.py` (the baseline), `agent/evalset.py` → `docs/analysis/s7.10-evalset.json`
-(64 cases: 5 per ring type + 24 clean, seeded). **Baseline measured**
-(`docs/analysis/s7.10-baseline.json`): 149 claims, **0 unsupported** (95% CI 0–2.5%) — after the
-baseline exposed a real checker bug (numbers inside account names, "Corporation #35871", were
-read as invented amounts; test + fix); ring type right **7 of 40**; "none evident" right on
-**11 of 24** clean alerts. That is the bar. `openrouter.env` is registered as an optional secret
-(health stays green until it exists) and `just secret-set openrouter.env` takes it, format-checked,
-nothing printed. **Waiting on Lubo for the key**; then: the MCP server, the LLM runner, the run
-on all 64, `s7.10-agent.json`, a FINDING, and the report on the Case page.
+**Done 2026-11-22.** Part 1 (no key): checker (wrong amount / currency / time / direction / count, uncited ids,
+invented numbers → unsupported; Wilson intervals), read-only tools (a test parses the code: no path to
+the answer key), template baseline, eval set — baseline on set 1: 149 claims, 0 unsupported, ring
+type 7 of 40, none evident 11 of 24 (set 2: 157, 0, 4 of 40, 13 of 24). Part 2: Lubo's OpenRouter key ($10 credit limit, pasted in chat by his choice — stored
+600, accepted risk recorded privately). `agent/llm.py` (tools bound to one alert, no id argument;
+6 model calls per alert; a dollar cap per run; temperature 0; reasoning <= 3,000 tokens — a
+2,000-token reply cap left one smoke-test alert all reasoning, no report) and
+`agent/mcp_server.py` (the same four tools over MCP, `mcp` 2.3 in a new `agent` extra). Set 1 run
+on DeepSeek V4.1 Flash ($0.13) and Claude Sonnet 5.5 ($1.40): the first judgement dropped 20.8% /
+8.5% of claims, and reading every drop showed **the checker was the main source of error** (ids as
+text, accounts by id, the 72 h window, bank names, the rules' words) — fixed with tests, re-judged,
+both passes published. Because the checker was then fitted to set 1, **set 2** (64 new alerts, no
+overlap) was drawn and judged by the checker frozen at c16b79c: **unsupported before the checker
+4.0% DeepSeek (CI 2.3-6.8%), 5.6% Sonnet (3.1-9.7%); after it 0 shown**; ring type 8 / 7 of 40 vs
+the template's 4 (a blind guess is 5 — nobody can tell the type from the as-of view); "none
+evident" on clean alerts 11 / 18 of 24 vs 13. FINDING-019, `docs/analysis/s7.10-agent.json`,
+MLflow stage `s7.10-agent`. **Case page:** "AI draft, checked" for the 128 eval alerts (table
+`agent_reports`, API image 0.1.16), dropped claims shown with the reason, summary labelled "not
+checked", the type labelled a hint. Total spend $3.07.
 
 ## S7.11 — The test on a real person (the Phase 7 gate)
 

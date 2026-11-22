@@ -1,0 +1,185 @@
+{
+  "what": "S7.10: LLM investigator vs the template baseline on the 64-case eval set (validation alerts, synthetic AMLworld). The checker judges every claim; unsupported claims are dropped before anything is shown.",
+  "baseline": {
+    "reporter": "template baseline (code, no LLM)",
+    "cases": 64,
+    "claims": 149,
+    "unsupported": 0,
+    "unsupported_rate": 0.0,
+    "unsupported_rate_95ci": [
+      0.0,
+      0.0251
+    ],
+    "ring_type_recall": "7 of 40",
+    "none_evident_correct": "11 of 24"
+  },
+  "models": [
+    {
+      "reporter": "anthropic/claude-sonnet-5.5",
+      "cases": 64,
+      "claims": 201,
+      "unsupported_before_checker": 5,
+      "unsupported_rate_before_checker": 0.0249,
+      "unsupported_rate_95ci": [
+        0.0107,
+        0.0569
+      ],
+      "unsupported_after_checker": 0,
+      "dropped_by_reason": {
+        "number": 5
+      },
+      "ring_type_recall": "6 of 40",
+      "none_evident_correct": "16 of 24",
+      "no_report": 0,
+      "seconds_median": 7.34,
+      "seconds_max": 12.39,
+      "model_calls": 128,
+      "tokens_in": 367866,
+      "tokens_out": 66206,
+      "cost_usd": 1.3978,
+      "first_pass_checker": {
+        "reporter": "anthropic/claude-sonnet-5.5",
+        "cases": 64,
+        "claims": 201,
+        "unsupported_before_checker": 17,
+        "unsupported_rate_before_checker": 0.0846,
+        "unsupported_rate_95ci": [
+          0.0535,
+          0.1313
+        ],
+        "unsupported_after_checker": 0,
+        "dropped_by_reason": {
+          "number": 17
+        },
+        "ring_type_recall": "6 of 40",
+        "none_evident_correct": "16 of 24",
+        "no_report": 0,
+        "seconds_median": 7.34,
+        "seconds_max": 12.39,
+        "model_calls": 128,
+        "tokens_in": 367866,
+        "tokens_out": 66206,
+        "cost_usd": 1.3978
+      }
+    },
+    {
+      "reporter": "deepseek/deepseek-v4.1-flash",
+      "cases": 64,
+      "claims": 298,
+      "unsupported_before_checker": 14,
+      "unsupported_rate_before_checker": 0.047,
+      "unsupported_rate_95ci": [
+        0.0282,
+        0.0773
+      ],
+      "unsupported_after_checker": 0,
+      "dropped_by_reason": {
+        "cites": 1,
+        "number": 3,
+        "relation": 10
+      },
+      "ring_type_recall": "9 of 40",
+      "none_evident_correct": "5 of 24",
+      "no_report": 0,
+      "seconds_median": 11.22,
+      "seconds_max": 69.61,
+      "model_calls": 137,
+      "tokens_in": 277859,
+      "tokens_out": 158256,
+      "cost_usd": 0.1336,
+      "first_pass_checker": {
+        "reporter": "deepseek/deepseek-v4.1-flash",
+        "cases": 64,
+        "claims": 298,
+        "unsupported_before_checker": 62,
+        "unsupported_rate_before_checker": 0.2081,
+        "unsupported_rate_95ci": [
+          0.1658,
+          0.2577
+        ],
+        "unsupported_after_checker": 0,
+        "dropped_by_reason": {
+          "cites": 12,
+          "number": 32,
+          "relation": 18
+        },
+        "ring_type_recall": "9 of 40",
+        "none_evident_correct": "5 of 24",
+        "no_report": 0,
+        "seconds_median": 11.22,
+        "seconds_max": 69.61,
+        "model_calls": 137,
+        "tokens_in": 277859,
+        "tokens_out": 158256,
+        "cost_usd": 0.1336
+      }
+    }
+  ],
+  "set2": {
+    "what": "64 new alerts (no overlap), drawn after the checker was fixed on set 1 and judged by the checker frozen at commit c16b79c: the clean measurement.",
+    "baseline": {
+      "reporter": "template baseline (code, no LLM)",
+      "cases": 64,
+      "claims": 157,
+      "unsupported": 0,
+      "unsupported_rate": 0.0,
+      "unsupported_rate_95ci": [
+        0.0,
+        0.0239
+      ],
+      "ring_type_recall": "4 of 40",
+      "none_evident_correct": "13 of 24"
+    },
+    "models": [
+      {
+        "reporter": "anthropic/claude-sonnet-5.5",
+        "cases": 64,
+        "claims": 198,
+        "unsupported_before_checker": 11,
+        "unsupported_rate_before_checker": 0.0556,
+        "unsupported_rate_95ci": [
+          0.0313,
+          0.0967
+        ],
+        "unsupported_after_checker": 0,
+        "dropped_by_reason": {
+          "number": 11
+        },
+        "ring_type_recall": "7 of 40",
+        "none_evident_correct": "18 of 24",
+        "no_report": 0,
+        "seconds_median": 7.48,
+        "seconds_max": 11.01,
+        "model_calls": 140,
+        "tokens_in": 405380,
+        "tokens_out": 66317,
+        "cost_usd": 1.4739
+      },
+      {
+        "reporter": "deepseek/deepseek-v4.1-flash",
+        "cases": 64,
+        "claims": 303,
+        "unsupported_before_checker": 12,
+        "unsupported_rate_before_checker": 0.0396,
+        "unsupported_rate_95ci": [
+          0.0228,
+          0.0679
+        ],
+        "unsupported_after_checker": 0,
+        "dropped_by_reason": {
+          "number": 5,
+          "relation": 7
+        },
+        "ring_type_recall": "8 of 40",
+        "none_evident_correct": "11 of 24",
+        "no_report": 0,
+        "seconds_median": 12.26,
+        "seconds_max": 43.56,
+        "model_calls": 142,
+        "tokens_in": 283990,
+        "tokens_out": 165122,
+        "cost_usd": 0.1238
+      }
+    ]
+  }
+}

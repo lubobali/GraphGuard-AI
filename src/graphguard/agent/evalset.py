@@ -3,7 +3,7 @@ the validation queue, seeded. Ids and expected answers only -- the expected answ
 the answer key, which no tool can reach.
 
     python -m graphguard.agent.evalset            # writes docs/analysis/s7.10-evalset.json
-    python -m graphguard.agent.evalset baseline   # scores the template baseline on it
+    python -m graphguard.agent.evalset baseline [2]   # the template baseline on set 1 [or 2]
     python -m graphguard.agent.evalset fresh      # set 2: 64 new alerts, none of set 1's
 """
 
@@ -82,14 +82,14 @@ def main(argv: list[str]) -> int:
     if len(argv) > 1 and argv[1] == "baseline":
         from graphguard.agent import template
 
-        cases = json.loads(OUT.read_text())["cases"]
+        fresh = len(argv) > 2 and argv[2] == "2"
+        cases = json.loads((OUT2 if fresh else OUT).read_text())["cases"]
         result = {
             "reporter": "template baseline (code, no LLM)",
             **score(repo, cases, template.report),
         }
-        (REPO_ROOT / "docs" / "analysis" / "s7.10-baseline.json").write_text(
-            json.dumps(result, indent=2) + "\n"
-        )
+        name = "s7.10-baseline-2.json" if fresh else "s7.10-baseline.json"
+        (REPO_ROOT / "docs" / "analysis" / name).write_text(json.dumps(result, indent=2) + "\n")
         print(json.dumps(result, indent=2))
         return 0
     if len(argv) > 1 and argv[1] == "fresh":

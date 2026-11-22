@@ -349,11 +349,14 @@ def log_to_mlflow(result: dict) -> None:
     from graphguard.tracking import start_tracking
 
     _, exp = start_tracking()
-    for m in [result["baseline"], *result["models"]]:
-        with mlflow.start_run(experiment_id=exp, run_name=f"s7.10 agent: {m['reporter']}"):
+    sets = [("set1", result["baseline"], result["models"])]
+    if "set2" in result:
+        sets.append(("set2", result["set2"]["baseline"], result["set2"]["models"]))
+    for name, m in [(n, m) for n, b, ms in sets for m in [b, *ms]]:
+        with mlflow.start_run(experiment_id=exp, run_name=f"s7.10 agent {name}: {m['reporter']}"):
             mlflow.set_tags({"stage": "s7.10-agent", "data": "validation (synthetic AMLworld)"})
             mlflow.log_params({"reporter": m["reporter"], "cases": m["cases"],
-                               "max_turns": MAX_TURNS})  # fmt: skip
+                               "eval_set": name, "max_turns": MAX_TURNS})  # fmt: skip
             unsupported = m.get("unsupported_before_checker", m.get("unsupported", 0))
             mlflow.log_metrics({
                 "claims": m["claims"],
@@ -395,6 +398,16 @@ def main(argv: list[str]) -> int:
             "baseline": baseline,
             "models": [{**summarize(r), "first_pass_checker": r.get("first_pass")} for r in runs],
         }
+        set2 = [json.loads(p.read_text()) for p in sorted((RUNS_DIR / "set2").glob("*.json"))]
+        if set2:
+            result["set2"] = {
+                "what": "64 new alerts (no overlap), drawn after the checker was fixed on set "
+                "1 and judged by the checker frozen at commit c16b79c: the clean measurement.",
+                "baseline": json.loads(
+                    (REPO_ROOT / "docs/analysis/s7.10-baseline-2.json").read_text()
+                ),
+                "models": [summarize(r) for r in set2],
+            }
         OUT.write_text(json.dumps(result, indent=2) + "\n")
         print(json.dumps(result, indent=2))
         log_to_mlflow(result)
@@ -416,7 +429,8 @@ def main(argv: list[str]) -> int:
             print(p.name, json.dumps(summarize(out)))
         return 0
     if cmd == "store":
-        runs = [json.loads(p.read_text()) for p in sorted(RUNS_DIR.glob("*.json"))]
+        paths = sorted(RUNS_DIR.glob("*.json")) + sorted((RUNS_DIR / "set2").glob("*.json"))
+        runs = [json.loads(p.read_text()) for p in paths]
         print(f"{store(runs)} checked reports -> demo.agent_reports")
         return 0
     print(__doc__)

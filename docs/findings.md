@@ -723,3 +723,58 @@ it carries signal in this simulator (whether a bank would show it is unknown).
 demo build). The screens tell the truth about the current model: a weekday reason is labelled
 as a simulator calendar pattern. **The first Phase 8 challenger is the model without weekday**,
 promoted only through champion/challenger.
+
+## FINDING-019 — The AI investigator: 4-6% of its claims are unsupported before checking; its ring-type guesses are no better than code
+
+*Found: 2026-11-22, Phase 7 (S7.10). Acts on: the Case page's AI draft, the agent's place in
+the product, how any LLM feature here is measured. Data: synthetic (IBM AMLworld), validation
+window.*
+
+**Setup.** An LLM (through OpenRouter) gets one alert and four read-only tools (the alert, the
+model's reasons, the money flow before the alert, both accounts' history), bound to that alert
+— it cannot reach another alert or the answer key. It writes a short summary, a ring-type guess
+(AMLworld's eight types or "none evident") and claims that cite transaction ids. A deterministic
+checker (`agent/checker.py`) keeps a claim only if its ids were shown and its amounts, times,
+relations, counts and numbers match the cited payments. Compared with a template that builds the
+same report from code. Each eval set: 64 alerts from the top 5,000 — 5 per ring type + 24 clean.
+Results: `docs/analysis/s7.10-agent.json` (MLflow, stage `s7.10-agent`).
+
+**The checker was wrong first.** On set 1, its first pass dropped 20.8% of Claude Sonnet 5.5's
+claims and 8.5% of DeepSeek's. Reading every drop showed most were checker bugs, not model
+errors: ids written as text, accounts named by id (the prompt allowed it), "72 hours" (the window
+the tool itself states), bank names, the rules' own words. Fixed with tests; set 1 re-judged
+(both passes published). Because the checker was then tuned on set 1, **set 2 — 64 new alerts —
+was drawn afterwards and judged by the checker frozen at commit c16b79c.** Set 2 is the clean
+number.
+
+| Set 2 (clean) | Claims | Unsupported before checker | 95% CI | Ring type right (of 40) | "None evident" right on clean (of 24) | Cost / alert | Median time |
+|---|---|---|---|---|---|---|---|
+| Template (code) | 157 | 0 | 0-2.4% | 4 | 13 | 0 | 0 |
+| DeepSeek V4.1 Flash | 303 | 12 (4.0%) | 2.3-6.8% | 8 | 11 | $0.002 | 12.3 s |
+| Claude Sonnet 5.5 | 198 | 11 (5.6%) | 3.1-9.7% | 7 | 18 | $0.023 | 7.5 s |
+
+Set 1 after the fixes: DeepSeek 4.7%, Sonnet 2.5% unsupported; ring type 9 and 6 of 40 (template
+7); none-evident 5 and 16 of 24 (template 11). After the checker, 0 unsupported claims are shown,
+by construction — dropped claims are displayed as dropped, with the reason.
+
+**What "unsupported" means.** Of set 2's 23 drops, 8 are durations ("about 50 minutes earlier")
+the checker cannot verify — possibly true. 15 are real: numbers from payments the claim did not
+cite, a "10,000 reporting line" that is not in the data (the rule says 9,000-9,999.99), payer
+lists squeezed into one relation, one wrong direction. **What the checker does not judge:** the
+free-text summary and interpretations ("shows no fan pattern"). The page labels the summary
+"not checked".
+
+**Ring type: nobody can tell from this view.** 4-9 of 40 for every reporter, where a blind guess
+among eight is 5. The drawing shows only payments before the alert, capped per account (rule 2 of
+the leakage contract applies to pictures), so most of a ring is often not there yet. The LLMs do
+not beat the template here; the page says the type is a hint.
+
+**Where the models differ:** on clean alerts. Sonnet said "none evident" on 34 of 48 across both
+sets, the template 24, DeepSeek 16 — DeepSeek finds a ring in most clean alerts. For an
+investigator, a draft that cries wolf costs time.
+
+**Decision.** The agent stays a drafting aid: checked claims with links to transactions, the
+summary marked unchecked, the type marked a hint, the person decides. Both models' reports are
+shown on the 128 eval alerts. Spent: $3.07 of the key's $10 limit. Not done: a human rating of
+summaries, and claims about durations (the checker could compute them from the cited times — a
+Phase 8 candidate).
