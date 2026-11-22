@@ -130,6 +130,26 @@ or firewall rules can each add latency. Phase 6's Kafka is then born inside the 
 The "touch Redis once" reason for doing the lakehouse first (S5.6) is already met:
 `just store-load` rebuilds Redis from gold in 13 s.
 
+### R-4 — The interface follows real case managers (Phase 7)
+
+*2026-11-22, before Phase 7. Research `docs/research/AML investigator interface research
+2026.md`; decisions in ADR 0008, made for Lubo at his request. Affects Phase 7 only.*
+
+- **What one alert is:** a transaction (what was evaluated), shown grouped by sending
+  account — not "ranked accounts", which no model here scores.
+- **Counts at a fixed workload, no money totals:** amounts are in 15 currencies with no
+  exchange rates, so "laundering value caught" cannot be shown as money.
+- **The demo team works 100 alerts a day** (the slider covers the rest); ADR 0007's 5,000 per
+  window stays the evaluation's k.
+- **"Same stack as LuBot's frontend"** becomes Next.js static export + React + React Flow and
+  a small FastAPI read API (LuBot's code is off limits to this project).
+- **Model risk:** SR 11-7 was replaced by SR 26-2 (April 2026); the About page follows it.
+- **Private first:** the demo is reached over the ssh tunnel; a public URL is its own later
+  step through the LuBot session.
+- **The tester** for the gate is named: Lubo's wife.
+
+Unchanged: three pages, SHAP reasons, the ring, the slider, the measured agent, the gate.
+
 ---
 
 ## Why this project exists
@@ -522,13 +542,16 @@ memory flat under caps (`docs/analysis/s6.11-soak-run2.json`).
 
 ### Phase 7 — The interface
 
-Same stack as LuBot's frontend. Written for a person who does not know what a model is.
+Next.js (static export) + React + React Flow, a small FastAPI read API (R-4, ADR 0008).
+Written for a person who does not know what a model is. Synthetic data, said on every page.
 
-- **Alert queue** — ranked accounts, highest risk first, what to look at and why
+- **Alert queue** — alerts (one per transaction) grouped by sending account, highest risk
+  first, with a due time, what to look at and why (R-4)
 - **The ring, drawn** — the actual subgraph that triggered it. This is the screen that
   makes the whole project land, because you can see the shape
 - **Capacity slider** — how many alerts a day can you work, and what does that cost you
-  in missed laundering. Real numbers from the real evaluation, recomputed live
+  in missed laundering. Real numbers from the real evaluation, in counts (transactions and
+  rings), never money totals (15 currencies, R-4). Default: a 100-alert-a-day team
 - **Why this alert** — the features that drove the score, from **SHAP** over the
   production model, alongside the accounts and hops from the subgraph. Written as
   GNNExplainer; the tree serves, so SHAP explains the thing that actually decided (R-1)
@@ -544,7 +567,7 @@ Same stack as LuBot's frontend. Written for a person who does not know what a mo
   About (diagram, the result, links)
 
 **Done means:** someone non-technical looks at it and can say what the system does and
-what they would do next — tested on a real person, not on yourself — and the agent's
+what they would do next — tested on a real person, not on yourself (Lubo's wife) — and the agent's
 unsupported-claim rate is measured and at zero on the eval set.
 
 ### Phase 8 — Monitoring, and the honest write-up

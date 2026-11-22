@@ -575,6 +575,11 @@ small; the direction is not ambiguous.
 an investigator whatever the score (~27 a day at validation rates). A model that knows
 "new" as a feature, rather than reading zeros, is a Phase 8 retraining candidate.
 
+*Update 2026-11-22 (S7.0):* the ~27 a day was measured against a fixed snapshot. The live
+stream (S6.3) learns each account the moment it appears, so in the overnight soak
+"both accounts new" fired **5 times in the whole validation window** (1 of 5 laundering,
+S6.8). The rule stands; the queue load it adds is negligible.
+
 **Also fixed here.** An empty store (after a Redis restart, before the refill) used to
 make every account look new — 54 such answers were seen during the S5b.6 rotation. Now
 `store-load` writes a marker last; without it the scorer answers 503 "not loaded", and

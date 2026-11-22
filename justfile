@@ -207,6 +207,11 @@ image-import:
     docker save graphguard/serving:{{IMAGE_TAG}} | k3s ctr images import -
     k3s ctr -n k8s.io images label docker.io/graphguard/serving:{{IMAGE_TAG}} io.cri-containerd.pinned=pinned
 
+# S7.0: keep the running scorer image + one rollback; remove our older tags from k3s and
+# Docker (dry run first: `{{UV}} run python -m graphguard.ops.images`).
+image-prune:
+    {{UV}} run python -m graphguard.ops.images --apply
+
 k8s-deploy:
     k3s kubectl apply -f k8s/namespace.yaml
     k3s kubectl apply -f k8s/networkpolicy.yaml

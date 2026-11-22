@@ -5,9 +5,9 @@ dataset.
 
 **Full build plan:** `PLAN.md`. Read it before starting a phase — this file is the rules,
 that file is the work. **Read its "Plan revisions" section too**: the plan has been
-changed three times (R-1, the GNN losing Phase 4; R-2, a Nov 2026 re-check against
+changed four times (R-1, the GNN losing Phase 4; R-2, a Nov 2026 re-check against
 the market, the research and the stack — see `docs/research/`; R-3, box security as
-its own Phase 5b), and revisions
+its own Phase 5b; R-4, the interface follows real case managers — ADR 0008), and revisions
 are recorded there with their cause rather than applied silently.
 
 **The production model is XGBoost, not the GNN** (R-1). Serving, explainability and
@@ -84,14 +84,15 @@ being fixed, never *what is open* (Lubo, 2026-11-18, after a LuBot list was comm
 ports, own Postgres and Redis (not LuBot's), own S3 bucket, own IAM user scoped to that
 bucket only. Everything lives in `/srv/graphguard`.
 
-**Hard memory caps on every container.** Not optional — swap on this box sits at ~99%
-full.
+**Hard memory caps on every container.** Not optional — swap on this box has sat at ~99%
+full (2.1 of 4 GB on 2026-11-22; it moves with LuBot's load).
 
 **Ask before:** installing anything system-wide, or starting any container.
 **Box-wide changes** (Docker, nginx, firewall, reboots) go to the LuBot session first (agreed
 2026-11-19). When it reports its services re-bound, run `just edge-baseline`.
 
-Budget: ~4GB RAM, ~25GB disk. Box has 8 cores, ~19GB RAM available, ~96GB disk free.
+Budget: ~4GB RAM, ~25GB disk. Box has 8 cores, ~19GB RAM available, ~36GB disk free (2026-11-22, was ~96GB; old scorer images were most of
+GraphGuard's share — `just image-prune`).
 Keep it that way.
 
 ---
@@ -155,7 +156,7 @@ The old per-job `apt-get` (~7 s of every job) is gone: git and curl are in the j
 | Compose project | `graphguard` |
 | Network | `graphguard-net` |
 | Volumes | `graphguard-mlflow-db-data`, `graphguard-mlflow-artifacts` |
-| Memory caps | MLflow 640M (1 worker, job system off: 354 MiB), Postgres 256M, Redis 448M (S6.3), Kafka 768M (S6.4) — measured |
+| Memory caps | MLflow 640M (1 worker, job system off: 354 MiB), Postgres 384M (S6.11), Redis 448M (S6.3), Kafka 768M (S6.4) — measured |
 
 Ports 5000, 5432 and 5433 were already taken on this host, which is why these
 are 5010 and 5434. **Credentials live in `.secrets/`** - gitignored, `chmod 600`,
@@ -179,8 +180,8 @@ only on the local socket — `src/graphguard/ops/pg_access.py` (`just pg-access`
 capabilities, no-new-privileges, pids limit, read-only root, non-root, digest, log
 rotation, private ports) — a new service that skips it fails the build.
 
-MLflow runs 2 web workers: with the default 4 it idled at 730 MiB of private memory;
-with 2 it idles at ~426 MiB and peaks at ~486 MiB (2026-11-18).
+MLflow runs 1 web worker with its job system off (354 MiB). History: the default 4 workers
+idled at 730 MiB of private memory; 2 idled at ~426 MiB, peak ~486 MiB (2026-11-18).
 
 ---
 
@@ -350,7 +351,8 @@ crash between Redis and Postgres, broker restart), each must be exact. Rules:
 `rule_thresholds.py` (`python -m graphguard.stream.rules` also writes
 `docs/analysis/s6.8-rules.json`); queue order + alert line in ADR 0007. On AMLworld rules are
 a baseline/safety net, not an alert source (FINDING-016). A consumer code change = a new image
-tag (never rebuild a tag the scorer runs) + roll both.
+tag (never rebuild a tag the scorer runs) + roll both, then `just image-prune` (keeps the
+running tag + one rollback; each old tag is ~2.4 GB in Docker and ~0.7 GB in k3s).
 
 ## The consumer (S6.6, 2026-11-21)
 
@@ -548,7 +550,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **done** (2026-11-22) — S6.1-S6.11: alert, exact live features (FINDING-015, ADR 0005), Kafka (ADR 0006), replayer, consumer on k3s, chaos 6/6, rules (FINDING-016, ADR 0007), late labels (FINDING-017), shadow; overnight soak exact on 1,015,300 transactions |
-| 7 | The interface — queue, ring, slider, measured investigator agent | not started |
+| 7 | The interface — queue, ring, slider, measured investigator agent | **in progress** — research + stories approved 2026-11-22 (`docs/stories/phase-7.md`, ADR 0008); tester: Lubo's wife |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |
 | 9 | Second dataset — TransXion robustness check (R-2) | not started |

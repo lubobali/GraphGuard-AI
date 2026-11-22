@@ -8,7 +8,8 @@
 #
 # Rule: deny all ingress by default; let KubeRay's operator in (it reads Serve
 # status through the dashboard); open only the scoring port 8000 to the rest.
-# Egress is not restricted: the scorer must reach Redis and, later, S3.
+# Egress is denied by default too (S5b.1, below): the scorer may reach only DNS, Redis,
+# S3 (networkpolicy-s3.yaml) and Ray-internal ports.
 # Enforced by k3s's embedded kube-router network-policy controller.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -71,7 +72,7 @@ spec:
 # Egress (S5b.1): the scorer reaches only what it needs -- DNS, the online store
 # (Redis on the host's pod bridge), and other Ray nodes. Everything else (the
 # internet, the Kubernetes API, the kubelet, other host ports) times out.
-# S5.7 will add S3 here when the model is loaded from it.
+# S3 for the model download is allowed in its own file (networkpolicy-s3.yaml, S5.7).
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

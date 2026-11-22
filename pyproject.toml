@@ -1,7 +1,7 @@
 [project]
 name = "graphguard"
 version = "0.1.0"
-description = "Money laundering detection with a graph neural network on IBM AMLworld"
+description = "Money laundering detection on IBM AMLworld: XGBoost in production, a GNN as the research arm"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [

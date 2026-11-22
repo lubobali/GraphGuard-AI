@@ -3,9 +3,11 @@
 Detecting money laundering in 5 million bank transfers by the **shape** the money
 moves in, not by any single transaction.
 
-> **Status:** Phases 0–4 complete — data, evaluation harness, tuned tabular
-> baseline, and a graph neural network compared against it. Phase 5 (serving)
-> next. Build plan in [`PLAN.md`](PLAN.md).
+> **Status:** Phases 0–6 complete — data, evaluation harness, tuned tabular
+> baseline (XGBoost, in production), a graph neural network compared against it,
+> serving on k3s, box security, and a replayed Kafka stream that ran overnight with
+> every decision equal to the offline evaluation. Phase 7 (the investigator
+> interface) in progress. Build plan in [`PLAN.md`](PLAN.md).
 
 ---
 
@@ -219,7 +221,8 @@ checksummed. Reruns are byte-identical.
 | Phase | | |
 |---|---|---|
 | 0–4 | data, harness, baseline, graph model | done |
-| 5 | serving — online feature store, Ray Serve on k3s, p99 < 50ms | next |
-| 6 | replayed transaction stream |  |
-| 7 | the interface — alert queue, the ring drawn, capacity slider |  |
+| 5 | serving — online feature store, Ray Serve on k3s, p99 < 50ms | done |
+| 5b | box security — hardened services, per-job users, backups | done |
+| 6 | replayed transaction stream — Kafka 4, rules, late labels, overnight soak | done |
+| 7 | the interface — alert queue, the ring drawn, capacity slider, measured agent | in progress |
 | 8 | monitoring, retraining DAG, champion/challenger, model card |  |

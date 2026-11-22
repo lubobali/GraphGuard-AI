@@ -28,7 +28,9 @@ untuned one 400, so the two are not perfectly controlled. The tuned model won
 with fewer trees, which understates rather than inflates the gain.
 
 Both clear the dumb baselines by a wide margin (random 0.00103, by-amount
-0.00170). **The number that should be quoted is 0.248**, not 0.360.
+0.00170). **The number to quote is 0.28155** (tuned, artifacts removed — the production
+model); 0.248 is the same features untuned. **Never 0.360**: the generator inflates it.
+*(Wording made consistent 2026-11-22, S7.0; no result changed.)*
 
 ---
 
@@ -123,8 +125,9 @@ decision time and a real bank would have them. They are worse in a different
 way: they are properties of IBM's simulator that would not hold in real data,
 so a model leaning on them would not transfer.
 
-Phase 8 must state plainly that the defensible number is **PR-AUC 0.248 with
-the artifacts removed**, and that the 0.360 figure is inflated by the generator.
+Phase 8 must state plainly that the defensible number is **PR-AUC 0.28155 with
+the artifacts removed** (0.248 before tuning), and that the 0.360 figure is inflated by the
+generator.
 
 Phase 4's GNN must be compared against **the artifact-free tabular model**, or
 the comparison is rigged in the GNN's favour.

@@ -1,6 +1,6 @@
 # Phase 7 — The interface: stories
 
-**Status:** draft 2026-11-22, waiting for Lubo's approval. Research behind it:
+**Status:** approved by Lubo 2026-11-22 (decisions D1-D8 made for him, as he asked). S7.0 in progress. Research behind it:
 `docs/research/AML investigator interface research 2026.md` (five web tracks + a full code
 read, notes beside it). Lubo asked for the decisions to be made for him ("make it look
 real"); each is written below with its reason, and ADR 0008 records them.
@@ -60,18 +60,62 @@ ourselves — and the agent's unsupported-claim rate is measured and at zero on 
 
 ---
 
-## S7.0 — The decisions, written down (ADR 0008)
+## S7.0 — The decisions, written down (ADR 0008), and the ground cleaned
 
-**As** Lubo, **I want** every Phase 7 choice recorded with its reason, **so that** I can
-explain each one in an interview and nobody has to guess later.
+**As** Lubo, **I want** every Phase 7 choice recorded with its reason and the docs telling
+the truth, **so that** I can explain each choice in an interview and Phase 7 starts on
+facts, not stale notes.
 
-- [ ] `docs/adr/0008-the-investigator-interface.md`: D1–D8 above, each with the options
-      considered, the choice, the reason, and what would change it.
-- [ ] PLAN.md Phase 7: "ranked accounts" → D1; "same stack as LuBot" → D5; the change
-      recorded under Plan revisions (cause: research 2026-11-22), not applied silently.
-- [ ] Stale docs fixed: README "next phase", `pyproject.toml` description (still says GNN),
-      CLAUDE.md memory/disk numbers (Postgres cap, MLflow workers, disk free, swap),
-      `leakage_audit.md`'s two "numbers to quote", the `k8s/networkpolicy.yaml` header.
+**Tasks and acceptance criteria**
+
+1. **ADR 0008** `docs/adr/0008-the-investigator-interface.md`, in the house ADR format:
+   - [ ] D1-D8, each with the options considered, the choice, the reason (with its source
+         in the research), and what would make us change it.
+   - [ ] The numbers it rests on, checked against `docs/analysis/s6.8-rules.json`:
+         1,083 laundering transactions in validation; top 5,000 → 542 caught (541 missed),
+         rules 21; 127 of 168 rings touched; alert line 5,000 per ~50.6 h ≈ 2,370/day vs
+         the demo's 100/day (why both exist).
+2. **PLAN.md**, changed openly, not silently:
+   - [ ] New revision **R-4** under "Plan revisions" (date, cause = the 2026-11-22
+         research, what changed, what did not).
+   - [ ] Phase 7 text: "ranked accounts" → D1; "same stack as LuBot's frontend" → D5;
+         SR 26-2 replaces SR 11-7 wherever it is named; no money totals; the tester.
+3. **Stale docs fixed** (each checked against the code or the box first):
+   - [ ] `README.md`: status line and "What is next" table (Phases 5, 5b, 6 done; 7 next).
+   - [ ] `pyproject.toml` description: XGBoost in production, GNN as research arm (R-1).
+   - [ ] `CLAUDE.md`: Postgres cap 384M; MLflow "1 worker" vs "2 web workers" (compose
+         says `--workers 1` — the paragraph is the stale one); disk free; swap; image
+         tags in the k3s/consumer notes; Phase 7 row "in progress".
+   - [ ] `docs/leakage_audit.md`: one number to quote — PR-AUC **0.28155** (tuned,
+         artifact-free, the production model); 0.248 is the untuned artifact-free run;
+         never 0.360. No result changes, only the wording.
+   - [ ] `k8s/networkpolicy.yaml` header: says egress is unrestricted; the file denies
+         egress by default (S5b.1). Comment only.
+   - [ ] FINDING-014 gets a dated note: the live stream fires "both new" ~5 times per
+         window, not ~27/day (that was the static snapshot).
+4. **Disk: image retention** (found while checking the numbers: 11 scorer images of
+   ~2.4 GB each in Docker and in k3s; only 0.1.12 runs):
+   - [ ] `just image-prune`: keeps the running tag and the one before it (rollback),
+         unpins and removes the rest from k3s and Docker. Never touches other projects'
+         images or Docker's shared build cache.
+   - [ ] A unit test for the keep/remove choice (never the running tag, never the
+         rollback tag, never a non-GraphGuard image).
+   - [ ] Measured before/after disk; `just k8s-check` green after.
+5. **Done when:** `just check` green, CI green, both remotes equal, LuBot untouched.
+
+Out of scope: any code for the screens (S7.1+).
+
+**Done 2026-11-22.** ADR 0008 (D1-D8, the numbers checked against `s6.8-rules.json`);
+PLAN.md R-4 + Phase 7 text; stale docs fixed in README, pyproject, CLAUDE.md (Postgres cap,
+MLflow workers, disk, swap, revision count), leakage audit (one number: 0.28155), network
+policy comments, FINDING-014 (live: "both new" fired 5 times in the window — checked in the
+soak's decisions). **Disk:** `just image-prune` (`ops/images.py`, 5 unit tests) removed 9 old
+scorer tags; k3s also kept each removed image under its sha256 name (`ctr images rm` drops
+only the tag), so those 9 were removed too and the code now uses `crictl rmi`. Free disk
+**28 GB → 60 GB**, k3s image store 23 GB → 4.9 GB; running 0.1.12 and rollback 0.1.11 kept;
+`k8s-check` green. Docker's shared build cache (~48 GB, used by LuBot too) left alone.
+Note: free disk fell ~8 GB in an hour before the prune, not from GraphGuard's data (Kafka
+266 MB, Postgres 1.6 GB, repo 5.2 GB) — reported to Lubo for the LuBot session.
 
 ## S7.1 — Demo data that a test run cannot erase, read through a read-only login
 
