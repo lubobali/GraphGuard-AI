@@ -1,6 +1,7 @@
 """Rotate every secret generated on the box, one kind at a time (S5b.6).
 
-    just rotate-pg <role>       mlflow_app | lakekeeper | dex | openfga | lakehouse | superuser
+    just rotate-pg <role>       mlflow_app | lakekeeper | dex | openfga | lakehouse | stream_app
+                                | demo_owner | demo_reader | demo_writer | superuser
     just rotate-identities      the four Dex client secrets
     just rotate-openfga         the OpenFGA preshared key (OpenFGA <-> Lakekeeper)
     just rotate-redis           the three Redis users, scorer rolled with zero downtime
@@ -248,6 +249,29 @@ def stream_db_ok() -> None:
         cur.execute("SELECT 1")
 
 
+def _demo_ok(role: str):
+    def check() -> None:
+        from graphguard.demo import db as ddb
+
+        with ddb.connect(role, secrets_dir=SECRETS) as conn, conn.cursor() as cur:
+            cur.execute("SELECT 1")
+
+    return check
+
+
+def _demo_plan(role: str) -> RolePlan:
+    from graphguard.demo import db as ddb
+
+    # No restart yet: the read API that uses reader/writer arrives in S7.6.
+    return RolePlan(
+        role,
+        [ddb.ENV_FILE],
+        lambda pw: reg.set_env_values(SECRETS / ddb.ENV_FILE, {ddb.VAR[role]: pw}),
+        lambda: None,
+        _demo_ok(role),
+    )
+
+
 def _plan(role: str) -> RolePlan:
     none = lambda: None  # noqa: E731
     plans = {
@@ -273,6 +297,7 @@ def _plan(role: str) -> RolePlan:
             "stream_app", ["stream-db.env"],
             lambda pw: reg.set_env_values(SECRETS / "stream-db.env", {"STREAM_DB_PASSWORD": pw}),
             _roll_consumer, stream_db_ok),
+        **{r: (lambda r=r: _demo_plan(r)) for r in ("demo_owner", "demo_reader", "demo_writer")},
         "superuser": lambda: RolePlan(
             _env("mlflow.env")["MLFLOW_DB_USER"], ["mlflow.env"],
             lambda pw: reg.set_env_values(SECRETS / "mlflow.env", {"MLFLOW_DB_PASSWORD": pw}),
@@ -326,6 +351,10 @@ def _old_pg_password(role: str) -> str:
         "openfga": lambda: _env("governance.env")["OPENFGA_DB_PASSWORD"],
         "lakehouse": lambda: _env("lakehouse.env")["LAKEHOUSE_DB_PASSWORD"],
         "stream_app": lambda: _env("stream-db.env")["STREAM_DB_PASSWORD"],
+        **{
+            r: (lambda r=r: _env("demo-db.env")[f"{r.upper()}_PASSWORD"])
+            for r in ("demo_owner", "demo_reader", "demo_writer")
+        },  # fmt: skip
         "superuser": lambda: _env("mlflow.env")["MLFLOW_DB_PASSWORD"],
     }[role]()
 

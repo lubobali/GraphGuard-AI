@@ -34,7 +34,22 @@ SERVICES: dict[str, tuple[str, str | tuple[str, ...]]] = {
     "lakehouse": ("lakehouse", GATEWAY),  # host-side SQL-catalog rollback only
     # The stream's decisions (S6.6): the consumer pod, and the host for its live tests.
     "stream": ("stream_app", (PODS, GATEWAY)),
+    # The investigator demo (S7.1): its owner loads it from the host (just demo-build).
+    "demo": ("demo_owner", GATEWAY),
 }
+
+# Databases with more than one role (S7.1): each extra role reaches ONLY that database.
+# demo_reader: SELECT only (the read API, S7.6); demo_writer: INSERT into verdicts only.
+EXTRA_ROLES: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    "demo": (("demo_reader", (NETWORK, GATEWAY)), ("demo_writer", (NETWORK, GATEWAY))),
+}
+
+
+def roles_by_database() -> dict[str, set[str]]:
+    out = {db: {role} for db, (role, _) in SERVICES.items()}
+    for db, extras in EXTRA_ROLES.items():
+        out.setdefault(db, set()).update(role for role, _ in extras)
+    return out
 
 
 def hba_lines(services: dict[str, tuple[str, str]] = SERVICES) -> list[str]:
@@ -43,7 +58,10 @@ def hba_lines(services: dict[str, tuple[str, str]] = SERVICES) -> list[str]:
         "# TYPE  DATABASE          USER          ADDRESS            METHOD",
         "local   all               all                              scram-sha-256",
     ]
-    for db, (role, sources) in services.items():
+    entries = [(db, role, sources) for db, (role, sources) in services.items()]
+    if services is SERVICES:
+        entries += [(db, r, src) for db, extras in EXTRA_ROLES.items() for r, src in extras]
+    for db, role, sources in entries:
         for source in (sources,) if isinstance(sources, str) else sources:
             lines.append(f"host    {db:<17} {role:<13} {source:<18} scram-sha-256")
     lines += [

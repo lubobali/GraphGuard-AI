@@ -11,7 +11,7 @@ from urllib.parse import unquote, urlsplit
 import pytest
 
 from graphguard.config import REPO_ROOT
-from graphguard.ops.pg_access import SERVICES
+from graphguard.ops.pg_access import SERVICES, roles_by_database
 
 pytestmark = [
     pytest.mark.integration,
@@ -43,6 +43,11 @@ def _passwords() -> dict[str, str]:
         "lakehouse": _env("lakehouse.env")["LAKEHOUSE_DB_PASSWORD"],
         "stream_app": _env("stream-db.env")["STREAM_DB_PASSWORD"],  # the stream (S6.6)
         "graphguard": _env("mlflow.env")["MLFLOW_DB_PASSWORD"],  # the superuser
+        # the investigator demo (S7.1)
+        **{
+            r: _env("demo-db.env")[f"{r.upper()}_PASSWORD"]
+            for r in ("demo_owner", "demo_reader", "demo_writer")
+        },  # fmt: skip
         "mlflow_auth": next(  # MLflow's login store (S5b.7): its line in the pgpass file
             ln.split(":", 4)[4]
             for ln in (SECRETS / "mlflow-pgpass").read_text().splitlines()
@@ -63,7 +68,8 @@ def _connects(role: str, db: str, pw: str) -> bool:
         return False
 
 
-ROLES = sorted({role for role, _ in SERVICES.values()})
+BY_DB = roles_by_database()
+ROLES = sorted(set().union(*BY_DB.values()))
 DATABASES = sorted(SERVICES)
 
 
@@ -71,7 +77,7 @@ DATABASES = sorted(SERVICES)
 def test_each_role_reaches_exactly_its_own_databases(role):
     pw = _passwords()[role]
     reached = {db for db in DATABASES if _connects(role, db, pw)}
-    assert reached == {db for db, (r, _) in SERVICES.items() if r == role}
+    assert reached == {db for db, roles in BY_DB.items() if role in roles}
 
 
 def test_the_superuser_is_refused_over_the_network():

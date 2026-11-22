@@ -327,6 +327,16 @@ project is reported to its session, never changed by us; accept on purpose with
 replay's 2022 event times live in the message body). **Tests never write to or empty the stream's topics**: live tests use the `probe.*` mirror (the S6.11 soak caught them deleting live records). Keep the JVM hardening flag in
 `KAFKA_OPTS` (test-enforced; why and when to drop it: `private/security/`). ADR 0006.
 
+## The investigator demo data (S7.1, 2026-11-22)
+
+Database `demo` (Postgres, 734 MB), separate from `stream` so stream resets never reach it:
+`transactions` (the queue: priority/rank/percentile, names, both currencies — never summed),
+`accounts`, `truth` (the answer key, apart on purpose), `verdicts` (append-only audit),
+`build_info`. Roles: `demo_owner` (loads, host only), `demo_reader` (SELECT only),
+`demo_writer` (INSERT verdicts only) — `pg_access.EXTRA_ROLES`. `just demo-setup | demo-build`
+(from the soak's decisions; refuses an incomplete stream; 2.5 GB cap). ADR 0008 holds the rules
+every screen follows (synthetic banner, counts not money, rank not "chance", as-of ring).
+
 ## Shadow scoring (S6.10, 2026-11-21)
 
 `graphguard-shadow` (k3s, `k8s/shadow.yaml`): the challenger scores the champion's own

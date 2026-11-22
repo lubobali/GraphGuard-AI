@@ -122,20 +122,62 @@ Note: free disk fell ~8 GB in an hour before the prune, not from GraphGuard's da
 **As** an investigator using the demo, **I want** the queue to be there tomorrow, **so
 that** a soak or chaos run never empties the screen.
 
-Today every soak, e2e and chaos run truncates the stream tables, and the only database
-login can write.
+Today every soak, e2e and chaos run truncates the stream tables (`db.reset()`), and the only
+database login (`stream_app`) can write.
 
-- [ ] A `demo` schema built from the soak's validation decisions: one command
-      (`just demo-build`) copies decisions, joins what the UI needs (currencies, banks,
-      payment format, account names — D8) and adds indexes for the queue's sorts. Stream
-      resets do not touch it (test: run `db.reset()`, the demo is unchanged).
-- [ ] A **SELECT-only** role `demo_reader` on the `demo` schema only, through
-      `pg_access.SERVICES` (registry entry, rotation, backup covered automatically). Live
-      test: it cannot write, cannot read `stream` tables, cannot read other databases.
-- [ ] The verdict table (D7) is the only writable table, owned by a separate `demo_writer`
-      role used only by the API's verdict endpoint.
-- [ ] Rebuilding is deterministic: same inputs → same rows (hash in the build output).
-- [ ] Postgres stays under its cap (measured before/after).
+**Design.** A separate Postgres **database `demo`** (not a schema in `stream`: a stream reset
+cannot reach another database). Three roles, each with the least it needs:
+
+| Role | May | From | Used by |
+|---|---|---|---|
+| `demo_owner` | own the tables, load them | host only | `just demo-build` (root, on the host) |
+| `demo_reader` | `SELECT` on the demo tables, nothing else | GraphGuard network + host | the read API (S7.6), tests |
+| `demo_writer` | `INSERT` into `verdicts` only (D7) | GraphGuard network + host | the API's verdict endpoint |
+
+Tables (built from the soak's 1,015,300 validation decisions + silver + the accounts file):
+- `transactions` — one row per scored transaction: time, both accounts and banks, both
+  amounts and currencies (never summed, ADR 0008), payment format, score, **priority**
+  (`rules.priority`, ADR 0007), **rank** and **percentile** (by priority, ties by event
+  order — the queue's order), rules, alert, cold policy, model version, the feature vector.
+- `accounts` — (bank id, account) → bank name, entity name (D8). The key is the pair: 8
+  account numbers exist at two banks each (found while reading the file).
+- `truth` — event id → is_laundering. **Kept apart** from `transactions` so the queue and the
+  agent never read it by accident; the capacity curve and the answer-key tab do (S7.3, S7.8).
+- `verdicts` — event id, verdict (escalate / close), note, at. Append-only audit (D7).
+- `build_info` — when, from which soak run, model version, row counts, content hash.
+
+**Acceptance criteria**
+- [ ] `src/graphguard/demo/db.py` (roles, database, schema; idempotent) and
+      `src/graphguard/demo/build.py` (the load); `just demo-setup`, `just demo-build`.
+- [ ] Pure parts unit-tested first: rank/percentile order, account-name join on the pair,
+      truth split out, the content hash stable for the same input.
+- [ ] Built only from the validation window (`assert_in_validation`); refuses to build if
+      the stream's decisions are incomplete (count ≠ the validation window's 1,015,300) or
+      not from one model version.
+- [ ] Live tests: `demo_reader` can SELECT but not INSERT/UPDATE/DELETE/CREATE; cannot
+      connect to `stream` or any other database; `demo_writer` can INSERT a verdict but
+      not change `transactions`, not delete verdicts. `db.reset()` of the stream leaves
+      `demo` unchanged.
+- [ ] `pg_access`: the two extra roles get their own hba lines (no `trust`, SCRAM); the
+      existing live access test covers them. Passwords in `.secrets/demo-*.env`, each in
+      the secrets registry with a rotation command; `demo` is backed up automatically
+      (it is in `SERVICES`).
+- [ ] Rebuilding is deterministic: same inputs → same content hash.
+- [ ] Postgres memory measured before/after; disk size of `demo` recorded.
+
+Out of scope: the API (S7.6), ring edges (S7.5), ring ids (S7.2).
+
+**Done 2026-11-22.** `demo/db.py` + `demo/build.py`, `just demo-setup | demo-build`. Database
+`demo` (734 MB): 1,015,300 transactions (rank 1 = highest priority; the stream's 5,000 alerts
+are exactly ranks 1-5,000 — a live test), 1,083 laundering in `truth`, 518,581 accounts.
+Three roles, live-tested: the reader cannot write or create; the writer can only add a
+verdict (cannot read the queue, change or delete verdicts); a bad verdict is refused by the
+table; `stream_app` cannot even connect to `demo`. Deterministic: four builds, identical
+fingerprints. **Memory:** the first build peaked at 3.5 GB (a million rows as Python
+objects); now COPY out, sliced CSV in, vectorised priority (test: equal to
+`rules.priority`) → 2.0 GB, run under a 2.5 GB cap; 41 s. Postgres 310 of 384 MiB (68 MB
+anon, the rest cache). `demo-db.env` registered (44 secrets, 0 problems), rotation
+`just rotate-pg demo_owner|demo_reader|demo_writer`, `demo` in the nightly backup.
 
 ## S7.2 — The ring list in the lakehouse, with the test window sealed
 

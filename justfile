@@ -544,6 +544,15 @@ consumer-logs:
     k3s kubectl logs -n graphguard deploy/graphguard-consumer --tail=50
 
 # Reset the stream to the start: empty the topics and the decision tables, reload Redis.
+# S7.1: the investigator demo's own database (roles + tables), then its data from the
+# stream's validation decisions (refuses an incomplete stream). Stream resets never touch it.
+demo-setup:
+    {{UV}} run python -m graphguard.ops.pg_access
+    {{UV}} run python -m graphguard.demo.db setup
+
+demo-build:
+    systemd-run --scope --quiet -p MemoryMax=2560M {{UV}} run python -m graphguard.demo.build
+
 stream-reset:
     {{UV}} run python -c "from graphguard.stream import e2e; e2e.reset()"
 

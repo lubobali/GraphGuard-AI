@@ -117,6 +117,11 @@ REGISTRY: dict[str, Secret] = {
     "stream-db.env": S(
         "stream consumer (Postgres role stream_app)", "just rotate-pg stream_app", BOX_DAYS
     ),
+    "demo-db.env": S(
+        "investigator demo (Postgres demo_owner / demo_reader / demo_writer, S7.1)",
+        "just rotate-pg demo_owner, demo_reader, demo_writer",
+        BOX_DAYS,
+    ),
     # Kafka (S6.4): all passwords + cluster id, and one file per login.
     "kafka.env": S("Kafka logins (all) + cluster id", "just rotate-kafka", BOX_DAYS),
     **{
