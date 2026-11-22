@@ -21,3 +21,8 @@
 .table th, .table td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--grid); }
 .alertRow { font-weight: 600; }
 .ringRow td { color: var(--ring-hl-ink); }
+/* React Flow's own chrome, in our tokens (it ignored the dark theme) */
+.canvas :global(.react-flow__controls-button) { background: var(--surface-2); color: var(--ink); border-color: var(--grid); }
+.canvas :global(.react-flow__controls-button svg) { fill: currentColor; }
+.canvas :global(.react-flow__attribution) { background: transparent; }
+.canvas :global(.react-flow__attribution a) { color: var(--muted); }

@@ -25,21 +25,41 @@ const nodeTypes = { account: AccountNode };
 
 function layout(flow: ReturnType<typeof toFlow>) {
   const g = new dagre.graphlib.Graph();
-  g.setGraph({ rankdir: "LR", nodesep: 26, ranksep: 110, marginx: 10, marginy: 10 });
+  // ranksep leaves room for an amount label between columns (labels ran into boxes at 110)
+  g.setGraph({ rankdir: "LR", nodesep: 26, ranksep: 180, marginx: 10, marginy: 10 });
   g.setDefaultEdgeLabel(() => ({}));
   flow.nodes.forEach((n: { id: string }) => g.setNode(n.id, { width: NW, height: NH }));
   flow.edges.forEach((e: { source: string; target: string }) => g.setEdge(e.source, e.target));
   dagre.layout(g);
-  return flow.nodes.map((n: { id: string; name: string; bank: string; kind: string }) => {
+  const size = { w: g.graph().width ?? 600, h: g.graph().height ?? 300 };
+  const nodes = flow.nodes.map((n: { id: string; name: string; bank: string; kind: string }) => {
     const p = g.node(n.id);
     return { id: n.id, type: "account", position: { x: p.x - NW / 2, y: p.y - NH / 2 },
       data: { name: n.name, bank: n.bank, kind: n.kind } } as Node<AccountData>;
   });
+  return { nodes, size };
+}
+
+/** Canvas height that keeps text readable: a tall ring gets a tall canvas (case #1 shrank
+ *  to unreadable in 420 px), within 320-760 px. */
+function canvasHeight(h: number) {
+  return Math.round(Math.min(760, Math.max(320, h * 0.85 + 40)));
 }
 
 export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set<number> | null }) {
   const flow = useMemo(() => toFlow(graph), [graph]);
-  const nodes = useMemo(() => layout(flow), [flow]);
+  const { nodes, size } = useMemo(() => layout(flow), [flow]);
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const q = window.matchMedia?.("(prefers-color-scheme: dark)");
+    const read = () => {
+      const t = document.documentElement.dataset.theme;
+      setDark(t ? t === "dark" : !!q?.matches);
+    };
+    read();
+    q?.addEventListener?.("change", read);
+    return () => q?.removeEventListener?.("change", read);
+  }, []);
   const order = useMemo(() => playOrder(flow.edges), [flow]);
   const [shown, setShown] = useState<number>(order.length);
   const [playing, setPlaying] = useState(false);
@@ -88,8 +108,10 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
           {graph.window_hours} h before the alert · nothing after it · at most {graph.cap} payments per account and direction
         </span>
       </div>
-      <div className={s.canvas} aria-hidden="true">
+      <div className={s.canvas} style={{ height: canvasHeight(size.h) }} aria-hidden="true">
+        {/* colorMode: the controls and attribution were light-on-dark blanks (screenshots) */}
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.2}
+          colorMode={dark ? "dark" : "light"} fitViewOptions={{ padding: 0.08 }}
           nodesConnectable={false} elementsSelectable={false} proOptions={{ hideAttribution: false }}>
           <Background gap={24} size={1} color="var(--grid)" />
           <Controls showInteractive={false} />

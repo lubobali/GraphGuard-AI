@@ -81,3 +81,15 @@ export function nearest(points, perDay) {
   for (const p of points) if (Math.abs(p.perDay - perDay) < Math.abs(best.perDay - perDay)) best = p;
   return best;
 }
+
+/** Direct labels at line ends: keep them at least `gap` px apart, inside [lo, hi], in the
+ *  same top-to-bottom order as their lines (screenshot 2026-11-22: two labels overlapped). */
+export function spreadLabels(ys, gap, lo, hi) {
+  const order = ys.map((y, i) => i).sort((a, b) => ys[a] - ys[b]);
+  const out = [...ys];
+  let prev = lo - gap;
+  for (const i of order) { out[i] = Math.max(ys[i], prev + gap); prev = out[i]; }
+  let next = hi + gap; // then pull back from the bottom, moving only the labels that must move
+  for (const i of [...order].reverse()) { out[i] = Math.min(out[i], next - gap); next = out[i]; }
+  return out;
+}

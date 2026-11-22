@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import type { Curve } from "../lib/api";
-import { fmt, nearest, perDayFor, scale, ticks } from "../lib/logic.js";
+import { fmt, nearest, perDayFor, scale, ticks, spreadLabels } from "../lib/logic.js";
 import s from "./CapacityChart.module.css";
 
 // Laundering caught vs alerts a day, for the system, the rules and random (S7.7).
@@ -35,6 +35,8 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
   const y = scale(0, yTicks[yTicks.length - 1], H - M.b, M.t);
   const path = (key: string) => pts[key].map((p, i) => `${i ? "L" : "M"}${x(p.perDay).toFixed(1)},${y(p.caught).toFixed(1)}`).join("");
   const at = hover ?? perDay;
+  const endY: number[] = spreadLabels(
+    SERIES.map(({ key }) => y(pts[key][pts[key].length - 1].caught)), 14, M.t, H - M.b);
   const readout = SERIES.map(({ key, label, color }) => ({ key, label, color, p: nearest(pts[key], at) }));
 
   function move(e: React.PointerEvent<SVGSVGElement>) {
@@ -86,10 +88,10 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
             <path key={key} d={path(key)} fill="none" stroke={color} strokeWidth="2"
               strokeDasharray={dash} strokeLinejoin="round" strokeLinecap="round" />
           ))}
-          {SERIES.map(({ key, label }) => {
+          {SERIES.map(({ key, label }, i) => {
             const last = pts[key][pts[key].length - 1];
             return (
-              <text key={key} x={W - M.r + 8} y={y(last.caught)} className={s.direct} dominantBaseline="middle">
+              <text key={key} x={W - M.r + 8} y={endY[i]} className={s.direct} dominantBaseline="middle">
                 {fmt(last.caught)} · {label.split(" (")[0]}
               </text>
             );

@@ -48,3 +48,12 @@ test("the crosshair snaps to the nearest point", () => {
   const pts = [{ perDay: 0 }, { perDay: 10 }, { perDay: 20 }];
   assert.equal(nearest(pts, 13).perDay, 10);
 });
+
+test("line-end labels never overlap and keep their order", async () => {
+  const { spreadLabels } = await import("../lib/logic.js");
+  const ys = spreadLabels([40, 300, 304], 14, 0, 310); // system high, rules and random close
+  assert.equal(ys[0], 40);
+  assert.ok(ys[2] - ys[1] >= 14 && ys[1] < ys[2]);
+  assert.ok(Math.max(...ys) <= 310);
+  assert.deepEqual(spreadLabels([10, 100], 14, 0, 300), [10, 100]); // far apart: untouched
+});
