@@ -166,6 +166,62 @@ def capacity_table(tx: pl.DataFrame, truth: pl.DataFrame, seed: int, max_k: int 
     return pl.DataFrame(rows)
 
 
+def subgraphs_table(tx: pl.DataFrame, accounts: pl.DataFrame, edges: pl.DataFrame, top_n: int):
+    """S7.5: one as-of money-flow graph per top alert, names on the nodes, the stream's rank
+    and score on edges that are validation transactions. No labels."""
+    from graphguard.demo.subgraph import EdgeIndex, subgraph
+
+    index = EdgeIndex(
+        edges.join(
+            tx.select(pl.col("event_id").alias("source_row"), "rank", "score"),
+            on="source_row",
+            how="left",
+        )
+    )
+    names = {
+        f"{b}:{a}": (bn, en)
+        for b, a, bn, en in accounts.select(
+            "bank_id", "account", "bank_name", "entity_name"
+        ).iter_rows()
+    }
+    top = tx.filter(pl.col("rank") <= top_n).sort("rank")["event_id"].to_list()
+    graphs = []
+    for eid in top:
+        g = subgraph(index, eid)
+        for n in g["nodes"]:
+            n["bank"], n["name"] = names.get(n["id"], (None, None))
+        graphs.append(json.dumps(g, sort_keys=True, separators=(",", ":")))
+    return pl.DataFrame({"event_id": top, "graph": graphs},
+                        schema={"event_id": pl.Int64, "graph": pl.Utf8})  # fmt: skip
+
+
+def _graph_edges() -> pl.DataFrame:
+    """Silver from 72 h before validation to its end: early alerts reach back into training
+    transactions (never the sealed window)."""
+    from graphguard.demo.subgraph import WINDOW
+    from graphguard.evaluation.dataset import frozen_boundaries
+    from graphguard.lakehouse.catalog import open_catalog
+    from graphguard.lakehouse.tables import SILVER_TX, _scan
+
+    train_end, val_end = frozen_boundaries()
+    return (
+        _scan(open_catalog("reader"), SILVER_TX)
+        .filter((pl.col("timestamp") >= train_end - WINDOW) & (pl.col("timestamp") < val_end))
+        .select(
+            "source_row",
+            "timestamp",
+            "from_bank",
+            "from_account",
+            "to_bank",
+            "to_account",
+            "amount_paid",
+            "payment_currency",
+            "payment_format",
+        )  # fmt: skip
+        .collect()
+    )
+
+
 # --- the load ------------------------------------------------------------------------------
 def _decisions() -> tuple[pl.DataFrame, list[str], list[str]]:
     from graphguard.config import REPO_ROOT
@@ -248,12 +304,16 @@ def assemble() -> tuple[dict[str, pl.DataFrame], dict]:
 
     bundle = ModelBundle.load(REPO_ROOT / "models" / "production")
     explanations = explain(tx, feature_names, bundle)  # refuses on any score mismatch
+    from graphguard.demo.explain import TOP_N
+
+    graphs = subgraphs_table(tx, accounts, _graph_edges(), top_n=TOP_N)
     tables = {
         "transactions": tx,
         "truth": truth,
         "accounts": accounts,
         "capacity": capacity,
         "explanations": explanations,
+        "subgraphs": graphs,
     }
     info = {
         "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),

@@ -325,10 +325,49 @@ weekday is Phase 8's first challenger.
 
 ## S7.5 — The ring as it looked at the moment of the alert
 
-**As** an investigator, **I want** the money around an alert drawn, **so that** I can see
-the shape.
-- An as-of subgraph builder (1–2 hops, edges strictly before the alert, hubs collapsed to
-  "+N more" by as-of degree). Leakage test: no edge at or after the alert's time.
+**As** an investigator, **I want** the money around an alert drawn, **so that** I can see the
+shape — fan-out, pass-through, a loop back — that no single row shows.
+
+**Design.**
+- **As of the alert, exactly:** only transactions strictly before it in the project's order —
+  (time, source_row), the same order the features use (FINDING-010). Leakage rule 2 applied
+  to pixels: nothing at or after the alert, ever.
+- **Money-flow view, two hops:** the alert's edge; who paid the sender and who paid *them*
+  (upstream); whom the receiver paid and whom *they* paid (downstream); plus the sender's
+  other payees and the receiver's other payers (one hop). A loop shows up when downstream
+  reaches back to the sender. Following flow, not every neighbour, keeps hubs from
+  exploding the picture.
+- **Window:** the 72 hours before the alert (a ring spans a median of 3 days, FINDING-002),
+  so early validation alerts reach back into the training window's transactions — read from
+  silver (train + validation), never the sealed window.
+- **Hub cap:** at most 6 edges per account per direction, the most recent; the rest collapse
+  into one "+N more" node carrying the count. Self-transfers (reinvestment rows) are left out
+  of the expansion.
+- **Precomputed** for the queue's top 20,000 (the explanations' set) into the demo table
+  `subgraphs` (one JSON graph per alert: nodes with names and banks, edges with time,
+  amount, currency, format, and the stream's score/rank where the edge is a validation
+  transaction). **No labels in it** — ring membership is the answer key's, joined only on
+  its own tab (S7.8).
+
+**Acceptance criteria**
+- [ ] Unit (first): an edge at the alert's minute but later in source order is excluded, an
+      earlier one included; nothing after the alert; the cap and "+N more" count are exact;
+      upstream/downstream follow the money; a loop back to the sender is kept.
+- [ ] Unit: deterministic (same input → identical JSON).
+- [ ] Live: for all 20,000 graphs, every edge is before its alert (checked in SQL on the
+      stored JSON); no graph has more than the cap allows; no node or edge carries a label.
+- [ ] Measured: graph sizes (median, p95, max edges), build time and memory, table size.
+
+**Done 2026-11-22.** `demo/subgraph.py` (`EdgeIndex` + `subgraph()`), demo table `subgraphs`
+(20,000 JSON graphs, 32 MB). Live, over all 20,000: **no edge at or after its alert** in
+(time, source_row) order (checked in SQL on the stored JSON), no label anywhere, under the cap's
+ceiling. Sizes: median 12 edges / 6 accounts, p95 29, max 52; 70.5% of graphs carry a "+N more".
+**Does the picture show the ring?** For the 340 laundering alerts in the top 5,000 whose ring
+has earlier validation hops, the graph shows at least one of them 74.4% of the time, a median of
+73% of them (earlier hops in the training window are not counted: the answer key holds
+validation only). Build 86 s, peak 2.4 GB (from 2.8: arrays instead of 2.2M-element lists).
+Two of my own edits had silently not applied (a replace after reformatting): one `LOADED`
+list now drives both the TRUNCATE and the reader's grants, with a test.
 
 ## S7.6 — A small read API
 

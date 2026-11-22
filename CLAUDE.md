@@ -342,7 +342,8 @@ every screen follows (synthetic banner, counts not money, rank not "chance", as-
 S7.3-S7.4 add `capacity` (the slider's counts, four rankings, held equal to `evaluate()`) and
 `explanations` (exact SHAP for the top 20,000 + three plain reasons; the build refuses unless
 the local bundle reproduces every stored score). FINDING-018: weekday is a simulator artifact
-(first Phase 8 challenger drops it).
+(first Phase 8 challenger drops it). S7.5 adds `subgraphs`: the ring as of each top alert
+(money-flow view, 72 h, ≤ 6 edges per account per direction, nothing at or after the alert).
 
 ## Shadow scoring (S6.10, 2026-11-21)
 

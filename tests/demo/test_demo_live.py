@@ -104,13 +104,7 @@ def test_the_build_is_recorded():
         cur.execute("SELECT info FROM build_info")
         info = cur.fetchone()[0]
     assert info["rows"]["transactions"] == 1_015_300
-    assert set(info["fingerprints"]) == {
-        "transactions",
-        "truth",
-        "accounts",
-        "capacity",
-        "explanations",
-    }
+    assert set(info["fingerprints"]) == set(db.LOADED)  # every loaded table
 
 
 def test_the_answer_key_holds_the_168_validation_rings_and_no_other():
@@ -149,3 +143,23 @@ def test_the_top_of_the_queue_is_explained_in_three_plain_reasons():
                     "unnest(e.contribs) x)))) - t.score)) FROM explanations e "
                     "JOIN transactions t USING (event_id)")  # fmt: skip
         assert cur.fetchone()[0] < 1e-5
+
+
+def test_every_stored_ring_is_strictly_before_its_alert_and_carries_no_label():
+    with _conn(db.READER) as c, c.cursor() as cur:
+        cur.execute("SELECT count(*) FROM subgraphs")
+        assert cur.fetchone()[0] == 20_000
+        # (time, source_row) of every edge vs its alert's: the alert edge itself, or before
+        cur.execute("""
+            SELECT count(*) FROM subgraphs s
+            JOIN transactions a ON a.event_id = s.event_id,
+            LATERAL jsonb_array_elements(s.graph->'edges') e
+            WHERE (e->>'id')::bigint <> a.event_id
+              AND ((e->>'t')::timestamp > a.event_time
+                   OR ((e->>'t')::timestamp = a.event_time AND (e->>'id')::bigint > a.event_id))
+        """)  # fmt: skip
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT count(*) FROM subgraphs WHERE graph::text ~ '(laundering|pattern)'")
+        assert cur.fetchone()[0] == 0
+        cur.execute("SELECT max(jsonb_array_length(graph->'edges')) FROM subgraphs")
+        assert cur.fetchone()[0] <= 1 + 6 * (1 + 6) * 2 + 6 * 2  # the cap's ceiling

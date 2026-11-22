@@ -61,7 +61,9 @@ TX_COLUMNS = {
     "to_bank_name": "text",
     "to_name": "text",
 }
-TABLES = ("transactions", "accounts", "truth", "verdicts", "build_info", "capacity", "explanations")
+# Rebuilt by every load (verdicts is not: the audit trail outlives rebuilds).
+LOADED = ("transactions", "accounts", "truth", "capacity", "explanations", "subgraphs")
+TABLES = (*LOADED, "verdicts", "build_info")  # what demo_reader may SELECT
 
 SCHEMA = (
     "CREATE TABLE IF NOT EXISTS transactions ("
@@ -114,6 +116,11 @@ CREATE TABLE IF NOT EXISTS explanations (
     base      double precision NOT NULL,
     contribs  double precision[] NOT NULL,
     reasons   text[] NOT NULL
+);
+-- S7.5: the ring as of each top alert (money-flow view, 72 h, capped). No labels.
+CREATE TABLE IF NOT EXISTS subgraphs (
+    event_id  bigint PRIMARY KEY,
+    graph     jsonb NOT NULL
 );
 CREATE TABLE IF NOT EXISTS build_info (
     id   smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
@@ -240,12 +247,14 @@ def load(tables: dict[str, pl.DataFrame], info: dict) -> None:
         "accounts": tables["accounts"].select("bank_id", "account", "bank_name", "entity_name"),
         "capacity": tables["capacity"],
         "explanations": tables["explanations"],
+        "subgraphs": tables["subgraphs"],
         "truth": tables["truth"].select(
             "event_id", "is_laundering", "pattern_id", "pattern_type", "hop"
         ),
     }
     with connect(OWNER, secrets_dir=REPO_ROOT / ".secrets") as conn, conn.cursor() as cur:
-        cur.execute("TRUNCATE transactions, accounts, truth, capacity, explanations, build_info")
+        # every loaded table (never verdicts: the audit trail outlives rebuilds)
+        cur.execute(f"TRUNCATE {', '.join(LOADED)}, build_info")
         for name, df in frames.items():
             cols = ", ".join(df.columns)
             sql = f"COPY {name} ({cols}) FROM STDIN WITH (FORMAT csv)"
