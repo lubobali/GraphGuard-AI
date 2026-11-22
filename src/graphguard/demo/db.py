@@ -63,7 +63,9 @@ TX_COLUMNS = {
 }
 # Rebuilt by every load (verdicts is not: the audit trail outlives rebuilds).
 LOADED = ("transactions", "accounts", "truth", "capacity", "explanations", "subgraphs", "labels")
-TABLES = (*LOADED, "verdicts", "build_info")  # what demo_reader may SELECT
+# Not rebuilt either: the agent's checked reports (S7.10) are keyed by transaction id,
+# which every rebuild keeps; they are written by `python -m graphguard.agent.llm store`.
+TABLES = (*LOADED, "verdicts", "agent_reports", "build_info")  # what demo_reader may SELECT
 
 SCHEMA = (
     "CREATE TABLE IF NOT EXISTS transactions ("
@@ -128,6 +130,15 @@ CREATE TABLE IF NOT EXISTS labels (
     label          boolean NOT NULL,
     label_known_at timestamp NOT NULL,
     channel        text NOT NULL
+);
+-- S7.10: the investigator agent's report per eval alert and model, AFTER the checker
+-- (kept and dropped claims both stored: the page shows what was dropped and why).
+CREATE TABLE IF NOT EXISTS agent_reports (
+    event_id  bigint NOT NULL,
+    model     text NOT NULL,
+    report    jsonb NOT NULL,
+    at        timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (event_id, model)
 );
 CREATE TABLE IF NOT EXISTS build_info (
     id   smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),

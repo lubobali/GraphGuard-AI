@@ -4,6 +4,7 @@ the answer key, which no tool can reach.
 
     python -m graphguard.agent.evalset            # writes docs/analysis/s7.10-evalset.json
     python -m graphguard.agent.evalset baseline   # scores the template baseline on it
+    python -m graphguard.agent.evalset fresh      # set 2: 64 new alerts, none of set 1's
 """
 
 from __future__ import annotations
@@ -15,16 +16,21 @@ import sys
 from graphguard.config import REPO_ROOT, SEED
 
 OUT = REPO_ROOT / "docs" / "analysis" / "s7.10-evalset.json"
+# Set 2 (fresh): drawn after the checker was fixed on set 1, with none of set 1's alerts,
+# and judged by the checker frozen at that commit -- the clean measurement (FINDING-019).
+OUT2 = REPO_ROOT / "docs" / "analysis" / "s7.10-evalset-2.json"
+SEED2 = SEED + 1
 PER_TYPE, CLEAN = 5, 24
 
 
-def build(repo) -> dict:
+def build(repo, seed: int = SEED, exclude: frozenset = frozenset()) -> dict:
     rows = repo._all(
         "SELECT t.event_id, tr.is_laundering, tr.pattern_type FROM transactions t "
         "JOIN truth tr USING (event_id) JOIN subgraphs s USING (event_id) "
         "WHERE t.rank <= 5000 ORDER BY t.event_id"
     )
-    rng = random.Random(SEED)
+    rows = [r for r in rows if r["event_id"] not in exclude]
+    rng = random.Random(seed)
     by_type: dict[str, list[int]] = {}
     clean = []
     for r in rows:
@@ -38,7 +44,7 @@ def build(repo) -> dict:
         for e in sorted(rng.sample(by_type[t], PER_TYPE))
     ]
     cases += [{"event_id": e, "expected": "none evident"} for e in sorted(rng.sample(clean, CLEAN))]
-    return {"seed": SEED, "per_type": PER_TYPE, "clean": CLEAN, "cases": cases}
+    return {"seed": seed, "per_type": PER_TYPE, "clean": CLEAN, "cases": cases}
 
 
 def score(repo, cases: list[dict], make_report) -> dict:
@@ -85,6 +91,12 @@ def main(argv: list[str]) -> int:
             json.dumps(result, indent=2) + "\n"
         )
         print(json.dumps(result, indent=2))
+        return 0
+    if len(argv) > 1 and argv[1] == "fresh":
+        first = frozenset(c["event_id"] for c in json.loads(OUT.read_text())["cases"])
+        data = build(repo, SEED2, first)
+        OUT2.write_text(json.dumps(data, indent=2) + "\n")
+        print(f"{len(data['cases'])} fresh cases -> {OUT2.relative_to(REPO_ROOT)}")
         return 0
     data = build(repo)
     OUT.write_text(json.dumps(data, indent=2) + "\n")

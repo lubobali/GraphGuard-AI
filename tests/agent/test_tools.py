@@ -1,6 +1,5 @@
 """The agent's tools never reach the answer key (S7.10)."""
 
-import inspect
 import os
 
 import pytest
@@ -9,32 +8,10 @@ from graphguard.agent import template, tools
 from graphguard.config import REPO_ROOT
 
 
-def _code_words(mod) -> set[str]:
-    """Every identifier, attribute and string literal in a module's code (not its docstrings)."""
-    import ast
-
-    tree = ast.parse(inspect.getsource(mod))
-    docs = {
-        id(n.body[0].value)
-        for n in ast.walk(tree)
-        if isinstance(n, (ast.Module, ast.FunctionDef, ast.ClassDef))
-        and n.body and isinstance(n.body[0], ast.Expr) and isinstance(n.body[0].value, ast.Constant)
-    }  # fmt: skip
-    words = set()
-    for n in ast.walk(tree):
-        if isinstance(n, ast.Name):
-            words.add(n.id)
-        elif isinstance(n, ast.Attribute):
-            words.add(n.attr)
-        elif isinstance(n, ast.Constant) and isinstance(n.value, str) and id(n) not in docs:
-            words.add(n.value)
-    return words
-
-
 @pytest.mark.unit
-def test_no_tool_can_reach_the_answer_key():
+def test_no_tool_can_reach_the_answer_key(code_words):
     for mod in (tools, template):
-        code = " ".join(_code_words(mod)).lower()
+        code = " ".join(code_words(mod)).lower()
         for forbidden in ("truth", "answer", "is_laundering", "pattern_type"):
             assert forbidden not in code, (mod.__name__, forbidden)
     assert tools.TOOLS == ("get_alert", "get_reasons", "get_ring", "get_history")

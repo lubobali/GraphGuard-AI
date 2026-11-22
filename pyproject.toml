@@ -51,6 +51,9 @@ lakehouse = [
 notebooks = [
     "marimo>=0.25.2,<0.26",
 ]
+agent = [
+    "mcp>=2.3,<2.4",
+]
 
 [tool.uv]
 # S5b.2: no package version younger than 14 days is ever resolved (the 2025-2026

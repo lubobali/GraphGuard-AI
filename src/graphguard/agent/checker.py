@@ -13,6 +13,9 @@ from dataclasses import dataclass
 
 TYPOLOGIES = ("FAN-OUT", "FAN-IN", "CYCLE", "GATHER-SCATTER", "SCATTER-GATHER", "STACK",
               "BIPARTITE", "RANDOM", "none evident")  # fmt: skip
+# Numbers the tools state about the drawing itself: get_ring says the window is 72 hours
+# ("in the 72 hours before the alert" quotes the tool, it invents nothing).
+CONTEXT_NUMBERS = {72.0}
 _NUM = re.compile(r"(?<![\w.])\d[\d,]*(?:\.\d+)?")
 
 
@@ -23,17 +26,32 @@ class Verdict:
 
 
 def _numbers_in(rec: dict) -> set[float]:
-    """Numbers a claim may write about this payment: its amount, its time's parts, and the
-    numbers inside its account names ("Corporation #35871" is a name, not an amount)."""
+    """Numbers a claim may write about this payment: its amount, its time's parts, the
+    numbers inside its account and bank names ("Corporation #35871" is a name, not an
+    amount), and, for the alert, the words of the rules that fired."""
     out = {round(float(rec["amount"]), 2)}
-    for field in ("t", "from", "to"):
+    for raw in _NUM.findall(str(rec.get("rules") or "")):  # "9,000 to 9,999.99"
+        out.add(round(float(raw.replace(",", "")), 2))
+    for field in ("t", "from", "to", "from_id", "to_id", "from_bank", "to_bank", "rules"):
         for part in re.findall(r"\d+", str(rec.get(field) or "")):
             out.add(float(part))
     return out
 
 
+def _id(c):
+    """A cited id as the evidence keys it: models sometimes write "123" for 123."""
+    try:
+        return int(c)
+    except (TypeError, ValueError):
+        return c
+
+
+def _names(rec: dict, side: str) -> set:
+    return {rec[side], rec.get(f"{side}_id")} - {None}
+
+
 def check_claim(claim: dict, evidence: dict[int, dict]) -> Verdict:
-    cites = claim.get("cites") or []
+    cites = [_id(c) for c in claim.get("cites") or []]
     if not cites:
         return Verdict(False, "cites nothing")
     missing = [c for c in cites if c not in evidence]
@@ -48,12 +66,14 @@ def check_claim(claim: dict, evidence: dict[int, dict]) -> Verdict:
     if (t := claim.get("time")) is not None and not any(r["t"][:16] == str(t)[:16] for r in recs):
         return Verdict(False, f"time {t} matches no cited payment")
     if (rel := claim.get("relation")) is not None and not any(
-        r["from"] == rel.get("from") and r["to"] == rel.get("to") for r in recs
+        rel.get("from") in _names(r, "from") and rel.get("to") in _names(r, "to") for r in recs
     ):
         return Verdict(False, f"relation {rel} matches no cited payment")
     if (n := claim.get("count")) is not None and int(n) != len(set(cites)):
         return Verdict(False, f"says {n}, cites {len(set(cites))}")
-    allowed = set().union(*(_numbers_in(r) for r in recs)) | {float(len(set(cites)))}
+    allowed = (
+        set().union(*(_numbers_in(r) for r in recs)) | {float(len(set(cites)))} | CONTEXT_NUMBERS
+    )
     for raw in _NUM.findall(claim.get("text", "")):
         v = float(raw.replace(",", ""))
         if v <= 24 and float(v).is_integer():  # small counts and hours ("two", "1 hour")

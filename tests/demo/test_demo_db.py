@@ -31,5 +31,6 @@ def test_every_loaded_table_is_emptied_first_and_readable():
     frames = {"transactions", "accounts", "truth", "capacity", "explanations", "subgraphs",
               "labels"}  # fmt: skip
     assert set(db.LOADED) == frames
-    assert set(db.TABLES) == frames | {"verdicts", "build_info"}
+    assert set(db.TABLES) == frames | {"verdicts", "agent_reports", "build_info"}
     assert "verdicts" not in db.LOADED  # the audit trail is never truncated
+    assert "agent_reports" not in db.LOADED  # only the agent run writes them

@@ -165,6 +165,10 @@ class PgRepo:
         }
         g = self._one("SELECT graph FROM subgraphs WHERE event_id = %s", (event_id,))
         tx["ring"] = g["graph"] if g else None
+        tx["agent"] = self._all(
+            "SELECT model, report, at FROM agent_reports WHERE event_id = %s ORDER BY model",
+            (event_id,),
+        )
         tx["verdicts"] = self._all(
             "SELECT verdict, note, at FROM verdicts WHERE event_id = %s ORDER BY at", (event_id,)
         )

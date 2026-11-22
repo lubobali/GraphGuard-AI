@@ -27,6 +27,13 @@
 .yes, .no { font-size: 13px; font-weight: 600; padding: 3px 10px; border-radius: 999px; }
 .yes { background: var(--warn-bg); color: var(--warn-ink); }
 .no { background: var(--surface-2); color: var(--ink-2); }
+.agentCard { margin-bottom: 16px; }
+.agentGrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.agentSummary { margin: 4px 0 8px; }
+.claims { margin: 0; padding-left: 18px; font-size: 14px; }
+.claims li { margin-bottom: 4px; }
+.dropped { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+.dropped summary { cursor: pointer; }
 .histCard { margin-bottom: 8px; }
 .hist { width: 100%; border-collapse: collapse; font-size: 13px; }
 .hist th, .hist td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--grid); }

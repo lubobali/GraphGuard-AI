@@ -284,7 +284,7 @@ Server and client are both **3.17.2** — `tests/test_mlflow_version.py` fails i
 `graphguard.tracking.use_login()`. Grants in `src/graphguard/ops/mlflow_auth.py`.
 Backend URIs must say `postgresql+psycopg2://`. **Never run a bare `uv sync`** — it strips
 the extras; use `./scripts/bootstrap.sh` or `uv sync --extra dev --extra gnn --extra
-lakehouse --extra notebooks --locked`.
+lakehouse --extra notebooks --extra agent --locked`.
 
 ## Secrets (S5b.6, 2026-11-19)
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import RingGraph from "../../components/RingGraph";
 import WhyBars from "../../components/WhyBars";
 import { get } from "../../lib/api";
-import { money } from "../../lib/caseLogic.js";
+import { agentView, money } from "../../lib/caseLogic.js";
 import { fmt, topShare } from "../../lib/logic.js";
 import s from "./case.module.css";
 
@@ -18,7 +18,51 @@ type Alert = {
   reasons: string[] | null; contributions: { feature: string; value: number | null; contribution: number }[] | null;
   history: { from: Hist[]; to: Hist[] }; ring: Parameters<typeof RingGraph>[0]["graph"] | null;
   verdicts: { verdict: string; note: string; at: string }[]; model_version: string;
+  agent: { model: string; at: string; report: unknown }[];
 };
+
+type Claim = { text: string; cites: number[] };
+type AgentReport = { model: string; label: string; typology: string; summary: string;
+  kept: Claim[]; dropped: (Claim & { why: string })[]; seconds: number | null };
+
+function AgentDraft({ reports }: { reports: Alert["agent"] }) {
+  const views: AgentReport[] = agentView(reports);
+  if (views.length === 0) return null;
+  return (
+    <section className={`card ${s.agentCard}`} aria-labelledby="agent-h">
+      <h2 id="agent-h" className={s.h2}>AI draft, checked</h2>
+      <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+        Written by an AI from the same read-only data you see here (never the answer key). A checker
+        kept only the claims it could match to a payment; the rest are shown as dropped. The AI drafts, you decide.
+      </p>
+      <div className={s.agentGrid}>
+        {views.map((v) => (
+          <div key={v.model}>
+            <h3 className={s.h3}>{v.label} · <span className="ink2">ring type: {v.typology}</span></h3>
+            <p className={s.agentSummary}>{v.summary}</p>
+            {v.kept.length > 0 && (
+              <ul className={s.claims}>
+                {v.kept.map((c, i) => (
+                  <li key={i}>{c.text} <span className="muted">· tx {c.cites.join(", ")}</span></li>
+                ))}
+              </ul>
+            )}
+            {v.dropped.length > 0 && (
+              <details className={s.dropped}>
+                <summary>{v.dropped.length} claim{v.dropped.length === 1 ? "" : "s"} dropped by the checker</summary>
+                <ul>
+                  {v.dropped.map((c, i) => (
+                    <li key={i}><s>{c.text}</s> <span className="muted">· {c.why}</span></li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
 type Answer = { is_laundering: boolean; pattern_id: number | null; pattern_type: string | null;
   hop: number | null; ring_hops: number[] };
 
@@ -125,6 +169,8 @@ export default function CasePage() {
           <p className="muted" style={{ fontSize: 13 }}>Decisions are logged for the audit trail. They never train the model directly.</p>
         </section>
       </div>
+
+      <AgentDraft reports={a.agent} />
 
       <section className={`card ${s.ringCard}`} aria-labelledby="ring-h">
         <div className={s.ringHead}>

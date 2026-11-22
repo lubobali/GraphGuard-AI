@@ -76,3 +76,23 @@ export function playOrder(edges) {
 export function money(amount, currency) {
   return `${amount.toLocaleString("en-US", { maximumFractionDigits: 2 })} ${currency}`;
 }
+
+/** Plain labels for the agent's models (S7.10). */
+const MODEL_LABELS = {
+  "deepseek/deepseek-v4.1-flash": "DeepSeek V4.1 Flash",
+  "anthropic/claude-sonnet-5.5": "Claude Sonnet 5.5",
+};
+
+/** The agent's checked reports (API `agent`) -> what the page shows. Kept claims first;
+ *  dropped claims are shown as dropped, with the checker's reason, never silently hidden. */
+export function agentView(reports) {
+  return (reports ?? []).map((r) => ({
+    model: r.model,
+    label: MODEL_LABELS[r.model] ?? r.model,
+    typology: r.report.typology,
+    summary: r.report.summary,
+    kept: r.report.kept.map((c) => ({ text: c.text, cites: c.cites })),
+    dropped: r.report.dropped.map((c) => ({ text: c.text, cites: c.cites ?? [], why: c.why })),
+    seconds: r.report.seconds ?? null,
+  }));
+}

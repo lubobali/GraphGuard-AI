@@ -42,3 +42,17 @@ test("the ring becomes flow nodes and edges, the alert marked, hubs as +N more",
 test("play reveals the money in time order and skips the +N more links", () => {
   assert.deepEqual(playOrder(toFlow(GRAPH).edges), ["e2", "e10"]);
 });
+
+test("the agent's report keeps checked claims and shows dropped ones with the reason", async () => {
+  const { agentView } = await import("../lib/caseLogic.js");
+  const view = agentView([{
+    model: "anthropic/claude-sonnet-5.5", at: "2026-11-22",
+    report: { summary: "s", typology: "CYCLE", seconds: 9.5,
+      kept: [{ text: "A paid B 9,500 Euro.", cites: [10], amount: { value: 9500, currency: "Euro" } }],
+      dropped: [{ text: "A sent 12,000 Euro.", cites: [2], why: "number 12,000 in the text is in no cited payment" }] },
+  }]);
+  assert.equal(view[0].label, "Claude Sonnet 5.5");
+  assert.deepEqual(view[0].kept, [{ text: "A paid B 9,500 Euro.", cites: [10] }]);
+  assert.match(view[0].dropped[0].why, /no cited payment/);
+  assert.deepEqual(agentView(undefined), []);
+});
