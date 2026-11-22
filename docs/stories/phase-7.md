@@ -371,11 +371,69 @@ list now drives both the TRUNCATE and the reader's grants, with a test.
 
 ## S7.6 — A small read API
 
-**As** the frontend, **I want** one small read-only API, **so that** the browser never
-touches the database.
-- FastAPI, GET-only except the verdict endpoint; server-sent events for the live replay
-  feed; rate limit and a cap on open streams; measured memory under ~256 MiB (D3);
-  hardened like every other service (`test_compose_hardening.py` or a restricted pod).
+**As** the frontend, **I want** one small read-only API, **so that** the browser never touches
+the database and every number on screen has one source.
+
+**Design.**
+- `graphguard/demo/api.py` (FastAPI, one uvicorn worker) over a query layer
+  (`demo/queries.py`) that only ever connects as **`demo_reader`** — plus one write path,
+  the verdict, as **`demo_writer`** (INSERT into `verdicts`, nothing else). The owner's
+  password never reaches the container: it gets `.secrets/demo-api.env` (reader + writer
+  only), derived from `demo-db.env`, registered, refreshed by `rotate-pg demo_reader|writer`.
+- Container `graphguard-demo-api` in docker-compose, from the serving image (new tag
+  0.1.13 carrying `demo/`), **127.0.0.1:8130 only** (private, D4: ssh tunnel like MLflow),
+  read-only root, no capabilities, non-root 10001, pids-limited, **256 MiB cap** (D3),
+  log rotation — the compose hardening test applies unchanged.
+- Endpoints (GET unless said):
+  `/api/meta` (build, model, window, banner text) · `/api/capacity?per_day=N` (the four
+  rankings at k = N × 2.11) · `/api/capacity/curve` (sampled, for the chart) ·
+  `/api/queue?per_day=N&page=P` (alerts within k, grouped by sending account, best rank
+  first, due time = alert + 24 h) · `/api/alerts/{id}` (the transaction, names, rank and
+  percentile — never "chance" —, the three reasons, every contribution, rule hits in words,
+  both accounts' recent history, the ring, past verdicts) · `/api/alerts/{id}/answer` (the
+  answer key: laundering or not, ring type and its other hops — a separate path so the agent
+  can be denied it) · `/api/performance` (measured offline at k; confirmed so far from the late
+  labels, with the share still unknown) · `/api/live` (server-sent events: the window replayed
+  in order, a few per second) · **POST** `/api/alerts/{id}/verdict` (escalate / close + note).
+- **Defences:** per-client rate limit (reads 20/s, verdicts 1/s), at most 4 open live
+  streams, JSON-only writes (a cross-site form cannot post), strict security headers (CSP,
+  no framing, no sniffing, no referrer), no server banner, every input validated.
+- "Estimated live performance" (score-based, no labels) is **not** shown: our scores are not
+  calibrated probabilities (training weighted laundering ~1,326×), so such an estimate
+  would be wrong by construction. Drift and estimation are Phase 8's (monitoring).
+- The demo build also copies the late labels (stream `labels` → demo `labels`) so the
+  "confirmed so far" layer has its data.
+
+**Acceptance criteria**
+- [ ] Unit (first, FastAPI TestClient on a fake query layer): every endpoint's shape; k from
+      per-day (clamped 1..5,000); headers present on every response; rate limit returns 429;
+      the 5th live stream is refused; a form-encoded verdict is refused, a bad verdict is 422.
+- [ ] Unit: the API module does not import polars, numpy or xgboost (memory).
+- [ ] Live (against the real demo DB): queue at 100/day groups 211 alerts by account in rank
+      order; an alert's detail has 3 reasons and a ring; `/answer` agrees with `truth`;
+      capacity at k = 5,000 says 542 / 127; a verdict lands in `verdicts`.
+- [ ] Container: up, healthy, **memory measured under the 256 MiB cap**, reachable only on
+      127.0.0.1:8130; `test_compose_hardening` passes; `just demo-api-up | down | logs`.
+- [ ] The demo API is never given the owner password or any non-demo secret (test on the
+      env file's keys).
+
+**Done 2026-11-22.** `demo/queries.py` (reader pool + one writer connection) and
+`demo/api.py` (FastAPI): meta, capacity (+ curve), queue grouped by account, alert detail,
+answer key (own path), performance (measured + confirmed so far; no score-based "estimate" —
+our scores are not calibrated), live SSE, and the verdict (JSON only). Container
+`graphguard-demo-api` on its own image tag (**0.1.14**: API changes never roll the pods), 127.0.0.1:8130 only, **45 MiB of a 256 MiB cap**,
+hardening test unchanged; scorer, consumer and shadow rolled to 0.1.13 (72 health probes in
+6 minutes, none failed — the probe cannot see a missing pod, k8s-check covers that), old tags
+pruned. Tests: 15 unit (headers, limits, 415/422, busy stream, no heavy imports) + 6 live
+(211 alerts / 190 accounts at 100 a day, 542 / 127 at 5,000, a verdict lands, the env file
+holds only reader + writer). I wrote the API before its unit tests — against this file's own
+rule; the tests then found a real bug (a bad verdict was a 500, now 422).
+**Incident (mine):** starting the container with a bare `docker compose up` (no
+`--env-file`) made compose recreate our Postgres with an empty user in its health check —
+~1 minute without the database. Fixed at once with the recipe's env file; data intact (both
+databases 1,015,300 rows), the consumer restarted twice and resumed exactly at its saved
+offset, every health check green. The recipes now pass `--env-file` + `--no-deps`, and a test
+fails any compose call in the justfile without it. LuBot not involved (own containers).
 
 ## S7.7 — The Queue page, with the slider
 

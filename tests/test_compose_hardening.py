@@ -15,7 +15,8 @@ SERVICES = yaml.safe_load((REPO_ROOT / "docker-compose.yml").read_text())["servi
 
 # Built here from docker/*.Dockerfile, so pinned by its pinned base and its tag, and
 # its non-root user is the Dockerfile's USER (10001), not a compose `user:`.
-LOCALLY_BUILT = {"mlflow"}
+# demo-api (S7.6) runs the serving image (Dockerfile, USER 10001), built and pinned here.
+LOCALLY_BUILT = {"mlflow", "demo-api"}
 # Run-once jobs that exit; they need no ports, logs rotation or read-only tmpfs.
 ONE_SHOT = {"lakekeeper-migrate", "openfga-migrate"}
 
@@ -53,3 +54,14 @@ def test_no_port_is_published_on_all_interfaces(name):
 def test_no_service_mounts_the_docker_socket():
     for name, svc in SERVICES.items():
         assert not any("docker.sock" in str(v) for v in svc.get("volumes", [])), name
+
+
+def test_every_compose_call_in_the_justfile_passes_the_env_file():
+    # Without it compose interpolates an empty Postgres user, sees a "changed" mlflow-db and
+    # recreates it -- that happened once (S7.6, 2026-11-22: ~1 min of database downtime).
+    text = (REPO_ROOT / "justfile").read_text()
+    calls = [ln.strip() for ln in text.splitlines() if "docker compose" in ln
+             and not ln.strip().startswith("#")]  # fmt: skip
+    assert calls and all("--env-file" in c for c in calls), [
+        c for c in calls if "--env-file" not in c
+    ]

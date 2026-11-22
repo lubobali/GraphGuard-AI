@@ -28,7 +28,8 @@ def test_every_loaded_table_is_emptied_first_and_readable():
 
     src = inspect.getsource(db.load)
     assert "LOADED" in src  # the TRUNCATE covers exactly what is loaded
-    frames = {"transactions", "accounts", "truth", "capacity", "explanations", "subgraphs"}
+    frames = {"transactions", "accounts", "truth", "capacity", "explanations", "subgraphs",
+              "labels"}  # fmt: skip
     assert set(db.LOADED) == frames
     assert set(db.TABLES) == frames | {"verdicts", "build_info"}
     assert "verdicts" not in db.LOADED  # the audit trail is never truncated

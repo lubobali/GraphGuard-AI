@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 NAMESPACE = "graphguard"
-DEFAULT_IMAGE = "docker.io/graphguard/serving:0.1.12"
+DEFAULT_IMAGE = "docker.io/graphguard/serving:0.1.13"
 
 # Without these the Ray dashboard -- unauthenticated job submission, i.e. code
 # execution -- is reachable from every Docker container on the box (S5.3).

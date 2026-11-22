@@ -262,12 +262,16 @@ def _demo_ok(role: str):
 def _demo_plan(role: str) -> RolePlan:
     from graphguard.demo import db as ddb
 
-    # No restart yet: the read API that uses reader/writer arrives in S7.6.
+    def write(pw: str) -> None:
+        reg.set_env_values(SECRETS / ddb.ENV_FILE, {ddb.VAR[role]: pw})
+        ddb.write_api_env()  # the API's copy (reader + writer only, S7.6)
+
+    api_role = role in (ddb.READER, ddb.WRITER)
     return RolePlan(
         role,
-        [ddb.ENV_FILE],
-        lambda pw: reg.set_env_values(SECRETS / ddb.ENV_FILE, {ddb.VAR[role]: pw}),
-        lambda: None,
+        [ddb.ENV_FILE, ddb.API_ENV_FILE] if api_role else [ddb.ENV_FILE],
+        write,
+        (lambda: _recreate("demo-api")) if api_role else (lambda: None),
         _demo_ok(role),
     )
 

@@ -122,6 +122,11 @@ REGISTRY: dict[str, Secret] = {
         "just rotate-pg demo_owner, demo_reader, demo_writer",
         BOX_DAYS,
     ),
+    "demo-api.env": S(
+        "demo API container (demo_reader + demo_writer only, derived from demo-db.env, S7.6)",
+        "just rotate-pg demo_reader, demo_writer",
+        BOX_DAYS,
+    ),
     # Kafka (S6.4): all passwords + cluster id, and one file per login.
     "kafka.env": S("Kafka logins (all) + cluster id", "just rotate-kafka", BOX_DAYS),
     **{

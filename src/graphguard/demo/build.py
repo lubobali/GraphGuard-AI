@@ -268,6 +268,22 @@ def _decisions() -> tuple[pl.DataFrame, list[str], list[str]]:
     return df, versions, names[0]
 
 
+def _labels() -> pl.DataFrame:
+    """The late labels the stream received (S6.9) -- the "confirmed so far" layer."""
+    from graphguard.config import REPO_ROOT
+    from graphguard.stream import db
+
+    with db.connect(secrets_dir=REPO_ROOT / ".secrets") as conn, conn.cursor() as cur:
+        cur.execute("SELECT event_id, label, label_known_at, channel FROM labels")
+        rows = cur.fetchall()
+    return pl.DataFrame(
+        rows,
+        schema={"event_id": pl.Int64, "label": pl.Boolean,
+                "label_known_at": pl.Datetime("us"), "channel": pl.Utf8},
+        orient="row",
+    )  # fmt: skip
+
+
 def assemble() -> tuple[dict[str, pl.DataFrame], dict]:
     from graphguard.config import ACCOUNTS_FILE
     from graphguard.evaluation.dataset import frozen_boundaries
@@ -314,6 +330,7 @@ def assemble() -> tuple[dict[str, pl.DataFrame], dict]:
         "capacity": capacity,
         "explanations": explanations,
         "subgraphs": graphs,
+        "labels": _labels(),
     }
     info = {
         "built_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),

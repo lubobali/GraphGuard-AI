@@ -344,6 +344,11 @@ S7.3-S7.4 add `capacity` (the slider's counts, four rankings, held equal to `eva
 the local bundle reproduces every stored score). FINDING-018: weekday is a simulator artifact
 (first Phase 8 challenger drops it). S7.5 adds `subgraphs`: the ring as of each top alert
 (money-flow view, 72 h, ≤ 6 edges per account per direction, nothing at or after the alert).
+**The demo API (S7.6):** container `graphguard-demo-api`, 127.0.0.1:8130 only (tunnel), 256M cap
+(~45 MiB), reads as `demo_reader`, verdicts as `demo_writer`, never the owner password
+(`.secrets/demo-api.env`). `just demo-api-up | demo-api-down | demo-api-logs`. **Every compose
+call needs `--env-file .secrets/mlflow.env`** (a bare `docker compose up` recreated Postgres once;
+a test now enforces it).
 
 ## Shadow scoring (S6.10, 2026-11-21)
 
@@ -374,7 +379,7 @@ running tag + one rollback; each old tag is ~2.4 GB in Docker and ~0.7 GB in k3s
 
 ## The consumer (S6.6, 2026-11-21)
 
-`graphguard-consumer` (k3s Deployment, `k8s/consumer.yaml`, image 0.1.12): Kafka →
+`graphguard-consumer` (k3s Deployment, `k8s/consumer.yaml`, image 0.1.13): Kafka →
 live features → model in process → Postgres `stream` (decisions + offset + outbox in one
 transaction), one writer (advisory lock, `Recreate`). `just consumer-logs |
 k8s-consumer-deploy | k8s-stream-secret | stream-reset`. End-to-end proof:
@@ -462,7 +467,7 @@ install, 13 networks unchanged, Docker's 94 iptables rules intact, lubot.ai and
 git.lubot.ai still answering. iptables grew from 188 to 320 rules, all of it k3s's own
 `KUBE-*` chains.
 
-**The scorer's model (S5.7, image 0.1.12 since S6.11).** Downloaded from S3 at startup by the version
+**The scorer's model (S5.7, image 0.1.13 since S7.6).** Downloaded from S3 at startup by the version
 and SHA-256 pinned in `k8s/rayservice.yaml`; any mismatch → it refuses to start (the old
 one keeps serving). New model: `just model-publish`, change those two lines, apply.
 Runbook `docs/runbooks/models.md`. The image carries no model.

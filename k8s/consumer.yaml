@@ -34,7 +34,7 @@ spec:
             defaultMode: 0440
       containers:
         - name: consumer
-          image: graphguard/serving:0.1.12
+          image: graphguard/serving:0.1.13
           imagePullPolicy: IfNotPresent
           command: ["/app/.venv/bin/python", "-m", "graphguard.stream.consumer"]
           securityContext:

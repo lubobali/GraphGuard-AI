@@ -52,3 +52,8 @@ __marimo__/
 /private/
 /kafka-data/
 /stream-runs/
+
+# S7.6/S7.7: the static frontend build (served by graphguard-demo-api)
+/web/out/
+/web/node_modules/
+/web/.next/

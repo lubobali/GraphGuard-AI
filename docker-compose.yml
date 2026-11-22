@@ -421,6 +421,51 @@ services:
       retries: 10
       start_period: 20s
 
+  # The investigator demo's read API (S7.6, ADR 0008): reads as demo_reader, one write (a
+  # verdict) as demo_writer; never the owner's password, never another database. Private:
+  # 127.0.0.1 only (reach it over the ssh tunnel). Same image as the scorer (locally built,
+  # pinned in k3s and here by tag); serves the static frontend from ./web/out (S7.7).
+  demo-api:
+    # Its own tag: API changes do not roll the scorer/consumer pods (which stay on the
+    # justfile's IMAGE_TAG). Never rebuild a tag; bump it.
+    image: graphguard/serving:0.1.14
+    container_name: graphguard-demo-api
+    restart: unless-stopped
+    command: ["/app/.venv/bin/python", "-m", "uvicorn", "graphguard.demo.api:app",
+              "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--no-server-header"]
+    user: "10001:10001"
+    env_file: .secrets/demo-api.env
+    environment:
+      GRAPHGUARD_DEMO_DB: graphguard-mlflow-db:5432
+    volumes:
+      - ./web/out:/srv/web:ro
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 64
+    ports:
+      - "127.0.0.1:8130:8000"
+    networks:
+      - graphguard
+    mem_limit: 256m
+    depends_on:
+      mlflow-db:
+        condition: service_healthy
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "/app/.venv/bin/python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
 networks:
   graphguard:
     name: graphguard-net

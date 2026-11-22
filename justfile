@@ -19,7 +19,7 @@ export UV_PYTHON_INSTALL_DIR := justfile_directory() / ".tools/python"
 # -n 3 1,715 MB / 29 s, -n 2 1,195 MB / 34 s.
 XDIST := "-n 2 --dist=loadgroup"
 
-IMAGE_TAG := "0.1.12"
+IMAGE_TAG := "0.1.13"
 
 default:
     @just --list
@@ -552,6 +552,18 @@ demo-setup:
 
 demo-build:
     systemd-run --scope --quiet -p MemoryMax=2560M {{UV}} run python -m graphguard.demo.build
+
+# S7.6: the demo's read API (127.0.0.1:8130; reach it over the ssh tunnel).
+# --env-file + --no-deps: without the env file compose sees a "changed" Postgres and
+# recreates it (it happened once, 2026-11-22: ~1 min of database downtime).
+demo-api-up:
+    docker compose --env-file {{ENVFILE}} up -d --no-deps --wait demo-api
+
+demo-api-down:
+    docker compose --env-file {{ENVFILE}} stop demo-api
+
+demo-api-logs:
+    docker logs --tail 100 graphguard-demo-api
 
 stream-reset:
     {{UV}} run python -c "from graphguard.stream import e2e; e2e.reset()"

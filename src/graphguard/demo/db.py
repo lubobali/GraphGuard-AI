@@ -62,7 +62,7 @@ TX_COLUMNS = {
     "to_name": "text",
 }
 # Rebuilt by every load (verdicts is not: the audit trail outlives rebuilds).
-LOADED = ("transactions", "accounts", "truth", "capacity", "explanations", "subgraphs")
+LOADED = ("transactions", "accounts", "truth", "capacity", "explanations", "subgraphs", "labels")
 TABLES = (*LOADED, "verdicts", "build_info")  # what demo_reader may SELECT
 
 SCHEMA = (
@@ -122,6 +122,13 @@ CREATE TABLE IF NOT EXISTS subgraphs (
     event_id  bigint PRIMARY KEY,
     graph     jsonb NOT NULL
 );
+-- S7.6: the late labels the stream received (S6.9), for "confirmed so far".
+CREATE TABLE IF NOT EXISTS labels (
+    event_id       bigint PRIMARY KEY,
+    label          boolean NOT NULL,
+    label_known_at timestamp NOT NULL,
+    channel        text NOT NULL
+);
 CREATE TABLE IF NOT EXISTS build_info (
     id   smallint PRIMARY KEY DEFAULT 1 CHECK (id = 1),
     info jsonb NOT NULL
@@ -176,6 +183,23 @@ def _ensure_passwords() -> dict[str, str]:
 
 
 # --- setup --------------------------------------------------------------------------------
+API_ENV_FILE = "demo-api.env"
+
+
+def write_api_env() -> None:
+    """The API container's credentials: reader + writer only -- never the owner (S7.6)."""
+    env = _env(REPO_ROOT / ".secrets")
+    path = REPO_ROOT / ".secrets" / API_ENV_FILE
+    body = "# The demo API's logins (S7.6): reader + writer only. Never commit.\n" + "".join(
+        f"{VAR[r]}={env[VAR[r]]}\n" for r in (READER, WRITER)
+    )
+    tmp = path.with_suffix(".tmp")
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(body)
+    os.replace(tmp, path)
+
+
 def setup() -> None:
     from graphguard.ops import secrets_registry as reg
     from graphguard.ops.rotate import scram_verifier
@@ -202,7 +226,8 @@ def setup() -> None:
     with connect(OWNER, secrets_dir=REPO_ROOT / ".secrets") as conn, conn.cursor() as cur:
         cur.execute(SCHEMA)
         cur.execute(GRANTS)
-    reg.record(ENV_FILE)
+    write_api_env()
+    reg.record(ENV_FILE, API_ENV_FILE)
 
 
 # --- the load -----------------------------------------------------------------------------
@@ -248,6 +273,7 @@ def load(tables: dict[str, pl.DataFrame], info: dict) -> None:
         "capacity": tables["capacity"],
         "explanations": tables["explanations"],
         "subgraphs": tables["subgraphs"],
+        "labels": tables["labels"],
         "truth": tables["truth"].select(
             "event_id", "is_laundering", "pattern_id", "pattern_type", "hop"
         ),
