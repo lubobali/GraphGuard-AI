@@ -92,3 +92,22 @@ def test_the_mlflow_auth_config_holds_no_secret_after_setup():
     assert "admin_password" not in steady and "default_permission = NO_PERMISSIONS" in steady
     assert "postgresql+psycopg2://mlflow_auth@" in steady  # no password in the URI
     assert "admin_password = x" in ini_text("x")  # only for the very first start
+
+
+def test_an_optional_secret_may_be_missing_but_is_checked_once_present():
+    import datetime as dt
+
+    from graphguard.ops import secrets_registry as sr
+
+    reg = {"nim.env": sr.Secret("agent", "NVIDIA console", 365, optional=True)}
+    today = dt.date(2026, 11, 22)
+    assert sr.problems({}, {}, today, registry=reg) == []
+    found = sr.problems({"nim.env": (0o644, 0)}, {"nim.env": "2026-11-22"}, today, registry=reg)
+    assert any("mode" in p for p in found)
+
+
+def test_secret_set_takes_the_nim_key():
+    from graphguard.ops import secrets_registry as sr
+
+    assert "nim.env" in sr.REGISTRY and sr.REGISTRY["nim.env"].optional
+    assert sr.NIM.match("nvapi-" + "a" * 64) and not sr.NIM.match("sk-abc")

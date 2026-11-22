@@ -580,20 +580,65 @@ Prerendered (live test: the key text is in the HTML). The export check now allow
 
 **As** an investigator, **I want** a draft case report I can check, **so that** I save time
 without trusting a black box.
-- Tools over MCP (score, ring, reasons, history); structured claims, each citing record
-  IDs; a deterministic checker re-verifies every ID, amount and date against the data.
-- Eval set from validation alerts only (with "should say I don't know" cases); report the
-  unsupported-claim rate **before** the checker (the LLM's real error rate, with a
-  confidence interval) and **after** it (gate: zero); typology recall against the answer
-  key the agent never saw; a comparison against the plain template — published even if
-  the LLM loses. Logged in MLflow. The agent drafts; the human decides.
+
+**Model (D6, decided 2026-11-22):** NVIDIA NIM's free tier (PLAN.md), OpenAI-compatible
+endpoint, a tool-calling model chosen from the live catalog at run time and recorded with
+every result. The key is `.secrets/nim.env`, registered, **typed by Lubo** (`just secret-set
+nim.env`) — the one step of this phase that needs him. Rate limits are unpublished (~40/min
+reported), so the runner paces itself.
+
+**Design.**
+- **Tools** (`graphguard/agent/tools.py`, also served over **MCP** by `agent/mcp_server.py`):
+  `get_alert`, `get_ring`, `get_history`, `get_reasons` — read-only, through `demo_reader`,
+  **never the answer key** (a test proves no tool can reach `truth` or `/answer`).
+- **Structured report:** a short summary, a proposed ring type (one of AMLworld's eight, or
+  "none evident"), and claims — each claim cites transaction ids and may carry an amount, a
+  time, a count or a relation.
+- **The checker** (`agent/checker.py`, deterministic): a claim is *supported* only if every
+  cited id is in the evidence the tools returned, every amount/time/relation matches a cited
+  record, every count equals what it counts, and every number in its prose appears in a cited
+  record. Anything else is *unsupported*.
+- **The template baseline** (`agent/template.py`): the same report shape built by code from the
+  reasons and the ring's shape — supported by construction; its ring-type guess is a shape
+  heuristic. The LLM must beat it on ring type to earn its place; published either way.
+- **Eval set** (`docs/analysis/s7.10-evalset.json`): 64 validation alerts from the top 5,000 —
+  5 per ring type (40, stratified, seeded) + 24 clean alerts (expected: "none evident").
+  Ids only; the expected type comes from the answer key, which the agent never sees.
+- **Metrics:** unsupported-claim rate **before** the checker (the LLM's real error rate, with a
+  Wilson 95% interval) and **after** (gate: zero — the checker drops what it cannot support);
+  ring-type recall on the 40; "none evident" rate on the 24; latency. Logged to MLflow.
+- **On the Case page:** the agent's checked report, every claim linked to its transactions,
+  dropped claims shown as dropped. The agent drafts; the person decides.
+
+**Acceptance criteria**
+- [ ] Unit (first): the checker on hand-built reports (a wrong amount, an uncited id, a made-up
+      number in prose, a wrong count → unsupported; correct ones → supported); the template is
+      100% supported on real alerts; tools cannot reach the answer key.
+- [ ] Baseline measured on the eval set **now** (no key needed): ring-type recall, none-evident
+      rate, 0 unsupported.
+- [ ] With the key: the LLM run on all 64; both rates and the comparison published in
+      `docs/analysis/s7.10-agent.json` and a FINDING, whatever they say.
+
+**In progress 2026-11-22 — the half that needs no key is done.** `agent/checker.py` (12 tests:
+wrong amount / currency / time / direction / count, uncited ids, invented numbers in prose →
+unsupported; Wilson intervals), `agent/tools.py` (read-only; a test parses the code and finds no
+path to the answer key, and a live spy shows the tools only ever call the alert view),
+`agent/template.py` (the baseline), `agent/evalset.py` → `docs/analysis/s7.10-evalset.json`
+(64 cases: 5 per ring type + 24 clean, seeded). **Baseline measured**
+(`docs/analysis/s7.10-baseline.json`): 149 claims, **0 unsupported** (95% CI 0–2.5%) — after the
+baseline exposed a real checker bug (numbers inside account names, "Corporation #35871", were
+read as invented amounts; test + fix); ring type right **7 of 40**; "none evident" right on
+**11 of 24** clean alerts. That is the bar. `nim.env` is registered as an optional secret
+(health stays green until it exists) and `just secret-set nim.env` takes it, format-checked,
+nothing printed. **Waiting on Lubo for the key**; then: the MCP server, the LLM runner, the run
+on all 64, `s7.10-agent.json`, a FINDING, and the report on the Case page.
 
 ## S7.11 — The test on a real person (the Phase 7 gate)
 
 **As** Lubo, **I want** a non-technical person to use it, **so that** "it is clear" is
 measured, not assumed.
-- One session with someone who does not know what a model is (Lubo picks them): they
-  get the Queue page and no explanation. Written down: what they say the system does,
+- One session with someone who does not know what a model is — **Lubo's wife**: the tester
+  gets the Queue page and no explanation. Written down: what they say the system does,
   what they would do next, where they got stuck. Fixes from it, then the gate is marked.
 
 Out of scope for Phase 7: a public URL (separate step, LuBot session first), logins and

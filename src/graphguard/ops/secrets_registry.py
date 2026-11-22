@@ -34,6 +34,7 @@ class Secret:
     rotation: str  # the command or the place to rotate it
     max_age_days: int | None  # None: not rotatable in place (recorded why)
     owner_uid: int = 0  # who must own the file (a container reads it)
+    optional: bool = False  # may be absent (a feature not switched on yet); checked once present
 
 
 S = Secret
@@ -127,6 +128,10 @@ REGISTRY: dict[str, Secret] = {
         "just rotate-pg demo_reader, demo_writer",
         BOX_DAYS,
     ),
+    # The investigator agent's model (S7.10, ADR 0008 D6): NVIDIA NIM, typed by Lubo.
+    "nim.env": S(
+        "investigator agent (S7.10)", "NVIDIA build.nvidia.com console", CONSOLE_DAYS, optional=True
+    ),  # fmt: skip
     # Kafka (S6.4): all passwords + cluster id, and one file per login.
     "kafka.env": S("Kafka logins (all) + cluster id", "just rotate-kafka", BOX_DAYS),
     **{
@@ -151,7 +156,8 @@ def problems(
     ]
     for name, sec in registry.items():
         if name not in files:
-            out.append(f"missing: {name}")
+            if not sec.optional:
+                out.append(f"missing: {name}")
             continue
         mode, uid = files[name]
         if mode != 0o600:
@@ -208,6 +214,7 @@ AWS_ID = re.compile(r"^AKIA[0-9A-Z]{16}$")
 AWS_SECRET = re.compile(r"^[A-Za-z0-9/+]{40}$")
 HETZNER = re.compile(r"^[A-Za-z0-9]{64}$")
 FORGEJO = re.compile(r"^[0-9a-f]{40}$")
+NIM = re.compile(r"^nvapi-[A-Za-z0-9_\-]{20,}$")
 EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
@@ -252,6 +259,8 @@ def secret_set(name: str) -> None:
         }
     elif name == "forgejo-ci-read.env":
         values = {"FORGEJO_TOKEN": _ask("Forgejo read-only token", FORGEJO)}
+    elif name == "nim.env":
+        values = {"NIM_API_KEY": _ask("NVIDIA NIM API key (nvapi-...)", NIM)}
     elif name == "hetzner-readonly.env":
         values = {"HETZNER_TOKEN": _ask("Hetzner API token", HETZNER)}
     else:

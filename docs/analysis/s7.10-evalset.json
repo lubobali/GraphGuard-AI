@@ -1,0 +1,263 @@
+{
+  "seed": 42,
+  "per_type": 5,
+  "clean": 24,
+  "cases": [
+    {
+      "event_id": 2348507,
+      "expected": "BIPARTITE"
+    },
+    {
+      "event_id": 2348516,
+      "expected": "BIPARTITE"
+    },
+    {
+      "event_id": 2631784,
+      "expected": "BIPARTITE"
+    },
+    {
+      "event_id": 3469193,
+      "expected": "BIPARTITE"
+    },
+    {
+      "event_id": 3557040,
+      "expected": "BIPARTITE"
+    },
+    {
+      "event_id": 2204237,
+      "expected": "CYCLE"
+    },
+    {
+      "event_id": 2204245,
+      "expected": "CYCLE"
+    },
+    {
+      "event_id": 2387552,
+      "expected": "CYCLE"
+    },
+    {
+      "event_id": 2387554,
+      "expected": "CYCLE"
+    },
+    {
+      "event_id": 3342051,
+      "expected": "CYCLE"
+    },
+    {
+      "event_id": 1916086,
+      "expected": "FAN-IN"
+    },
+    {
+      "event_id": 1916088,
+      "expected": "FAN-IN"
+    },
+    {
+      "event_id": 1924338,
+      "expected": "FAN-IN"
+    },
+    {
+      "event_id": 2285046,
+      "expected": "FAN-IN"
+    },
+    {
+      "event_id": 2825553,
+      "expected": "FAN-IN"
+    },
+    {
+      "event_id": 2234570,
+      "expected": "FAN-OUT"
+    },
+    {
+      "event_id": 2976947,
+      "expected": "FAN-OUT"
+    },
+    {
+      "event_id": 3064850,
+      "expected": "FAN-OUT"
+    },
+    {
+      "event_id": 3420796,
+      "expected": "FAN-OUT"
+    },
+    {
+      "event_id": 3625784,
+      "expected": "FAN-OUT"
+    },
+    {
+      "event_id": 695470,
+      "expected": "GATHER-SCATTER"
+    },
+    {
+      "event_id": 1896467,
+      "expected": "GATHER-SCATTER"
+    },
+    {
+      "event_id": 1928504,
+      "expected": "GATHER-SCATTER"
+    },
+    {
+      "event_id": 2655548,
+      "expected": "GATHER-SCATTER"
+    },
+    {
+      "event_id": 2928619,
+      "expected": "GATHER-SCATTER"
+    },
+    {
+      "event_id": 2150327,
+      "expected": "RANDOM"
+    },
+    {
+      "event_id": 2485823,
+      "expected": "RANDOM"
+    },
+    {
+      "event_id": 3010563,
+      "expected": "RANDOM"
+    },
+    {
+      "event_id": 3201413,
+      "expected": "RANDOM"
+    },
+    {
+      "event_id": 3785801,
+      "expected": "RANDOM"
+    },
+    {
+      "event_id": 2184300,
+      "expected": "SCATTER-GATHER"
+    },
+    {
+      "event_id": 2611991,
+      "expected": "SCATTER-GATHER"
+    },
+    {
+      "event_id": 2612171,
+      "expected": "SCATTER-GATHER"
+    },
+    {
+      "event_id": 3411047,
+      "expected": "SCATTER-GATHER"
+    },
+    {
+      "event_id": 3863628,
+      "expected": "SCATTER-GATHER"
+    },
+    {
+      "event_id": 2278945,
+      "expected": "STACK"
+    },
+    {
+      "event_id": 2319254,
+      "expected": "STACK"
+    },
+    {
+      "event_id": 2651084,
+      "expected": "STACK"
+    },
+    {
+      "event_id": 2651108,
+      "expected": "STACK"
+    },
+    {
+      "event_id": 2860263,
+      "expected": "STACK"
+    },
+    {
+      "event_id": 3081687,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3083717,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3108463,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3119567,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3121938,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3138155,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3144397,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3149360,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3195532,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3379677,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3415256,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3422020,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3452676,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3468447,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3478481,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3481151,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3522530,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3540001,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3541724,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3563457,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3566317,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3566466,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 3714048,
+      "expected": "none evident"
+    },
+    {
+      "event_id": 4034456,
+      "expected": "none evident"
+    }
+  ]
+}

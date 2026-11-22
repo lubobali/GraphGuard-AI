@@ -1,0 +1,13 @@
+{
+  "reporter": "template baseline (code, no LLM)",
+  "cases": 64,
+  "claims": 149,
+  "unsupported": 0,
+  "unsupported_rate": 0.0,
+  "unsupported_rate_95ci": [
+    0.0,
+    0.0251
+  ],
+  "ring_type_recall": "7 of 40",
+  "none_evident_correct": "11 of 24"
+}
