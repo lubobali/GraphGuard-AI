@@ -1,0 +1,47 @@
+{
+  "sent": 1015300,
+  "events": 1015300,
+  "decisions": 1015300,
+  "distinct": 1015300,
+  "missing": 0,
+  "extra": 0,
+  "dead_letters": {},
+  "malformed_planned": 0,
+  "score_mismatches": 0,
+  "first_mismatches": [],
+  "outbox_unpublished": 0,
+  "rules_mismatches": 0,
+  "first_rules_mismatches": [],
+  "rules_fired": 11104,
+  "alerts": 5000,
+  "ok": true,
+  "decision_latency_s": {
+    "p50": 5.283,
+    "p95": 6.048,
+    "p99": 6.275,
+    "max": 6.414
+  },
+  "wall_clock": {
+    "first": "2026-11-21 16:46:06.242153+00:00",
+    "last": "2026-11-22 01:11:50.439685+00:00"
+  },
+  "samples": 107,
+  "sample_errors": 0,
+  "max_lag": 385,
+  "final_lag": 0,
+  "peak_mem_consumer_mib": 324,
+  "peak_mem_shadow_mib": 194,
+  "last_sample": {
+    "at": "2026-11-22T01:46:12+00:00",
+    "hwm": 3440103,
+    "committed": 3440103,
+    "lag": 0,
+    "decided": 1015300,
+    "event_time": "2022-09-08T16:08:00",
+    "mem_consumer_mib": 316,
+    "mem_shadow_mib": 194,
+    "mem_redis": "300.3MiB",
+    "mem_kafka": "483.3MiB",
+    "mem_postgres": "239.3MiB"
+  }
+}

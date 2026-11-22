@@ -1,6 +1,6 @@
 # Phase 6 — The stream: stories
 
-**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). S6.1-S6.10 done; S6.11 (overnight run) next. Research behind it:
+**Status:** approved by Lubo 2026-11-21 with D1-D4 as recommended (SES, keep the model, consumer on k3s, SCRAM without TLS). **All 11 done; Phase 6 gate met 2026-11-22** (S6.11 run 2). Research behind it:
 `docs/research/Kafka streaming fraud pipeline 2026.md` (four tracks, notes beside it).
 
 **How stories are expanded:** one at a time, just before work starts on it. The next story
@@ -483,3 +483,11 @@ It failed on **3 dead letters**, and finding out why exposed more:
 Image 0.1.12 (shadow fix) rolled to scorer, consumer, shadow; the scorer was healthy after
 (`probe_health`, `k8s-check`) but the roll window was **not** measured (the in-roll probe was
 wrong: the consumer pod has no route to the scorer). Run 2 follows with the same gate.
+
+**Run 2 (2026-11-21 16:46 → 2026-11-22 01:12 UTC) — gate MET.** (`docs/analysis/s6.11-soak-run2.json`)
+1,015,300 sent → 1,015,300 decisions, each once; **0 score mismatches, 0 rules mismatches**
+with the offline evaluation (11,104 rule hits, 5,000 alerts); **0 dead letters**; outbox
+drained; lag back to 0 (max 385); **shadow scored all 1,015,300** (0 missing); 107 samples,
+0 errors. Memory flat under caps: consumer peak 324 MiB, shadow 194, Redis 300, Kafka 483,
+Postgres 239. Decision latency p50 5.3 s / p99 6.3 s / max 6.4 s (the reorder buffer). No pod
+restarts in 9 h. LuBot sites all 200 throughout.

@@ -515,6 +515,11 @@ protected" document a reviewer can read.
 **Done means:** transactions flowing continuously, decisions landing in Postgres, rules
 and model both scoring, and the system surviving being left running overnight.
 
+✅ **Phase 6 gate met 2026-11-22** (S6.1-S6.11, `docs/stories/phase-6.md`): the whole validation
+window (1,015,300 transactions) replayed overnight through Kafka → consumer on k3s → Postgres;
+every transaction decided once, scores and rules equal the offline evaluation, shadow complete,
+memory flat under caps (`docs/analysis/s6.11-soak-run2.json`).
+
 ### Phase 7 — The interface
 
 Same stack as LuBot's frontend. Written for a person who does not know what a model is.

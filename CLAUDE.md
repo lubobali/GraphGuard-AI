@@ -547,7 +547,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 4 | The graph model — GraphSAGE done; Multi-PNA rematch + minority F1 (R-2) | **comparison done** (2026-08-20), rematch open |
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
-| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **in progress** — stories approved 2026-11-21 (`docs/stories/phase-6.md`); S6.1 scorer alert, S6.2 exact snapshot (FINDING-015), S6.3 live features (ADR 0005), S6.4 Kafka (ADR 0006), S6.5 replayer, S6.6 consumer on k3s, S6.7 chaos 6/6 exact, S6.8 rules (FINDING-016, ADR 0007), S6.9 late labels (FINDING-017), S6.10 shadow/challenger done; S6.11 overnight soak open |
+| 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **done** (2026-11-22) — S6.1-S6.11: alert, exact live features (FINDING-015, ADR 0005), Kafka (ADR 0006), replayer, consumer on k3s, chaos 6/6, rules (FINDING-016, ADR 0007), late labels (FINDING-017), shadow; overnight soak exact on 1,015,300 transactions |
 | 7 | The interface — queue, ring, slider, measured investigator agent | not started |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
 | 8b | Make it findable — demo, video, post | not started |
@@ -606,6 +606,16 @@ new accounts measured and given a rule (both new → review, FINDING-014); a bro
 store answers 503, never a cold score (S5.5); the lakehouse, logins, grants and vended keys
 (S5.6a-e). Phase 5b hardened the box in between (`docs/stories/phase-5b.md`). Next:
 **Phase 6 — the stream**, starting with the scorer alert (PLAN.md).
+
+**Phase 6 gate — met 2026-11-22.** Stories in `docs/stories/phase-6.md`. The whole
+validation window (1,015,300 transactions) replayed overnight at 6x through Kafka 4 → the
+consumer on k3s (live features in Redis, model in process) → Postgres: every transaction
+decided exactly once, **0 score and 0 rules mismatches** with the offline evaluation, 0 dead
+letters, the shadow scored all 1,015,300, lag back to 0 (max 385), memory flat (consumer 324
+MiB, shadow 194, Redis 300, Kafka 483, Postgres 239). Decision latency p99 6.3 s — the reorder
+buffer that absorbs late events, not scoring. Run 1 failed and found two real bugs (tests
+writing into the live stream; the shadow skipping on a lost position) — both fixed first.
+Next: **Phase 7 — the interface**.
 
 **Scoring rules from here on.** Every model goes through
 `graphguard.evaluation.evaluate.evaluate()` - one entry point, so no two models
