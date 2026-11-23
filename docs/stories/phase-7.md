@@ -640,6 +640,187 @@ MLflow stage `s7.10-agent`. **Case page:** "AI draft, checked" for the 128 eval 
 `agent_reports`, API image 0.1.16), dropped claims shown with the reason, summary labelled "not
 checked", the type labelled a hint. Total spend $3.07.
 
+## Lubo's first look (2026-11-23) — what confused him, and what the research says
+
+Lubo looked at the live site before the S7.11 test and asked ~60 questions. The ones that
+show a design problem (not just an ML lesson):
+
+- **The first screen did not say what the system does.** "How many alerts can your team work?"
+  meant nothing. Why a queue at all? Why only 211 of 1,015,300?
+- **"The model should catch all 1,083."** It took many turns to land: the model scores every
+  payment, it cannot know which are laundering, a team checks only the top; at 211 flags 167 are
+  laundering, at the alert line (5,000) 542 of 1,083; some laundering looks exactly like normal
+  payments. The 1,083 was also mixed up with the ~4,522 in the whole 5M file, and nothing said the
+  file carries an answer column or how train (3M) / dashboard (1M) / locked test (1M) relate.
+- **Words:** flags, list, rings, "rules only", "random picks", "catches" (the old slider sentence
+  said the *team* catches — wrong: the model ranks, the team confirms).
+- **"Sent on a Wednesday"** is the top reason on many queue rows (a real SHAP value of a simulator
+  artifact, FINDING-018). **"Corporation #35871 → Corporation #35871"** — one owner moving money
+  between its own accounts at two banks — is unexplained.
+- **The AI is invisible:** drafts exist for 128 alerts, the queue does not mark them, no button.
+- **Decisions go nowhere:** 15 clicks on one alert, all stored, feedback one small line; nobody
+  ever sees decisions (no "were you right", no manager view, decided rows not marked).
+- **He wants a real bank, simulated end to end.** Agreed: the locked test window is replayed once
+  at real speed as the go-live day (R-5 in PLAN.md).
+
+**Research:** `docs/research/AML demo UX and AI innovation.md` (4 tracks: real case workflows,
+newcomer UX, reasons and the money picture, frontier AI). Short version: say the job before any
+number; counts with "out of how many", never percentages (Gigerenzer); a flow of counts beats a
+confusion matrix (Shen et al.); tutorials barely help, clear screens do (NN/g); real tools close
+with a code + a required reason, a second reviewer, an append-only history (Oracle ECM, Lithic);
+banks in 2026 use AI to *assist* (Unit21: ~84% assist, 0.5% auto-close); nobody publishes an AI
+that argues against a person's decision with checked facts.
+
+**Scope change:** the "manager operations dashboard" listed as out of scope below comes in
+(S7.16), because without it decisions go nowhere.
+
+**Roles, as in a bank (agreed with Lubo 2026-11-23):** one tool, one shared Case page, and a
+**"View as: Investigator · Reviewer · Manager"** control in the header (one control, three
+choices — a stand-in for logging in as a role). Investigator: the list and the decide buttons.
+Reviewer: "waiting for my review" and approve / send back. Manager: the dashboard. The Case page
+is the same for all; only its buttons change. Logins stay out: a visitor gets a random id in
+the browser, so "your decisions" are yours and one visitor never locks an alert for another.
+
+## S7.12 — The first screen says what it is, with numbers anyone can follow
+
+**As** someone who has never seen an AML dashboard, **I want** the first screen to say what the
+system does and what it can and cannot catch, **so that** I understand it in one minute.
+
+- **Header line, every page:** "GraphGuard finds likely money laundering in bank payments and
+  gives investigators a list to check, worst first."
+- **The flow of counts** (slider and chart stay at the top, as Lubo asked, made simple):
+  1,015,300 payments scored → the team checks the top 211 → **167 laundering found · 44 false
+  alarms · 916 laundering missed** (of 1,083). Old fixed rules, same 211 checks: 1. The slider
+  changes these numbers; "about N people" in big type under it.
+- **Say the limit:** "No system finds all laundering: some of it looks exactly like normal
+  payments. More checks find more, but need more people."
+- **Guess first** (one click, optional): "A team checks the top 211. How many of the 1,083 will
+  they find?" — then the answer.
+- **Chart:** 2 lines only ("GraphGuard", "Fixed rules"), a title that tells the story; random
+  moves to the table.
+- **"Where the numbers come from"** (folded): the simulator's file has an answer column; 3M older
+  payments to learn from, 1,015,300 shown here without answers, ~1M locked for the go-live day;
+  4,522 laundering in the whole file, 1,083 in these two days.
+- **"First time here?"** box, 3 steps, closable (remembered in the browser).
+- **Words:** one glossary of plain terms (flag, ring = laundering group, rule, false alarm),
+  used everywhere; a test fails on the banned words in page text ("catches", "random picks").
+
+**Acceptance criteria**
+- [ ] Unit (first): the counts sentence and flow numbers from the API (found + missed = total,
+      found + false alarms = checked); banned-word test over the built pages.
+- [ ] The first screen answers "what is this" without scrolling at 1280x800 and on a phone.
+- [ ] Live test: the counts on the page equal `/api/capacity` for the default and two slider values.
+
+## S7.13 — Reasons a person can trust
+
+**As** an investigator, **I want** reasons that describe behaviour with real values, **so that**
+I can check them against the payments.
+
+- **Weekday:** never in the queue's "why flagged" text; on the Case page shown last, under
+  "Simulator calendar effect (not a reason to investigate)", still counted so the reasons add up
+  to the score. Removed from the model in the first Phase 8 challenger (FINDING-018).
+- **Reason groups** (like Google AML AI's "feature families"): ~6 behaviours ("money moved on
+  fast", "many senders into one account", "new account", ...) each with the real value and a
+  link to the payments it is about; "points against" as their own group.
+- **Own-account payments:** an "Own account" chip and one sentence ("the same owner, two accounts
+  at two banks — common, sometimes used to layer money").
+- **Ring shapes in plain words** plus "a pattern, not proof".
+
+**Acceptance criteria**
+- [ ] Unit (first): weekday never in a queue reason; groups sum to the same score as the raw
+      contributions; own-account detection on hand-built rows (same name, two accounts).
+- [ ] On the live top 211: 0 rows with weekday as the shown reason.
+
+## S7.14 — The money picture, step by step
+
+**As** a newcomer, **I want** the picture to tell the story in order, **so that** I see split →
+collect → spread without help.
+
+- One sentence above it ("Each box is an account, each arrow a payment before the alert; the blue
+  arrow is the flagged one").
+- Payments **numbered by time** on the arrows, with the same numbers in a small table beside it;
+  an optional "step through" (next / back).
+- Role badges in words: "Sender (this alert)", "Receiver (this alert)", "Paid the sender earlier",
+  "Paid by the receiver later". "+4 more payees" becomes "4 more accounts this one paid (not drawn)".
+
+**Acceptance criteria**
+- [ ] Unit (first): numbering follows (time, id); the table and the arrows carry the same numbers.
+- [ ] Screenshot check on alert #21 (the wide ring) and one small ring, light and dark.
+
+## S7.15 — A decision workflow like a real bank's
+
+**As** an investigator, **I want** to decide once, with a reason, and see what happens next,
+**so that** my work counts and is auditable.
+
+- **States:** New → In review → Awaiting second review → **Escalated** (SAR recommended, due in
+  30 days — FinCEN FAQ Oct 2025) or **Closed** (no SAR). A reopen is a new row, never an edit.
+- **Close codes** (4, fixed): explained by normal activity · duplicate of another alert ·
+  not enough evidence · other. A one-line reason is required for both outcomes.
+- **One decision per alert per visitor:** buttons lock, the result shows in place ("Saved: you
+  marked this suspicious"), "Change decision" adds a row; the API ignores a repeat of the same
+  decision (no 15 rows). **Submit and next** opens the next undecided alert.
+- **Training mode** (the demo is a simulator): after deciding, "You were right ✓ / not this time"
+  from the answer key, and a running "you vs the model" score.
+- **The queue marks** decided rows and alerts with an AI draft.
+- **History on the Case page:** one timeline tagged person / AI / rule.
+- **The role control** in the header (Investigator · Reviewer · Manager), remembered in the
+  browser. **Reviewer view:** a "Waiting for review" list (alerts this visitor decided, plus a
+  seeded sample of other visitors' decisions); on the Case page the investigator's decision,
+  code and reason with **Approve** or **Send back** (send back needs a reason and returns the
+  alert to In review). Reviewing your own decision is allowed in the demo but labelled "in a bank
+  this must be another person (four eyes)".
+
+**Acceptance criteria**
+- [ ] Unit (first): state transitions (allowed and refused), required reason, idempotent repeat,
+      per-visitor isolation, the score arithmetic; verdict table stays append-only.
+- [ ] API: new fields validated (codes from the list only, reason ≤ 500 chars, visitor id format);
+      writes still JSON-only and rate-limited; `demo_writer` still INSERT-only.
+- [ ] Live test: decide → locked → change → two rows; next opens an undecided alert.
+
+## S7.16 — The manager's page
+
+**As** a compliance manager, **I want** one page with the team's work and quality, **so that** I
+can plan people and catch mistakes.
+
+- Reached through **View as: Manager**. **Two views:** "Your shift" (this visitor) and "All visitors".
+- Decided today, escalated vs closed, waiting for second review, oldest open alert (backlog by
+  age), how often the person agreed with the answer key, how often the AI reviewer and the person
+  agreed.
+- **QA sample:** 5 random closed alerts re-checked blind against the answer key, shown with the result.
+- The capacity slider in full (with rings and the late-labels panel) lives here; the home page keeps
+  the simple version.
+
+**Acceptance criteria**
+- [ ] Unit (first): every metric from hand-built verdict rows; empty state when nothing is decided.
+- [ ] Counts, never money; "synthetic, measured on the window" on the page.
+
+## S7.17 — The new part: an AI second reviewer that argues back
+
+**As** an investigator, **I want** a second opinion that tries to prove me wrong with checked
+facts, **so that** I catch my own mistakes before a case goes out.
+
+**Why this one** (research): banks use AI to draft and assist; linking claims to records is in
+production (FIS on Claude, Oct 2026); no public example of an AI that *challenges a person's
+specific decision* with code-checked evidence and publishes how often it is right.
+
+- After a decision, the reviewer shows **the strongest checked facts against it** ("You closed
+  this, but: the receiver was paid by 8 accounts in 3 hours, tx …"), every claim through the
+  frozen checker; dropped claims shown as dropped. It never sees the answer key.
+- **Precomputed, no live AI call:** both directions (against escalate, against close) for the
+  **top 400 alerts** on DeepSeek V4.1 Flash (measured ~$0.002 per alert-run → ~$1.60), plus the
+  draft for the same 400 (~$0.80); Claude Sonnet 5.5 on a 64-alert fresh set for comparison
+  (~$3). Under the existing $10 limit (spent $3.07). No free text, nothing a visitor types reaches a model.
+- **Measured and published** on a fresh set: unsupported claims before the checker (Wilson CI);
+  when the person was wrong (answer key), how often the reviewer argued the right way; when the
+  person was right, how often it argued wrongly (the cost of a nagging reviewer).
+- **AI visible:** an "AI" badge in the queue; "AI draft" and "AI second opinion" on every top-400 case.
+
+**Acceptance criteria**
+- [ ] Unit (first): the reviewer prompt never names the answer key (code test, as S7.10); output
+      through the checker; tools bound to one alert; spend cap holds.
+- [ ] Runs published in `docs/analysis/s7.17-reviewer.json` + a FINDING, whatever they say.
+- [ ] The page shows "AI, checked by code, can still be wrong" and the measured rates.
+
 ## S7.11 — The test on a real person (the Phase 7 gate)
 
 **As** Lubo, **I want** a non-technical person to use it, **so that** "it is clear" is
@@ -648,6 +829,8 @@ measured, not assumed.
   gets the Queue page and no explanation. Written down: what they say the system does,
   what they would do next, where they got stuck. Fixes from it, then the gate is marked.
 
+S7.11 runs **after** S7.12-S7.17, on the improved site.
+
 Out of scope for Phase 7: a public URL (separate step, LuBot session first), logins and
-roles for many users, live re-scoring, money totals, a manager operations dashboard with
-simulated SLAs. The video is Phase 8b.
+roles for many users, live re-scoring, money totals, live (non-precomputed) AI calls. (The
+manager page came in with S7.16, 2026-11-23.) The video is Phase 8b.

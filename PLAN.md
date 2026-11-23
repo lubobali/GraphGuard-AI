@@ -150,6 +150,21 @@ The "touch Redis once" reason for doing the lakehouse first (S5.6) is already me
 
 Unchanged: three pages, SHAP reasons, the ring, the slider, the measured agent, the gate.
 
+### R-5 — A bank simulated end to end: UX for newcomers, a real workflow, a go-live day
+
+*2026-11-23, Phase 7. Cause: Lubo's first look at the site (60 questions; recorded in
+`docs/stories/phase-7.md`). Research `docs/research/AML demo UX and AI innovation.md`.*
+
+- **Phase 7 grows** by S7.12-S7.17 before the S7.11 gate: a first screen that says what the
+  system does in counts, trustworthy reasons, a numbered money picture, a real decision
+  workflow (codes, second review, history, training feedback), a manager page, and an AI
+  second reviewer that argues against the person's decision with checked facts (precomputed).
+- **Go-live = the sealed test window.** When the model is final (Phase 8), the locked test
+  window (8-10 Sep, ~1M rows, ~2.3 days) is replayed **once, at real speed** through the live
+  stream. That replay is both the bank's first day and the honest final score; no model change
+  after it. Contract rule 4 holds: the window is opened once.
+- Bigger data stays Phase 10.
+
 ---
 
 ## Why this project exists
