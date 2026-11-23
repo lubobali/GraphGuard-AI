@@ -728,8 +728,15 @@ system does and what it can and cannot catch, **so that** I understand it in one
 **Acceptance criteria**
 - [x] Unit (first): the counts sentence and flow numbers from the API (found + missed = total,
       found + false alarms = checked); banned-word test over the page sources.
-- [ ] The first screen answers "what is this" without scrolling at 1280x800 and on a phone.
+- [x] The first screen answers "what is this" without scrolling at 1280x800 and on a phone.
 - [x] Live test: the counts on the page equal `/api/capacity` for the default and two slider values.
+
+**Done 2026-11-23.** Header job line; hero with the limit said plainly; the flow of counts (211
+checked → 167 found · 44 false alarms · 916 missed; fixed rules 1) with the slider and "about 5
+people"; a two-line chart (random only in the table); guess first; "where the numbers come from"
+(the three parts from the frozen split, checked by a test); a closable first-time box; the words
+test. Checked by screenshot (laptop, phone, dark) with `scripts/ui/shots.sh` — a throwaway
+capped headless Chromium, approved by Lubo; the header line is hidden on phones (the hero says it).
 
 ## S7.13 — Reasons a person can trust
 
