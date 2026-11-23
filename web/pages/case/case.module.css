@@ -12,14 +12,6 @@
 .reasons li { margin-bottom: 6px; }
 .rules { margin-top: 10px; font-size: 13px; }
 .rules p { margin: 4px 0; padding: 6px 10px; background: var(--surface-2); border-radius: 6px; }
-.note { width: 100%; min-height: 84px; margin: 6px 0 10px; font: inherit; padding: 8px; border-radius: 8px;
-  border: 1px solid var(--axis); background: var(--surface); color: var(--ink); }
-.buttons { display: flex; flex-wrap: wrap; gap: 8px; }
-.escalate, .close { font: inherit; font-size: 14px; border-radius: 8px; padding: 8px 12px; cursor: pointer; }
-.escalate { background: var(--accent); color: #fff; border: 0; }
-.close { background: var(--surface-2); color: var(--ink); border: 1px solid var(--ring); }
-.saved { color: var(--good); margin: 8px 0 0; }
-.audit { font-size: 13px; padding-left: 18px; color: var(--ink-2); }
 .ringCard { margin-bottom: 16px; }
 .ringHead { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 8px; }
 .keyBtn { font: inherit; font-size: 13px; background: none; border: 1px dashed var(--axis); border-radius: 8px;

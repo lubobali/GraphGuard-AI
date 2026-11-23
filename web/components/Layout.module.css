@@ -9,3 +9,9 @@
 .footer { color: var(--muted); font-size: 13px; padding: 32px 16px 48px; }
 @media (max-width: 560px) { .sub, .tagline { display: none; } }
 .tagline { margin: -6px auto 0; padding-bottom: 10px; font-size: 14px; color: var(--ink-2); }
+.viewAs { display: inline-flex; align-items: center; gap: 2px; background: var(--surface-2); border: 1px solid var(--ring);
+  border-radius: 999px; padding: 2px; font-size: 13px; }
+.viewLabel { color: var(--muted); padding: 0 6px 0 8px; }
+.roleBtn, .roleOn { border: 0; background: transparent; color: var(--ink-2); font: inherit; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
+.roleOn { background: var(--accent); color: #fff; }
+@media (max-width: 700px) { .viewLabel { display: none; } .bar { gap: 8px; } }

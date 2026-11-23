@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
+import DecisionPanel, { ReviewPanel } from "../../components/DecisionPanel";
 import RingGraph from "../../components/RingGraph";
 import WhyBars from "../../components/WhyBars";
 import { get } from "../../lib/api";
@@ -17,7 +18,7 @@ type Alert = {
   percentile: number; alert: boolean; cold_policy: string; rules: string[]; rule_text: string[];
   reasons: string[] | null; contributions: { feature: string; value: number | null; contribution: number }[] | null;
   history: { from: Hist[]; to: Hist[] }; ring: Parameters<typeof RingGraph>[0]["graph"] | null;
-  verdicts: { verdict: string; note: string; at: string }[]; model_version: string;
+  model_version: string;
   agent: { model: string; at: string; report: unknown }[];
   from_account: string; to_account: string; groups: Group[] | null;
 };
@@ -124,11 +125,10 @@ function HistoryTable({ rows, title, id }: { rows: Hist[]; title: string; id: st
 export default function CasePage() {
   const { query, isReady } = useRouter();
   const id = Number(query.id);
+  const review = query.review === "demo" || query.review === "mine" ? (query.review as "demo" | "mine") : null;
   const [a, setA] = useState<Alert | null>(null);
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-  const [saved, setSaved] = useState<string | null>(null);
 
   useEffect(() => {
     if (!isReady) return;
@@ -136,18 +136,6 @@ export default function CasePage() {
     setAnswer(null);
     get<Alert>(`/alerts/${id}`).then(setA).catch((e) => setError(String(e)));
   }, [isReady, id]);
-
-  async function verdict(v: "escalate" | "close") {
-    const r = await fetch(`/api/alerts/${id}/verdict`, {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ verdict: v, note }),
-    });
-    if (r.ok) {
-      setSaved(v === "escalate" ? "Escalated to a case." : "Closed as not suspicious.");
-      setNote("");
-      setA(await get<Alert>(`/alerts/${id}`));
-    } else setSaved(`Not saved (${r.status}).`);
-  }
 
   if (error) return <p role="alert" className={s.error}>{error} · <Link href="/">back to the queue</Link></p>;
   if (!a) return <p className="muted" style={{ padding: "32px 0" }}>Loading the case…</p>;
@@ -190,21 +178,13 @@ export default function CasePage() {
         </section>
 
         <section className="card" aria-labelledby="decide-h">
-          <h2 id="decide-h" className={s.h2}>Your decision</h2>
-          <label htmlFor="note" className="ink2">Note (optional)</label>
-          <textarea id="note" className={s.note} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)}
-            placeholder="What you saw, what you checked" />
-          <div className={s.buttons}>
-            <button type="button" className={s.escalate} onClick={() => verdict("escalate")}>Escalate to a case</button>
-            <button type="button" className={s.close} onClick={() => verdict("close")}>Close: not suspicious</button>
-          </div>
-          {saved && <p role="status" className={s.saved}>{saved}</p>}
-          {a.verdicts.length > 0 && (
-            <ul className={s.audit}>
-              {a.verdicts.map((v, i) => <li key={i}><strong>{v.verdict}</strong> · {String(v.at).slice(0, 16).replace("T", " ")}{v.note ? ` · ${v.note}` : ""}</li>)}
-            </ul>
-          )}
-          <p className="muted" style={{ fontSize: 13 }}>Decisions are logged for the audit trail. They never train the model directly.</p>
+          {review ? (<>
+            <h2 id="decide-h" className={s.h2}>Second review</h2>
+            <ReviewPanel a={a} owner={review} />
+          </>) : (<>
+            <h2 id="decide-h" className={s.h2}>Your decision</h2>
+            <DecisionPanel a={a} />
+          </>)}
         </section>
       </div>
 

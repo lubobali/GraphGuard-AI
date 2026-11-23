@@ -88,6 +88,42 @@ def test_a_bad_verdict_is_rejected_by_the_table_itself():
         cur.execute("INSERT INTO verdicts (event_id, verdict) VALUES (-1, 'delete everything')")
 
 
+def test_the_writer_can_only_add_case_actions_never_change_them():
+    """S7.15: the case history is append-only for the API's writer login."""
+    v = "00000000-0000-4000-8000-000000000001"
+    with _conn(db.WRITER) as c, c.cursor() as cur:
+        cur.execute(
+            "INSERT INTO case_actions (event_id, case_owner, actor, role, action, reason) "
+            "VALUES (-1, %s, %s, 'investigator', 'escalate', 'live test')",
+            (v, v),
+        )
+    assert _refused(db.WRITER, "SELECT * FROM case_actions LIMIT 1")
+    assert _refused(db.WRITER, "UPDATE case_actions SET action = 'close'")
+    assert _refused(db.WRITER, "DELETE FROM case_actions")
+    insert = (
+        "INSERT INTO case_actions (event_id, case_owner, actor, role, action, reason) "
+        "VALUES (-1, 'demo', 'x', 'reviewer', 'approve', '')"
+    )
+    assert _refused(db.READER, insert)
+    with _conn(db.OWNER) as c, c.cursor() as cur:  # tidy up our own test row
+        cur.execute("DELETE FROM case_actions WHERE event_id = -1 AND actor = %s", (v,))
+
+
+@pytest.mark.parametrize(
+    ("action", "code", "reason"),
+    [("close", None, "no code"), ("escalate", "other", "code on escalate"),
+     ("escalate", None, "   "), ("delete", None, "x"), ("close", "nonsense", "x")],
+)  # fmt: skip
+def test_a_bad_case_action_is_rejected_by_the_table_itself(action, code, reason):
+    import psycopg2
+
+    v = "00000000-0000-4000-8000-000000000001"
+    with _conn(db.WRITER) as c, c.cursor() as cur, pytest.raises(psycopg2.errors.CheckViolation):
+        cur.execute("INSERT INTO case_actions (event_id, case_owner, actor, role, action, code, "
+                    "reason) VALUES (-1, %s, %s, 'investigator', %s, %s, %s)",
+                    (v, v, action, code, reason))  # fmt: skip
+
+
 def test_the_stream_login_cannot_even_connect_to_the_demo():
     # so no stream reset (db.reset) can ever reach these tables
     import psycopg2

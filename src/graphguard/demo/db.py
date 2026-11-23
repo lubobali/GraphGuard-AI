@@ -65,7 +65,13 @@ TX_COLUMNS = {
 LOADED = ("transactions", "accounts", "truth", "capacity", "explanations", "subgraphs", "labels")
 # Not rebuilt either: the agent's checked reports (S7.10) are keyed by transaction id,
 # which every rebuild keeps; they are written by `python -m graphguard.agent.llm store`.
-TABLES = (*LOADED, "verdicts", "agent_reports", "build_info")  # what demo_reader may SELECT
+TABLES = (
+    *LOADED,
+    "verdicts",
+    "case_actions",
+    "agent_reports",
+    "build_info",
+)  # what demo_reader may SELECT
 
 SCHEMA = (
     "CREATE TABLE IF NOT EXISTS transactions ("
@@ -99,6 +105,23 @@ CREATE TABLE IF NOT EXISTS verdicts (
     note      text NOT NULL DEFAULT '' CHECK (length(note) <= 2000),
     at        timestamptz NOT NULL DEFAULT now()
 );
+-- S7.15: the case workflow, append-only. A case = (event, owner); owner is a visitor id or
+-- 'demo' (Sam's seeded cases). The CHECKs mirror demo/workflow.py.
+CREATE TABLE IF NOT EXISTS case_actions (
+    id          bigserial PRIMARY KEY,
+    event_id    bigint NOT NULL,
+    case_owner  text NOT NULL CHECK (case_owner ~ '^([0-9a-f-]{36}|demo)$'),
+    actor       text NOT NULL CHECK (actor ~ '^[0-9a-f-]{36}$'),
+    role        text NOT NULL CHECK (role IN ('investigator', 'reviewer')),
+    action      text NOT NULL CHECK (action IN ('escalate', 'close', 'approve', 'send_back')),
+    code        text CHECK (code IN ('explained', 'duplicate', 'insufficient', 'other')),
+    reason      text NOT NULL DEFAULT '' CHECK (length(reason) <= 500),
+    at          timestamptz NOT NULL DEFAULT now(),
+    CHECK ((action = 'close') = (code IS NOT NULL)),
+    CHECK (action = 'approve' OR length(btrim(reason)) > 0)
+);
+CREATE INDEX IF NOT EXISTS case_actions_by_event ON case_actions (event_id, id);
+CREATE INDEX IF NOT EXISTS case_actions_by_actor ON case_actions (actor, id);
 -- S7.3: the slider's numbers -- four rankings x k = 1..5,000 (counts, never money).
 CREATE TABLE IF NOT EXISTS capacity (
     ranking       text NOT NULL,
@@ -154,8 +177,8 @@ REVOKE ALL ON SCHEMA public FROM PUBLIC;
 GRANT USAGE ON SCHEMA public TO {READER}, {WRITER};
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM {READER}, {WRITER};
 GRANT SELECT ON {", ".join(TABLES)} TO {READER};
-GRANT INSERT ON verdicts TO {WRITER};
-GRANT USAGE ON SEQUENCE verdicts_id_seq TO {WRITER};
+GRANT INSERT ON verdicts, case_actions TO {WRITER};
+GRANT USAGE ON SEQUENCE verdicts_id_seq, case_actions_id_seq TO {WRITER};
 """
 
 

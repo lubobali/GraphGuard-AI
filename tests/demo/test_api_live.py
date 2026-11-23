@@ -82,14 +82,37 @@ def test_the_answer_key_agrees_with_truth(client):
     assert ans["is_laundering"] == label and eid in ans["ring_hops"]
 
 
-def test_a_verdict_lands_in_the_audit_table(client):
+def test_a_case_goes_from_decision_to_review_through_the_api(client):
+    """S7.15 live: decide, a double click stores one row, change, approve, SAR due; another
+    visitor sees none of it; the next alert skips what was decided."""
     from graphguard.demo import db
 
-    q = client.get("/api/queue?per_day=100").json()
-    eid = q["groups"][0]["event_id"]
-    note = "live test, S7.6"
-    assert client.post(f"/api/alerts/{eid}/verdict",
-                       json={"verdict": "close", "note": note}).status_code == 201  # fmt: skip
-    with db.connect(db.OWNER, secrets_dir=SECRETS) as c, c.cursor() as cur:
-        cur.execute("DELETE FROM verdicts WHERE event_id = %s AND note = %s", (eid, note))
-        assert cur.rowcount == 1
+    me, other = "00000000-0000-4000-8000-0000000000a1", "00000000-0000-4000-8000-0000000000b2"
+    eid = client.get("/api/queue?per_day=100").json()["groups"][0]["event_id"]
+    url = f"/api/alerts/{eid}/actions"
+    base = {"visitor": me, "role": "investigator", "reason": "live test, S7.15"}
+    try:
+        assert (
+            client.post(url, json={**base, "action": "close", "code": "other"}).status_code == 201
+        )
+        assert (
+            client.post(url, json={**base, "action": "close", "code": "other"}).status_code == 200
+        )
+        assert client.post(url, json={**base, "action": "escalate"}).status_code == 201
+        r = client.post(url, json={**base, "role": "reviewer", "action": "approve", "reason": ""})
+        assert r.status_code == 201 and r.json()["case"]["state"] == "escalated"
+        assert r.json()["case"]["sar_due"]
+        case = client.get(f"/api/alerts/{eid}/case?visitor={me}").json()["mine"]
+        assert [h["action"] for h in case["history"]] == ["close", "escalate", "approve"]
+        assert client.get(f"/api/alerts/{eid}/case?visitor={other}").json()["mine"]["history"] == []
+        d = client.get(f"/api/decisions?visitor={me}").json()
+        mine = [c for c in d["cases"] if c["owner"] == me]
+        assert mine[0]["event_id"] == eid and mine[0]["is_laundering"] is not None
+        assert d["score"]["decided"] == 1
+        sam = [c for c in d["cases"] if c["owner"] == "demo"]
+        assert len(sam) == 8 and all(c["is_laundering"] is None for c in sam)  # not reviewed yet
+        nxt = client.get(f"/api/next?visitor={me}&after=0").json()
+        assert nxt["event_id"] != eid
+    finally:
+        with db.connect(db.OWNER, secrets_dir=SECRETS) as c, c.cursor() as cur:
+            cur.execute("DELETE FROM case_actions WHERE actor IN (%s, %s)", (me, other))

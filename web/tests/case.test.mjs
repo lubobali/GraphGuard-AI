@@ -130,3 +130,64 @@ test("a step caption says when, who paid whom, how much, and the role", () => {
   const c = stepCaption(EDGES[1], 2, 3, (id) => names[id]);
   assert.equal(c, "Step 2 of 3 · 09-07 09:00 · Corp U paid Corp S 9,612.34 Euro · paid the sender");
 });
+
+// ---- S7.15: the decision workflow ------------------------------------------------------
+import { closeCodes, stateText, timeline, trainingText } from "../lib/caseLogic.js";
+import { newVisitorId } from "../lib/visitor.js";
+
+test("states in words, with the SAR due date when escalated", () => {
+  assert.match(stateText({ state: "new" }).title, /Not decided yet/);
+  assert.match(stateText({ state: "awaiting_review", decision: "escalate" }).title, /suspicious/);
+  assert.match(stateText({ state: "awaiting_review", decision: "close" }).detail, /second review/);
+  const e = stateText({ state: "escalated", decision: "escalate", sar_due: "2026-12-23T12:00:00+00:00" });
+  assert.match(e.title, /Escalated/);
+  assert.match(e.detail, /2026-12-23/);
+  assert.match(stateText({ state: "closed", decision: "close", code: "explained" }).detail, /Explained by normal activity/);
+  assert.match(stateText({ state: "sent_back" }).title, /Sent back/);
+});
+
+test("the four close codes, in the API's order", () => {
+  assert.deepEqual(closeCodes().map((c) => c.code), ["explained", "duplicate", "insufficient", "other"]);
+});
+
+test("training feedback compares the decision with the answer key", () => {
+  assert.match(trainingText("escalate", true).title, /right/);
+  assert.match(trainingText("close", true).title, /Not this time/);
+  assert.match(trainingText("close", true).detail, /was money laundering/);
+  assert.match(trainingText("close", false).title, /right/);
+  assert.equal(trainingText(null, true), null);
+});
+
+test("the history timeline: rules at the payment, the AI draft, then people, in time order", () => {
+  const items = timeline(
+    { event_time: "2022-09-07T10:28:00", rules: ["fan_in"], agent: [{ model: "deepseek/deepseek-v4.1-flash", at: "2026-11-22T15:00:00+00:00" }] },
+    [{ who: "you", role: "investigator", action: "close", code: "other", reason: "fine", at: "2026-11-23T10:00:00+00:00" },
+     { who: "you", role: "reviewer", action: "send_back", code: null, reason: "look again", at: "2026-11-23T11:00:00+00:00" }],
+  );
+  assert.deepEqual(items.map((i) => i.kind), ["rule", "ai", "person", "person"]);
+  assert.match(items[2].text, /closed it/);
+  assert.match(items[3].text, /sent it back/);
+});
+
+test("a visitor id is a version-4 UUID", () => {
+  assert.match(newVisitorId(), /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+});
+
+import { reviewText } from "../lib/caseLogic.js";
+import { ROLES, roleHome } from "../lib/role.js";
+
+test("a reviewer is right to approve a right decision and to send back a wrong one", () => {
+  assert.equal(reviewText("approve", "escalate", true).right, true);
+  assert.equal(reviewText("send_back", "close", true).right, true);   // Sam closed real laundering
+  assert.equal(reviewText("approve", "close", true).right, false);
+  assert.match(reviewText("approve", "close", true).detail, /closed real money laundering/);
+  assert.equal(reviewText("send_back", "escalate", true).right, false);
+  assert.equal(reviewText("approve", "escalate", null), null);
+});
+
+test("roles: one control, three choices, each with its start page", () => {
+  assert.deepEqual(ROLES.map((r) => r.key), ["investigator", "reviewer", "manager"]);
+  assert.equal(roleHome("investigator"), "/");
+  assert.equal(roleHome("reviewer"), "/review/");
+  assert.equal(roleHome("manager"), "/manager/");
+});

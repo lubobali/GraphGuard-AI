@@ -851,12 +851,51 @@ first dark/light difference in labels was screenshot timing, not the page (rende
   alert to In review). Reviewing your own decision is allowed in the demo but labelled "in a bank
   this must be another person (four eyes)".
 
+**Design (expanded 2026-11-23, before building)**
+- **A new append-only table `case_actions`** (the old `verdicts` stays as S7.6's history; its
+  CHECK allows only escalate/close): event, **case owner** (a visitor id, or `demo`), **actor**
+  (visitor id), role (investigator / reviewer), action (escalate / close / approve / send_back),
+  code (close only, one of 4), reason (required except on approve, ≤ 500), time. Database CHECKs
+  mirror the rules; `demo_writer` may INSERT only.
+- **A case = (alert, owner).** Each visitor has their own cases, so one visitor never locks an
+  alert for another. **The demo investigator "Sam"**: 8 seeded decisions on top alerts (fixed in
+  code, chosen from the answer key so 3 are wrong) give every reviewer real work; a reviewer's
+  action on Sam's case is stored with owner `demo` and counts only for that reviewer.
+- **States** (`demo/workflow.py`, pure): new → (escalate | close) → awaiting review → approve →
+  **escalated** (SAR recommended, due 30 days after approval) or **closed**; send back → sent back
+  → decide again. A new decision after the end is a reopen (a new row). An investigator acts only
+  on their own case; a reviewer on their own (labelled "in a bank: another person") or Sam's.
+  A repeat of the actor's last action (same action, code, reason) is not stored.
+- **API:** `GET /api/alerts/{id}/case?visitor=` (your case + Sam's), `POST /api/alerts/{id}/actions`
+  (JSON only, rate-limited, visitor id must be a UUID), `GET /api/decisions?visitor=` (your cases
+  and Sam's with state and, as training feedback, whether the decision matched the answer key),
+  `GET /api/next?visitor=&after=` (the next undecided alert in the top 211). The old
+  `POST …/verdict` goes; its tests move to the new endpoint (same guards, more checks).
+- **Pages:** the Case page's decision panel (choose → code if closing → reason → Submit or Submit
+  and next; then locked with the state, "Change decision", the training answer, the history
+  timeline person / AI / rule); the role control (Investigator · Reviewer) in the header; a
+  **Review** page listing cases waiting for review; the queue marks your decided rows and alerts
+  with an AI draft, with a "you vs the answer key" score.
+- **Build order:** (a) table + workflow + API with tests, (b) investigator panel, (c) reviewer
+  page and role control. Manager comes with S7.16.
+
 **Acceptance criteria**
-- [ ] Unit (first): state transitions (allowed and refused), required reason, idempotent repeat,
+- [x] Unit (first): state transitions (allowed and refused), required reason, idempotent repeat,
       per-visitor isolation, the score arithmetic; verdict table stays append-only.
-- [ ] API: new fields validated (codes from the list only, reason ≤ 500 chars, visitor id format);
+- [x] API: new fields validated (codes from the list only, reason ≤ 500 chars, visitor id format);
       writes still JSON-only and rate-limited; `demo_writer` still INSERT-only.
-- [ ] Live test: decide → locked → change → two rows; next opens an undecided alert.
+- [x] Live test: decide → locked → change → two rows; next opens an undecided alert.
+
+**Done 2026-11-23.** `case_actions` (append-only; CHECKs mirror the rules; writer INSERT only, reader
+SELECT only — live tests), `demo/workflow.py` (states, who may do what, reasons, repeats, Sam's 8
+seeded decisions, 3 wrong on purpose), API `case` / `actions` / `decisions` / `next` (image 0.1.19;
+the old `/verdict` endpoint and its tests moved to `/actions` with the same guards). Pages: the
+decision panel (Suspicious / False alarm → close code → reason → Submit or Submit and next; then
+locked with the state, Change decision with Cancel, the training answer, the history tagged person
+/ AI / rule), the **View as** control (Investigator · Reviewer), the **Review** page and panel
+(approve / send back, "Good review / Not this time"), the queue's chips (your state, AI draft) and
+your score. Click-tested in the throwaway browser (decide, submit and next, change; send back one of
+Sam's wrong closes); the test rows were removed afterwards.
 
 ## S7.16 — The manager's page
 

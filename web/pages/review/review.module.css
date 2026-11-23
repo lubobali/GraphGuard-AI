@@ -1,0 +1,9 @@
+.hero { padding: 28px 0 16px; }
+.hero h1 { font-size: 26px; margin-bottom: 6px; }
+.hero p { margin: 0; max-width: 760px; }
+.h2 { font-size: 17px; margin-bottom: 10px; }
+.wrap { overflow-x: auto; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th { text-align: left; font-size: 12px; color: var(--ink-2); text-transform: uppercase; letter-spacing: 0.03em; padding: 8px; border-bottom: 1px solid var(--axis); }
+.table td { padding: 10px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
+.who { font-weight: 600; color: var(--ink); text-decoration: none; }

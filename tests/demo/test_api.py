@@ -17,7 +17,7 @@ T = dt.datetime(2022, 9, 7, 12)
 
 class FakeRepo:
     def __init__(self):
-        self.verdicts = []
+        self.actions = []
 
     def meta(self):
         return {"banner": "Synthetic data", "window_days": 2.107, "build": {"rows": {}}}
@@ -45,8 +45,21 @@ class FakeRepo:
     def live(self, after, limit):
         return [] if after[1] >= 0 else [{"event_id": 1, "event_time": T}]
 
-    def add_verdict(self, event_id, verdict, note):
-        self.verdicts.append((event_id, verdict, note))
+    # S7.15: the case workflow (rows as the database keeps them)
+    def case_rows(self, event_id):
+        return [r for r in self.actions if r["event_id"] == event_id]
+
+    def add_action(self, event_id, owner, actor, role, action, code, reason):
+        self.actions.append({"event_id": event_id, "case_owner": owner, "actor": actor,
+                             "role": role, "action": action, "code": code, "reason": reason,
+                             "at": T})  # fmt: skip
+
+    def decisions(self, viewer):
+        return [{"event_id": 7, "owner": viewer, "state": "awaiting_review",
+                 "decision": "escalate", "is_laundering": True}]  # fmt: skip
+
+    def next_undecided(self, viewer, after, k):
+        return {"event_id": 8, "rank": after + 1}
 
 
 @pytest.fixture
@@ -86,14 +99,62 @@ def test_unknown_alerts_and_bad_inputs_are_refused(client):
     assert client.get("/api/queue?page=0").status_code == 422
 
 
-def test_a_verdict_is_json_only_validated_and_saved(client):
-    url = "/api/alerts/7/verdict"
-    assert client.post(url, data={"verdict": "close"}).status_code == 415  # a form cannot post
-    assert client.post(url, json={"verdict": "delete everything"}).status_code == 422
-    assert client.post(url, json={"verdict": "close", "note": "x" * 2001}).status_code == 422
-    assert client.post("/api/alerts/999/verdict", json={"verdict": "close"}).status_code == 404
-    r = client.post(url, json={"verdict": "escalate", "note": "ring with 4 hops"})
-    assert r.status_code == 201 and client.repo.verdicts == [(7, "escalate", "ring with 4 hops")]
+ME = "11111111-1111-4111-8111-111111111111"
+ESC = {"visitor": ME, "role": "investigator", "action": "escalate", "reason": "ring with 4 hops"}
+
+
+def test_an_action_is_json_only_validated_and_saved(client):
+    url = "/api/alerts/7/actions"
+    assert client.post(url, data=ESC).status_code == 415  # a form cannot post
+    assert client.post(url, json={**ESC, "action": "delete everything"}).status_code == 422
+    assert client.post(url, json={**ESC, "reason": "x" * 501}).status_code == 422
+    assert client.post(url, json={**ESC, "visitor": "not-a-uuid"}).status_code == 422
+    assert client.post("/api/alerts/999/actions", json=ESC).status_code == 404
+    client.app.state.limiter = A.RateLimiter()  # 5 writes so far = the burst; limits: own test
+    r = client.post(url, json=ESC)
+    assert r.status_code == 201 and r.json()["case"]["state"] == "awaiting_review"
+    assert [a["action"] for a in client.repo.actions] == ["escalate"]
+
+
+def test_the_workflow_refuses_what_it_does_not_allow(client):
+    url = "/api/alerts/7/actions"
+    r = client.post(url, json={**ESC, "role": "reviewer", "action": "approve", "reason": ""})
+    assert r.status_code == 409 and "not allowed" in r.json()["detail"]
+    r = client.post(url, json={**ESC, "action": "close", "reason": "fine"})  # no code
+    assert r.status_code == 409 and "code" in r.json()["detail"]
+    r = client.post(url, json={**ESC, "owner": "demo"})  # Sam's case is not mine to decide
+    assert r.status_code == 409
+    assert client.repo.actions == []
+
+
+def test_a_repeated_click_stores_one_row(client):
+    url = "/api/alerts/7/actions"
+    codes = [client.post(url, json=ESC).status_code for _ in range(3)]
+    assert codes == [201, 200, 200] and len(client.repo.actions) == 1
+    assert client.post(url, json=ESC).json()["repeat"] is True
+
+
+def test_a_reviewer_approves_and_an_escalation_gets_a_sar_due_date(client):
+    url = "/api/alerts/7/actions"
+    client.post(url, json=ESC)
+    r = client.post(url, json={**ESC, "role": "reviewer", "action": "approve", "reason": ""})
+    case = r.json()["case"]
+    assert r.status_code == 201 and case["state"] == "escalated" and case["sar_due"]
+
+
+def test_the_case_endpoint_shows_my_case_and_sams_and_never_another_visitor(client):
+    other = "22222222-2222-4222-8222-222222222222"
+    client.post("/api/alerts/7/actions", json={**ESC, "visitor": other})
+    mine = client.get(f"/api/alerts/7/case?visitor={ME}").json()
+    assert mine["mine"]["state"] == "new" and mine["mine"]["history"] == []
+    assert other not in str(mine)
+    assert client.get("/api/alerts/7/case?visitor=bad").status_code == 422
+
+
+def test_decisions_and_next_need_a_visitor_id(client):
+    assert client.get(f"/api/decisions?visitor={ME}").json()["cases"][0]["event_id"] == 7
+    assert client.get("/api/decisions").status_code == 422
+    assert client.get(f"/api/next?visitor={ME}&after=3").json()["event_id"] == 8
 
 
 def test_reads_and_writes_are_rate_limited_per_client():
@@ -103,7 +164,7 @@ def test_reads_and_writes_are_rate_limited_per_client():
     assert codes.count(429) == 5
     clock["t"] += 10  # tokens refill with time
     assert c.get("/api/health").status_code == 200
-    writes = [c.post("/api/alerts/7/verdict", json={"verdict": "close"}).status_code
+    writes = [c.post("/api/alerts/7/actions", json=ESC).status_code
               for _ in range(int(A.WRITE_BURST) + 2)]  # fmt: skip
     assert writes.count(429) == 2
 

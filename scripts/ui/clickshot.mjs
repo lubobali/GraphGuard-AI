@@ -1,6 +1,6 @@
 // Click-then-screenshot for UI checks (S7.14+). Runs INSIDE the throwaway Playwright image
 // (scripts/ui/clickshot.sh); talks to Chromium over its DevTools port with Node's own
-// WebSocket -- no packages. Steps: "click:<css>", "wait:<ms>", "shot:<name>", "eval:<js>".
+// WebSocket -- no packages. Steps: "click:<css>|<text>", "clickx:<css>|<exact text>", "wait:<ms>", "shot:<name>", "eval:<js>".
 //   node clickshot.mjs <url> <WxH> [dark] step...
 import { spawn } from "node:child_process";
 import { writeFileSync } from "node:fs";
@@ -29,9 +29,9 @@ await sleep(4000);
 for (const s of steps) {
   const [kind, ...arg] = s.split(":"); const a = arg.join(":");
   if (kind === "wait") await sleep(Number(a));
-  if (kind === "click" || kind === "eval") {
-    const expr = kind === "click"
-      ? `(() => { const el = [...document.querySelectorAll(${JSON.stringify(a.split("|")[0])})].find((e) => ${JSON.stringify(a.split("|")[1] ?? "")} === "" || e.textContent.includes(${JSON.stringify(a.split("|")[1] ?? "")})); if (!el) return "missing"; el.scrollIntoView({block: "center"}); el.click(); return "ok"; })()`
+  if (kind === "click" || kind === "clickx" || kind === "eval") {
+    const expr = kind !== "eval"
+      ? `(() => { const el = [...document.querySelectorAll(${JSON.stringify(a.split("|")[0])})].find((e) => ${JSON.stringify(a.split("|")[1] ?? "")} === "" || (${JSON.stringify(kind)} === "clickx" ? e.textContent.trim() === ${JSON.stringify(a.split("|")[1] ?? "")} : e.textContent.includes(${JSON.stringify(a.split("|")[1] ?? "")}))); if (!el) return "missing"; el.scrollIntoView({block: "center"}); el.click(); return "ok"; })()`
       : a;
     const r = await send("Runtime.evaluate", { expression: expr, returnByValue: true });
     console.log(s, "->", r.result?.result?.value);

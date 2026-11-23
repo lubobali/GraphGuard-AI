@@ -54,3 +54,6 @@
 .split th, .split td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); vertical-align: top; }
 .truth { margin-top: 16px; }
 @media (max-width: 860px) { .flow { grid-template-columns: repeat(2, 1fr); } }
+.score { background: var(--surface-2); border-radius: 8px; padding: 8px 12px; margin: 8px 0; font-size: 14px; }
+.mineChip { background: var(--accent); color: #fff; }
+.aiChip { border: 1px solid var(--accent); background: transparent; color: var(--accent-ink); }

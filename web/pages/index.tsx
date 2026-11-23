@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import CapacityChart from "../components/CapacityChart";
-import type { Capacity, Curve, Performance, Queue } from "../lib/api";
+import type { Capacity, Curve, Decisions, Performance, Queue } from "../lib/api";
 import { get } from "../lib/api";
 import N from "../lib/aboutNumbers.json";
 import { ownAccount, whyFirst } from "../lib/caseLogic.js";
+import { visitorId } from "../lib/visitor.js";
 import { flowCounts, fmt, peopleFor, plural, topShare } from "../lib/logic.js";
 import s from "./index.module.css";
 
+const STATE_CHIP: Record<string, string> = {
+  awaiting_review: "you decided · waiting for review", escalated: "escalated", closed: "closed", sent_back: "sent back to you",
+};
 const COLD: Record<string, string> = {
   "scored: sender new": "new sender",
   "scored: receiver new": "new receiver",
@@ -121,6 +125,11 @@ export default function QueuePage() {
   const [queue, setQueue] = useState<Queue | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  const [mine, setMine] = useState<Decisions | null>(null);
+  useEffect(() => {
+    get<Decisions>(`/decisions?visitor=${visitorId()}`).then(setMine).catch(() => {});
+  }, []);
+  const myState = new Map((mine?.cases ?? []).filter((c) => c.owner !== "demo").map((c) => [c.event_id, c.state]));
 
   useEffect(() => {
     get<Curve>("/capacity/curve").then(setCurve).catch((e) => setError(String(e)));
@@ -205,6 +214,13 @@ export default function QueuePage() {
             </span>
           )}
         </div>
+        {mine && mine.score.decided > 0 && (
+          <p className={s.score} role="status">
+            Your decisions: <strong className="num">{mine.score.decided}</strong> · matched the answer key:{" "}
+            <strong className="num">{mine.score.right}</strong> · the model&apos;s flag was right on{" "}
+            <strong className="num">{mine.score.model_right}</strong> of them <span className="muted">(training mode, synthetic data)</span>
+          </p>
+        )}
         <div className={s.tableWrap}>
           <table className={s.queue}>
             <thead>
@@ -238,6 +254,8 @@ export default function QueuePage() {
                   <td>
                     <span className={s.reason}>{whyFirst(g) ?? g.top_reason ?? "Score from the model"}</span>
                     <div className={s.chips}>
+                      {myState.has(g.event_id) && <span className={`${s.chip} ${s.mineChip}`}>{STATE_CHIP[myState.get(g.event_id)!] ?? "decided"}</span>}
+                      {g.has_ai && <span className={`${s.chip} ${s.aiChip}`} title="An AI draft, checked by code, is on the case page">AI draft</span>}
                       {ownAccount(g) && <span className={s.chip} title={ownAccount(g)!.text}>{ownAccount(g)!.label}</span>}
                       {g.rules.map((r) => <span key={r} className={s.chip}>rule: {r.replace("_", " ")}</span>)}
                       {COLD[g.cold_policy] && <span className={s.chip}>{COLD[g.cold_policy]}</span>}

@@ -197,3 +197,80 @@ export function stepCaption(edge, step, total, nameOf) {
   return `Step ${step} of ${total} · ${edge.t.slice(5, 16)} · ${nameOf(edge.source)} paid ${nameOf(edge.target)} ` +
     `${money(edge.amount, edge.currency)} · ${roleText(edge.role)}`;
 }
+
+// ---- S7.15: the decision workflow ------------------------------------------------------
+
+const CLOSE_CODES = [
+  ["explained", "Explained by normal activity"],
+  ["duplicate", "Duplicate of another alert"],
+  ["insufficient", "Not enough evidence"],
+  ["other", "Other"],
+];
+export function closeCodes() {
+  return CLOSE_CODES.map(([code, label]) => ({ code, label }));
+}
+const codeLabel = (c) => (CLOSE_CODES.find(([k]) => k === c) || [null, c])[1];
+
+/** A case state (API) in words. */
+export function stateText(c) {
+  switch (c.state) {
+    case "awaiting_review":
+      return {
+        title: c.decision === "escalate" ? "Saved: you marked this suspicious" : "Saved: you closed this as a false alarm",
+        detail: `${c.decision === "close" ? `Close reason: ${codeLabel(c.code)}. ` : ""}Waiting for a second review (four eyes).`,
+      };
+    case "escalated":
+      return { title: "Escalated: a suspicious activity report (SAR) is recommended",
+        detail: `Approved by a second reviewer. SAR due by ${String(c.sar_due).slice(0, 10)} (30 days, FinCEN). Not filed: this is a demo.` };
+    case "closed":
+      return { title: "Closed: not suspicious", detail: `${codeLabel(c.code)}. Approved by a second reviewer.` };
+    case "sent_back":
+      return { title: "Sent back by the reviewer", detail: "Look again and decide." };
+    default:
+      return { title: "Not decided yet", detail: "Decide: suspicious, or a false alarm." };
+  }
+}
+
+/** Training mode: the decision against the answer key (escalate = laundering). */
+export function trainingText(decision, isLaundering) {
+  if (!decision || isLaundering === null || isLaundering === undefined) return null;
+  const right = (decision === "escalate") === isLaundering;
+  return {
+    right,
+    title: right ? "You were right" : "Not this time",
+    detail: isLaundering ? "The answer key says this payment was money laundering." :
+      "The answer key says this payment was not money laundering.",
+  };
+}
+
+const ACTION_TEXT = { escalate: "marked it suspicious", close: "closed it", approve: "approved the decision",
+  send_back: "sent it back" };
+const WHO = { you: "You", Sam: "Sam (demo investigator)", someone: "Someone" };
+
+/** One history: the rules at the payment's time, the AI draft, then each person's step. */
+export function timeline(alert, history) {
+  const items = [];
+  for (const r of alert.rules || [])
+    items.push({ at: String(alert.event_time), kind: "rule", text: `Rule fired: ${r.replace("_", " ")}` });
+  for (const a of alert.agent || [])
+    items.push({ at: String(a.at), kind: "ai", text: `AI draft written (${MODEL_LABELS[a.model] ?? a.model}), checked by code` });
+  for (const h of history || []) {
+    const as = h.role === "reviewer" ? " as reviewer" : "";
+    const code = h.code ? ` (${codeLabel(h.code)})` : "";
+    items.push({ at: String(h.at ?? ""), kind: "person",
+      text: `${WHO[h.who] ?? h.who}${as} ${ACTION_TEXT[h.action] ?? h.action}${code}${h.reason ? `: "${h.reason}"` : ""}` });
+  }
+  return items.map((it, i) => ({ ...it, i })).sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : a.i - b.i));
+}
+
+/** Training mode for a reviewer: approving a right decision or sending back a wrong one is right. */
+export function reviewText(action, decision, isLaundering) {
+  if (!decision || isLaundering === null || isLaundering === undefined) return null;
+  const decisionRight = (decision === "escalate") === isLaundering;
+  const right = action === "approve" ? decisionRight : !decisionRight;
+  const what = decision === "escalate"
+    ? (isLaundering ? "escalated real money laundering" : "escalated a normal payment")
+    : (isLaundering ? "closed real money laundering" : "closed a normal payment");
+  return { right, title: right ? "Good review" : "Not this time",
+    detail: `The investigator ${what}; you ${action === "approve" ? "approved it" : "sent it back"}.` };
+}

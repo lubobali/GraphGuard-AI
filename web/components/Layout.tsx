@@ -1,12 +1,36 @@
 import Link from "next/link";
 import { useRouter } from "next/router";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { ROLES, readRole, roleForPath, saveRole } from "../lib/role.js";
 import s from "./Layout.module.css";
 
 const NAV = [
   { href: "/", label: "Queue" },
   { href: "/about/", label: "About" },
 ];
+
+// The Manager page arrives with S7.16; until then the control offers two roles.
+const SHOWN = ROLES.filter((r: { key: string }) => r.key !== "manager");
+
+function ViewAs() {
+  const router = useRouter();
+  const [role, setRole] = useState("investigator");
+  useEffect(() => { setRole(roleForPath(router.pathname, readRole())); }, [router.pathname]);
+  function pick(r: { key: string; home: string }) {
+    saveRole(r.key);
+    setRole(r.key);
+    router.push(r.home);
+  }
+  return (
+    <div className={s.viewAs} role="group" aria-label="View as">
+      <span className={s.viewLabel}>View as</span>
+      {SHOWN.map((r: { key: string; label: string; home: string }) => (
+        <button key={r.key} type="button" aria-pressed={role === r.key}
+          className={role === r.key ? s.roleOn : s.roleBtn} onClick={() => pick(r)}>{r.label}</button>
+      ))}
+    </div>
+  );
+}
 
 export default function Layout({ children }: { children: ReactNode }) {
   const { pathname } = useRouter();
@@ -23,6 +47,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           <Link href="/" className={s.brand}>
             GraphGuard <span className={s.sub}>money laundering alerts</span>
           </Link>
+          <ViewAs />
           <nav aria-label="Main">
             {NAV.map((n) => (
               <Link key={n.href} href={n.href}

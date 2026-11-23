@@ -9,7 +9,7 @@ export type QueueGroup = {
   alerts: number; event_id: number; rank: number; percentile: number; event_time: string;
   due: string; amount_paid: number; payment_currency: string; payment_format: string;
   cold_policy: string; rules: string[]; from_name: string | null; from_bank_name: string | null;
-  from_account?: string; to_account?: string;
+  from_account?: string; to_account?: string; has_ai?: boolean;
   to_name: string | null; to_bank_name: string | null; top_reason: string | null;
 };
 export type Queue = { k: number; page: number; page_size: number; alerts: number;
@@ -27,3 +27,10 @@ export async function get<T>(path: string): Promise<T> {
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
   return (await r.json()) as T;
 }
+
+/** S7.15: a visitor's cases (their own and their copy of Sam's). */
+export type DecisionCase = { event_id: number; owner: string; rank: number; from_name: string | null;
+  to_name: string | null; amount_paid: number; payment_currency: string; state: string;
+  decision: string | null; code: string | null; reason: string | null; sar_due: string | null;
+  acted: boolean; is_laundering: boolean | null };
+export type Decisions = { cases: DecisionCase[]; score: { decided: number; right: number; model_right: number } };
