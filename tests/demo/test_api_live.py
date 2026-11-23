@@ -116,3 +116,33 @@ def test_a_case_goes_from_decision_to_review_through_the_api(client):
     finally:
         with db.connect(db.OWNER, secrets_dir=SECRETS) as c, c.cursor() as cur:
             cur.execute("DELETE FROM case_actions WHERE actor IN (%s, %s)", (me, other))
+
+
+def test_the_manager_numbers_equal_a_direct_count_and_never_leak_ids(client):
+    """S7.16 live: one visitor's decisions show up in "me" and in "all"; "all" carries no
+    visitor id and no other visitor's words."""
+    from graphguard.demo import db
+    from graphguard.demo.api import RateLimiter
+
+    client.app.state.limiter = RateLimiter()  # the module's client shares one write budget
+    me = "00000000-0000-4000-8000-0000000000d4"
+    q = client.get("/api/queue?per_day=100").json()["groups"]
+    try:
+        for g, (action, code) in zip(q[:3], [("escalate", None), ("close", "explained"),
+                                             ("close", "other")], strict=True):  # fmt: skip
+            r = client.post(f"/api/alerts/{g['event_id']}/actions", json={
+                "visitor": me, "role": "investigator", "action": action, "code": code,
+                "reason": "live test, S7.16"})  # fmt: skip
+            assert r.status_code == 201
+        m = client.get(f"/api/manager?visitor={me}").json()
+        assert (m["decided"], m["escalated"], m["closed"], m["waiting_review"]) == (3, 1, 2, 3)
+        assert m["backlog"]["total"] == 211 - 3 and len(m["qa"]) == 2
+        everyone = client.get(f"/api/manager?visitor={me}&scope=all")
+        with db.connect(db.READER, secrets_dir=SECRETS) as c, c.cursor() as cur:
+            cur.execute("SELECT count(DISTINCT (event_id, case_owner)) FROM case_actions "
+                        "WHERE case_owner <> 'demo' AND role = 'investigator'")  # fmt: skip
+            assert everyone.json()["decided"] <= cur.fetchone()[0]
+        assert me not in everyone.text and "live test, S7.16" not in everyone.text
+    finally:
+        with db.connect(db.OWNER, secrets_dir=SECRETS) as c, c.cursor() as cur:
+            cur.execute("DELETE FROM case_actions WHERE actor = %s", (me,))

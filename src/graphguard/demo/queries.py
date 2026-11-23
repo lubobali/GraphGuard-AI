@@ -271,6 +271,65 @@ class PgRepo:
             })  # fmt: skip
         return out
 
+    def manager(self, viewer: str, scope: str, k: int) -> dict:
+        """The manager's page (S7.16). `me`: this visitor's cases; `all`: every visitor's
+        cases (Sam's excluded), counts only -- no visitor id and no other visitor's words."""
+        from graphguard.demo import workflow as W
+
+        if scope == "me":
+            cases = [c for c in self.decisions(viewer) if c["owner"] == viewer]
+            reviews = self._one(
+                "SELECT count(*) AS n FROM case_actions WHERE actor = %s AND role = 'reviewer'",
+                (viewer,),
+            )["n"]
+            decided = {c["event_id"] for c in cases}
+        else:
+            rows = self._all(
+                f"SELECT {self._ROW} FROM case_actions WHERE case_owner <> 'demo' ORDER BY id"
+            )
+            keys = sorted({(r["event_id"], r["case_owner"]) for r in rows})
+            truth = {
+                r["event_id"]: r["is_laundering"]
+                for r in self._all(
+                    "SELECT event_id, is_laundering FROM truth WHERE event_id = ANY(%s)",
+                    (sorted({k[0] for k in keys}),),
+                )
+            }
+            cases = []
+            for eid, owner in keys:
+                mine = [r for r in rows if r["event_id"] == eid and r["case_owner"] == owner]
+                cases.append({"event_id": eid, **W.case_state(mine),
+                              "is_laundering": truth.get(eid)})  # fmt: skip
+            reviews = self._one("SELECT count(*) AS n FROM case_actions WHERE role = 'reviewer'")[
+                "n"
+            ]
+            decided = {c["event_id"] for c in cases}
+        leans = {
+            r["event_id"]: r["typology"] != "none evident"
+            for r in self._all(
+                "SELECT event_id, report->>'typology' AS typology FROM agent_reports "
+                "WHERE model = 'deepseek/deepseek-v4.1-flash' AND event_id = ANY(%s)",
+                (sorted(decided),),
+            )
+        }
+        for c in cases:
+            c["ai_leans_suspicious"] = leans.get(c["event_id"])
+        as_of = self._one("SELECT max(event_time) AS t FROM transactions")["t"]
+        undecided = self._all(
+            "SELECT event_time FROM transactions WHERE rank <= %s AND NOT (event_id = ANY(%s))",
+            (k, sorted(decided)),
+        )
+        closed = [c for c in cases if c["decision"] == "close"]
+        qa = W.qa_sample(closed, seed=viewer if scope == "me" else "all")
+        keep = ("event_id", "code", "ok") + (("reason",) if scope == "me" else ())
+        return {
+            "scope": scope,
+            "as_of": as_of,
+            **W.metrics(cases, reviews),
+            "backlog": W.backlog(undecided, as_of),
+            "qa": [{f: c.get(f) for f in keep} for c in qa],
+        }
+
     def next_undecided(self, viewer: str, after: int, k: int) -> dict | None:
         """The next alert in the top k (by rank, after `after`) the viewer has not decided."""
         return self._one(

@@ -9,8 +9,7 @@ const NAV = [
   { href: "/about/", label: "About" },
 ];
 
-// The Manager page arrives with S7.16; until then the control offers two roles.
-const SHOWN = ROLES.filter((r: { key: string }) => r.key !== "manager");
+const SHOWN = ROLES;
 
 function ViewAs() {
   const router = useRouter();

@@ -58,6 +58,9 @@ class FakeRepo:
         return [{"event_id": 7, "owner": viewer, "state": "awaiting_review",
                  "decision": "escalate", "is_laundering": True}]  # fmt: skip
 
+    def manager(self, viewer, scope, k):
+        return {"scope": scope, "decided": 1, "qa": [], "backlog": {"total": k}}
+
     def next_undecided(self, viewer, after, k):
         return {"event_id": 8, "rank": after + 1}
 
@@ -194,3 +197,10 @@ def test_the_static_site_is_served_and_survives_its_folder_being_recreated(tmp_p
     assert r.status_code == 200 and "queue" in r.text
     assert "Content-Security-Policy" in r.headers
     assert c.get("/api/health").json() == {"status": "ok"}  # the API still wins on /api
+
+
+def test_the_manager_page_takes_a_scope_and_a_visitor(client):
+    assert client.get(f"/api/manager?visitor={ME}").json()["scope"] == "me"
+    assert client.get(f"/api/manager?visitor={ME}&scope=all").json()["scope"] == "all"
+    assert client.get(f"/api/manager?visitor={ME}&scope=everyone").status_code == 422
+    assert client.get("/api/manager").status_code == 422

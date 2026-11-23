@@ -18,6 +18,7 @@ decisions of "Sam", the demo investigator, so a first-time reviewer has real wor
 from __future__ import annotations
 
 import datetime as dt
+import random
 
 DEMO = "demo"  # the case owner of Sam's seeded decisions
 CLOSE_CODES = {
@@ -142,3 +143,53 @@ def score(cases: list[dict]) -> dict:
         "right": sum((c["decision"] == "escalate") == c["is_laundering"] for c in decided),
         "model_right": sum(bool(c["is_laundering"]) for c in decided),
     }
+
+
+# ---- S7.16: the manager's numbers ---------------------------------------------------------
+
+
+def metrics(cases: list[dict], reviews_done: int) -> dict:
+    """Counts for the manager's page. `cases`: state, decision (latest), is_laundering and
+    ai_leans_suspicious (the AI draft named a pattern; None when there is no draft)."""
+    decided = [c for c in cases if c["decision"]]
+    with_ai = [c for c in decided if c.get("ai_leans_suspicious") is not None]
+    return {
+        "decided": len(decided),  # a case sent back has no current decision
+        "escalated": sum(c["decision"] == "escalate" for c in decided),
+        "closed": sum(c["decision"] == "close" for c in decided),
+        "waiting_review": sum(c["state"] == "awaiting_review" for c in cases),
+        "sent_back": sum(c["state"] == "sent_back" for c in cases),
+        "final_escalated": sum(c["state"] == "escalated" for c in cases),
+        "final_closed": sum(c["state"] == "closed" for c in cases),
+        "reviews_done": reviews_done,
+        "matched": sum((c["decision"] == "escalate") == bool(c["is_laundering"]) for c in decided),
+        "model_right": sum(bool(c["is_laundering"]) for c in decided),
+        "ai_agreement": {
+            "cases": len(with_ai),
+            "agree": sum(
+                (c["decision"] == "escalate") == c["ai_leans_suspicious"] for c in with_ai
+            ),
+        },
+    }
+
+
+def backlog(undecided: list[dict], as_of: dt.datetime) -> dict:
+    """Undecided alerts by age at `as_of` (the data's clock: the window's end)."""
+    ages = [(as_of - r["event_time"]).total_seconds() / 3600 for r in undecided]
+    return {
+        "total": len(ages),
+        "under_24h": sum(a < 24 for a in ages),
+        "h24_48": sum(24 <= a < 48 for a in ages),
+        "over_48h": sum(a >= 48 for a in ages),
+        "oldest": min((r["event_time"] for r in undecided), default=None),
+    }
+
+
+def qa_sample(closed: list[dict], seed: str, n: int = 5) -> list[dict]:
+    """Quality assurance: a fixed random sample of closed cases, re-checked blind against
+    the answer key (a close is right when the payment was not laundering)."""
+    pool = sorted(closed, key=lambda c: c["event_id"])
+    picked = random.Random(seed).sample(pool, min(n, len(pool)))
+    return [
+        {**c, "ok": not c["is_laundering"]} for c in sorted(picked, key=lambda c: c["event_id"])
+    ]

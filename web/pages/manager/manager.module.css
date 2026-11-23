@@ -1,0 +1,22 @@
+.hero { padding: 28px 0 12px; }
+.hero h1 { font-size: 26px; margin-bottom: 6px; }
+.hero p { margin: 0; max-width: 760px; }
+.tabs { display: inline-flex; gap: 2px; background: var(--surface-2); border: 1px solid var(--ring); border-radius: 999px; padding: 2px; margin-bottom: 14px; }
+.tab, .tabOn { border: 0; background: transparent; color: var(--ink-2); font: inherit; padding: 6px 14px; border-radius: 999px; cursor: pointer; }
+.tabOn { background: var(--accent); color: #fff; }
+.h2 { font-size: 17px; margin-bottom: 10px; }
+.h3 { font-size: 14px; margin: 14px 0 6px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
+.tile { background: var(--surface-2); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; }
+.tile strong { font-size: 26px; line-height: 1.1; }
+.tile span { color: var(--ink-2); font-size: 13px; }
+.good { box-shadow: inset 4px 0 0 var(--good); }
+.bad { box-shadow: inset 4px 0 0 var(--warn-ink); }
+.line { margin: 10px 0 0; color: var(--ink-2); }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th, .table td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+.ok { color: var(--good); }
+.table .bad { box-shadow: none; color: var(--warn-ink); }
+.range { width: 100%; accent-color: var(--accent); height: 28px; }
+.late { border-top: 1px solid var(--grid); margin-top: 12px; }
+.page section + section { margin-top: 16px; }

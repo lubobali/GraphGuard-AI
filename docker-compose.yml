@@ -428,7 +428,7 @@ services:
   demo-api:
     # Its own tag: API changes do not roll the scorer/consumer pods (which stay on the
     # justfile's IMAGE_TAG). Never rebuild a tag; bump it.
-    image: graphguard/serving:0.1.19
+    image: graphguard/serving:0.1.20
     container_name: graphguard-demo-api
     restart: unless-stopped
     command: ["/app/.venv/bin/python", "-m", "uvicorn", "graphguard.demo.api:app",

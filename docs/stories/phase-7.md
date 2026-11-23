@@ -910,9 +910,33 @@ can plan people and catch mistakes.
 - The capacity slider in full (with rings and the late-labels panel) lives here; the home page keeps
   the simple version.
 
+**Sub-steps (expanded 2026-11-23, before building)**
+1. **`workflow.metrics()`, test first** (pure): from cases (state, decision, answer key, AI
+   draft's leaning) → decided, escalated vs closed (latest decision), waiting for review, sent
+   back, final escalated (SAR recommended) / closed, reviews done, matched the answer key, the
+   model's flag right, AI draft agreement (the draft "leans suspicious" when it names a pattern);
+   `backlog()` → undecided alerts in the top 211 by age at the window's end (< 24 h, 24-48 h,
+   > 48 h, oldest); `qa_sample()` → 5 closed cases drawn with a fixed seed per scope, re-checked
+   blind against the answer key.
+2. **API** `GET /api/manager?visitor=&scope=me|all`: counts only; "all visitors" never shows an id
+   or a reason written by another visitor (QA rows in "all" show the code, not the words).
+3. **Page `/manager/`:** two tabs (Your shift · All visitors), a row of big numbers, backlog by age,
+   the QA sample, then **Plan the team** — the slider with groups found and the late-labels panel
+   (moved from the home page, which keeps the simple version).
+4. **View as: Manager** turned on in the header.
+5. **Tests:** unit (metrics, backlog, QA, empty state), API (scope, ids never leak), live (the
+   numbers equal a direct count on `case_actions`), screenshots.
+
 **Acceptance criteria**
-- [ ] Unit (first): every metric from hand-built verdict rows; empty state when nothing is decided.
-- [ ] Counts, never money; "synthetic, measured on the window" on the page.
+- [x] Unit (first): every metric from hand-built verdict rows; empty state when nothing is decided.
+- [x] Counts, never money; "synthetic, measured on the window" on the page.
+
+**Done 2026-11-23.** `workflow.metrics / backlog / qa_sample` (pure, tested), `GET /api/manager`
+(me | all; "all" carries no visitor id and no other visitor's words — live test), the Manager page
+(the work, the quality with a blind QA sample of closed alerts, the backlog by age on the data's
+clock, Plan the team with groups found and the late-labels panel moved from the home page), **View
+as: Manager** on. API image 0.1.20 (0.1.17/0.1.18 removed; 0.1.19 is the rollback). Checked by
+screenshot with 4 test decisions (removed afterwards).
 
 ## S7.17 — The new part: an AI second reviewer that argues back
 

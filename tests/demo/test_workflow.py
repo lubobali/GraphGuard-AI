@@ -110,3 +110,48 @@ def test_the_score_counts_decisions_that_match_the_answer_key():
              {"decision": "close", "is_laundering": False},
              {"decision": None, "is_laundering": True}]  # fmt: skip
     assert W.score(cases) == {"decided": 3, "right": 2, "model_right": 2}
+
+
+# ---- S7.16: the manager's numbers --------------------------------------------------------
+
+
+def case(state, decision, laundering, ai=None, eid=1):
+    return {"event_id": eid, "state": state, "decision": decision, "is_laundering": laundering,
+            "ai_leans_suspicious": ai}  # fmt: skip
+
+
+def test_metrics_count_every_state_and_the_answer_key():
+    cases = [case("awaiting_review", "escalate", True, ai=True, eid=1),
+             case("escalated", "escalate", False, ai=True, eid=2),
+             case("closed", "close", False, ai=False, eid=3),
+             case("sent_back", None, True, eid=4),
+             case("awaiting_review", "close", True, ai=True, eid=5)]  # fmt: skip
+    m = W.metrics(cases, reviews_done=3)
+    assert (m["decided"], m["escalated"], m["closed"]) == (4, 2, 2)
+    assert (m["waiting_review"], m["sent_back"]) == (2, 1)
+    assert (m["final_escalated"], m["final_closed"], m["reviews_done"]) == (1, 1, 3)
+    assert (m["matched"], m["model_right"]) == (2, 2)  # 1 and 3 right; 1 and 5 laundering
+    assert m["ai_agreement"] == {"cases": 4, "agree": 3}  # only 5 disagrees (AI yes, closed)
+
+
+def test_metrics_with_nothing_decided_are_all_zero():
+    m = W.metrics([], reviews_done=0)
+    assert m["decided"] == 0 and m["ai_agreement"] == {"cases": 0, "agree": 0}
+
+
+def test_backlog_by_age_at_the_window_end():
+    end = dt.datetime(2022, 9, 8, 16, 9)
+    rows = [{"event_time": end - dt.timedelta(hours=h)} for h in (1, 23, 30, 47, 49, 50)]
+    b = W.backlog(rows, end)
+    assert (b["total"], b["under_24h"], b["h24_48"], b["over_48h"]) == (6, 2, 2, 2)
+    assert b["oldest"] == end - dt.timedelta(hours=50)
+    assert W.backlog([], end) == {"total": 0, "under_24h": 0, "h24_48": 0, "over_48h": 0,
+                                  "oldest": None}  # fmt: skip
+
+
+def test_the_qa_sample_is_fixed_by_its_seed_and_checked_blind_against_the_key():
+    closed = [case("closed", "close", eid % 3 == 0, eid=eid) for eid in range(1, 21)]
+    a, b = W.qa_sample(closed, seed="me"), W.qa_sample(closed, seed="me")
+    assert [c["event_id"] for c in a] == [c["event_id"] for c in b] and len(a) == 5
+    assert all(c["ok"] == (not c["is_laundering"]) for c in a)
+    assert W.qa_sample(closed[:2], seed="x") and len(W.qa_sample(closed[:2], seed="x")) == 2

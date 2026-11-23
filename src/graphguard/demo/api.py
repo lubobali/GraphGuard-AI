@@ -194,6 +194,11 @@ def decisions(visitor: Visitor, r: Repo):
     return _ok({"cases": cases, "score": W.score(mine)})
 
 
+@router.get("/manager")
+def manager(visitor: Visitor, r: Repo, scope: Literal["me", "all"] = "me", per_day: PerDay = 100):
+    return _ok(r.manager(visitor, scope, k_for(per_day)))
+
+
 @router.get("/next")
 def next_alert(visitor: Visitor, r: Repo, after: Annotated[int, Query(ge=0)] = 0,
                per_day: PerDay = 100):  # fmt: skip

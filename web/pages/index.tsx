@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import CapacityChart from "../components/CapacityChart";
-import type { Capacity, Curve, Decisions, Performance, Queue } from "../lib/api";
+import type { Capacity, Curve, Decisions, Queue } from "../lib/api";
 import { get } from "../lib/api";
 import N from "../lib/aboutNumbers.json";
 import { ownAccount, whyFirst } from "../lib/caseLogic.js";
@@ -121,7 +121,6 @@ export default function QueuePage() {
   const settled = useDebounced(perDay, 200);
   const [cap, setCap] = useState<Capacity | null>(null);
   const [curve, setCurve] = useState<Curve | null>(null);
-  const [perf, setPerf] = useState<Performance | null>(null);
   const [queue, setQueue] = useState<Queue | null>(null);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
@@ -138,10 +137,9 @@ export default function QueuePage() {
     setPage(1);
     Promise.all([
       get<Capacity>(`/capacity?per_day=${settled}`),
-      get<Performance>(`/performance?per_day=${settled}`),
       get<Queue>(`/queue?per_day=${settled}&page=1`),
     ])
-      .then(([c, p, q]) => { setCap(c); setPerf(p); setQueue(q); })
+      .then(([c, q]) => { setCap(c); setQueue(q); })
       .catch((e) => setError(String(e)));
   }, [settled]);
 
@@ -276,31 +274,6 @@ export default function QueuePage() {
           alerts first). It is not a probability. Check by = 24 hours after the payment.
         </p>
       </section>
-      <section className={`card ${s.truth}`} aria-labelledby="truth-h">
-          <h2 id="truth-h" className={s.h2}>The catch: the truth comes late</h2>
-          {perf?.measured_offline && (
-            <div className={s.layer}>
-              <div className={s.layerHead}><span className={s.solid} aria-hidden="true" />Measured afterwards</div>
-              <p>With the full answer key: <strong className="num">{fmt(perf.measured_offline.caught)}</strong> of{" "}
-                {fmt(perf.laundering_in_window)} laundering payments in the ones checked.</p>
-            </div>
-          )}
-          {perf && (
-            <div className={s.layer}>
-              <div className={s.layerHead}><span className={s.dashed} aria-hidden="true" />Known on the day</div>
-              <p>
-                By the end of the window, investigators had confirmed{" "}
-                <strong className="num">{plural(perf.confirmed_so_far.known, "label", "labels")}</strong>{" "}
-                ({fmt(perf.confirmed_so_far.laundering)} laundering). The rest —{" "}
-                <strong className="num">
-                  {(100 * (1 - perf.confirmed_so_far.laundering / perf.laundering_in_window)).toFixed(1)}%
-                </strong>{" "}
-                of the laundering — is still unknown: verdicts take days, police reports weeks.
-              </p>
-              <p className={`muted ${s.small}`}>Labels exist only for alerts someone worked, so they favour the model that chose them (FINDING-017).</p>
-            </div>
-          )}
-        </section>
     </>
   );
 }
