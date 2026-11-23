@@ -2,10 +2,11 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState } from "react";
 import DecisionPanel, { ReviewPanel } from "../../components/DecisionPanel";
+import Explain from "../../components/Explain";
 import RingGraph from "../../components/RingGraph";
 import WhyBars from "../../components/WhyBars";
 import { get } from "../../lib/api";
-import { agentView, answerText, money, ownAccount, typeText, whyFirst } from "../../lib/caseLogic.js";
+import { agentView, answerText, money, ownAccount, whyFirst } from "../../lib/caseLogic.js";
 import { fmt, topShare } from "../../lib/logic.js";
 import s from "./case.module.css";
 
@@ -34,8 +35,9 @@ function Groups({ groups }: { groups: Group[] }) {
   const part = (d: Group["direction"]) => groups.filter((g) => g.direction === d);
   const item = (g: Group) => (
     <li key={g.key}>
-      <strong>{g.label}.</strong> {g.sentences.join(" ")}
+      <strong>{g.label}.</strong> {g.sentences[0]}
       {g.look && <> <a href={LOOK[g.look][0]}>Check {LOOK[g.look][1]}</a></>}
+      {g.sentences.length > 1 && <Explain label={`${g.sentences.length - 1} more`}><p>{g.sentences.slice(1).join(" ")}</p></Explain>}
     </li>
   );
   const up = part("up"), against = part("against"), art = part("artifact");
@@ -45,7 +47,7 @@ function Groups({ groups }: { groups: Group[] }) {
       {up.length ? <ol className={s.reasons}>{up.map(item)}</ol>
         : <p className="muted">Nothing: the model&apos;s own score for this payment is low.</p>}
       {against.length > 0 && (<><h3 className={s.h3}>Points against</h3><ul className={s.against}>{against.map(item)}</ul></>)}
-      {art.map((g) => <p key={g.key} className={`muted ${s.artifact}`}>{g.label}: {g.sentences.join(" ")}</p>)}
+      {art.length > 0 && <Explain label="Not counted as a reason">{art.map((g) => <p key={g.key}>{g.label}: {g.sentences.join(" ")}</p>)}</Explain>}
     </div>
   );
 }
@@ -60,26 +62,34 @@ function AgentDraft({ reports }: { reports: Alert["agent"] }) {
   return (
     <section className={`card ${s.agentCard}`} aria-labelledby="agent-h">
       <h2 id="agent-h" className={s.h2}>AI draft, checked</h2>
-      <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-        Written by an AI from the same read-only data you see here (never the answer key). A checker
-        kept only the claims it could match to a payment; the rest are shown as dropped. The AI drafts, you decide.
-      </p>
-      <p className="muted" style={{ fontSize: 13 }}>
-        Measured on 64 test alerts never used to build the checker: before checking, 4-6% of the AI&apos;s claims
+      <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>Facts checked by code. The AI drafts, you decide.</p>
+      <Explain>
+        <p>Written by an AI from the same read-only data you see here (never the answer key). A checker
+        kept only the claims it could match to a payment; the rest are shown as dropped.</p>
+        <p>Measured on 64 test alerts never used to build the checker: before checking, 4-6% of the AI&apos;s claims
         were unsupported. Its ring-type guesses were right for only 7-8 of 40 laundering alerts, about as often
-        as a guess. Treat the type as a hint, not a finding (FINDING-019).
-      </p>
+        as a guess. Treat the type as a hint, not a finding (FINDING-019).</p>
+      </Explain>
       <div className={s.agentGrid}>
         {views.map((v) => (
           <div key={v.model}>
-            <h3 className={s.h3}>{v.label} · <span className="ink2">pattern guess: {typeText(v.typology)}</span></h3>
-            <p className={s.agentSummary}><span className="muted">Summary (not checked):</span> {v.summary}</p>
+            <h3 className={s.h3}>{v.label} · <span className="ink2">guess: {v.typology === "none evident" ? "no clear pattern" : v.typology.toLowerCase()} (a hint)</span></h3>
+            <Explain label="AI summary (not checked)"><p className={s.agentSummary}>{v.summary}</p></Explain>
             {v.kept.length > 0 && (
               <ul className={s.claims}>
-                {v.kept.map((c, i) => (
+                {v.kept.slice(0, 2).map((c, i) => (
                   <li key={i}>{c.text} <span className="muted">· tx {c.cites.join(", ")}</span></li>
                 ))}
               </ul>
+            )}
+            {v.kept.length > 2 && (
+              <Explain label={`${v.kept.length - 2} more checked facts`}>
+                <ul className={s.claims}>
+                  {v.kept.slice(2).map((c, i) => (
+                    <li key={i}>{c.text} <span className="muted">· tx {c.cites.join(", ")}</span></li>
+                  ))}
+                </ul>
+              </Explain>
             )}
             {v.dropped.length > 0 && (
               <details className={s.dropped}>
@@ -156,7 +166,7 @@ export default function CasePage() {
             {a.receiving_currency !== a.payment_currency && <> · received as {money(a.amount_received, a.receiving_currency)}</>}
             {" "}· {a.payment_format} · {a.event_time.replace("T", " ").slice(0, 16)}
           </p>
-          <p className="muted">{a.from_bank_name} → {a.to_bank_name} · due {a.event_time.slice(5, 10)} + 24 h · model {a.model_version}</p>
+          <p className="muted">{a.from_bank_name} → {a.to_bank_name} · due {a.event_time.slice(5, 10)} + 24 h</p>
         </div>
       </section>
 
@@ -174,7 +184,7 @@ export default function CasePage() {
             <div className={s.rules}>{a.rule_text.map((r) => <p key={r}>{r}</p>)}</div>
           )}
           {a.contributions && (
-            <details className={s.detail}><summary>Model detail: every feature</summary><WhyBars contributions={a.contributions} /></details>
+            <details className={s.detail}><summary>Model detail: every feature</summary><p className="muted">Model {a.model_version}</p><WhyBars contributions={a.contributions} /></details>
           )}
         </section>
 

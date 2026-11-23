@@ -3,6 +3,7 @@ import { Background, Controls, Handle, MarkerType, Position, ReactFlow } from "@
 import type { Edge, Node, NodeProps } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { money, nodeRole, playOrder, roleText, stepCaption, stepNumbers, toFlow } from "../lib/caseLogic.js";
+import Explain from "./Explain";
 import s from "./RingGraph.module.css";
 
 // The ring as of the alert (S7.5 data), left to right in time. Accounts are nodes, payments
@@ -49,7 +50,8 @@ function canvasHeight(h: number) {
   return Math.round(Math.min(760, Math.max(320, h * 0.85 + 40)));
 }
 
-export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set<number> | null }) {
+// `compact` (S7.18, the tour): one short how-to line, no window caption, the table closed.
+export default function RingGraph({ graph, ringTx, compact = false }: { graph: Graph; ringTx: Set<number> | null; compact?: boolean }) {
   const flow = useMemo(() => toFlow(graph), [graph]);
   const { nodes, size } = useMemo(() => layout(flow), [flow]);
   const [dark, setDark] = useState(false);
@@ -120,20 +122,21 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
 
   return (
     <div>
-      <p className={s.howto}>
-        Each box is an account, each arrow a payment, numbered in time order. Everything here
-        happened <strong>before</strong> the flagged payment (the blue arrow). Step through to see
-        where the money came from and where it went.
-      </p>
+      <p className={s.howto}>Each box is an account, each arrow a payment. The blue arrow is the flagged one.</p>
+      {!compact && (
+        <Explain>
+          <p>Arrows are numbered in time order. Everything here happened <strong>before</strong> the
+          flagged payment: {graph.window_hours} hours before it, nothing after it, and at most {graph.cap} payments
+          per account and direction (&quot;+N more&quot; counts the rest). Step through to see where the money
+          came from and where it went.</p>
+        </Explain>
+      )}
       <div className={s.toolbar} onKeyDown={keys}>
         <button type="button" onClick={() => step(-1)} className={s.btn2} disabled={shown <= 1 || playing} aria-label="Previous payment">← Back</button>
         <button type="button" onClick={() => step(1)} className={s.btn2} disabled={playing} aria-label="Next payment">Next →</button>
         <button type="button" onClick={play} className={s.btn} disabled={playing}>
           {playing ? "Playing…" : "▶ Play all"}
         </button>
-        <span className="muted">
-          {graph.window_hours} h before the alert · nothing after it · at most {graph.cap} payments per account and direction
-        </span>
       </div>
       {wide && <p className="muted" style={{ fontSize: 12, margin: "0 0 6px" }}>Wide ring: drag to see more, or press ⛶ (bottom left) to see it all.</p>}
       {stepping && current && (
@@ -156,7 +159,7 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
         {ringTx && <li><span className={s.swatch} style={{ background: "var(--ring-hl)" }} />in the laundering scheme (answer key)</li>}
         <li><span className={s.swatchDash} />more payments, not drawn</li>
       </ul>
-      <details className={s.table} open={rows.length <= 12}>
+      <details className={s.table} open={!compact && rows.length <= 12}>
         <summary>The same payments as a table ({rows.length})</summary>
         <table>
           <thead><tr><th scope="col">#</th><th scope="col">When</th><th scope="col">From</th><th scope="col">To</th><th scope="col">Amount</th><th scope="col">What it is</th></tr></thead>

@@ -998,6 +998,76 @@ after Lubo's top-up the rest ran: Sonnet measured on all 128, DeepSeek's facts o
 alert (800 reviews, $1.57), Sonnet's labelled review on the top 60 incl. Sam's 8 (120, $2.63).
 API image 0.1.22.
 
+## S7.18 — Try one case in 2 minutes, and less to read everywhere
+
+**As** someone who has never seen an AML tool (a recruiter, Lubo's wife, a video viewer), **I
+want** to do one investigator's job in four short steps, **so that** I understand what the system
+does by doing it, not by reading.
+
+**Why** (Lubo, 2026-11-23: "a lot of text needs to be read … not sure how I'd do the demo
+video"; research report §design): tutorials do not raise task success and make tasks feel
+harder (NN/g, 70 people); tours finish 72-74% at 3-4 steps, 16% at 7 (Chameleon); say the
+benefit first and what it cannot do (Google PAIR). So: a task, not a tutorial, started by the
+person, four steps; and the full pages keep their detail but stop showing it all at once.
+
+**Sub-steps (expanded 2026-11-23, before building)**
+1. **Three tour cases, chosen by rule, not by taste** (`src/graphguard/demo/tour.py`, test
+   first): from the top 60 (so each has Sonnet's labelled second opinion both ways and an AI
+   draft), the money picture has at most 12 payments, the reasons are model reasons (not
+   rules only), not one of Sam's cases. Two laundering (different ring types: a visitor who
+   always says "suspicious" must not look like an expert) and one clean. Picked by a seeded,
+   documented order; the chosen ids and why are written in the file.
+2. **A static file, no API, no AI call:** `python -m graphguard.demo.tour build` writes
+   `web/lib/tour.json` — for each case: the payment in words, the numbered picture (same data
+   as the Case page), up to 3 reasons in plain words, the answer and the ring type in plain
+   words (shown only after the visitor decides), Sonnet's review against each decision. Read as
+   `demo_reader`; a test rebuilds it from the database and compares (no drift), and checks it
+   holds no other alert's answer.
+3. **The page `/try`, four steps:**
+   1. *What you are looking at* — one sentence ("A bank's computer flagged this payment out of
+      a million. You are the investigator.") + the money picture playing step by step.
+   2. *Your call* — two big buttons, Suspicious / Normal. One tap, no reason form (the full
+      workflow keeps reasons; this is a taste).
+   3. *The answer* — "You were right / wrong. This was a fan-in: 9 accounts paid one account in
+      a day, then the money moved on." + one line on what the model can't do ("It also flags
+      normal payments: of 211 it checks first, 44 are false alarms.").
+   4. *A second opinion* — the AI argues against what you chose, checked facts only, one line
+      on how often it is right. Then: "Try another case" (the next of the three) · "See the
+      full tool" (Queue) · score "2 of 3 right".
+   Nothing is saved on the server (no case_actions rows, the manager's numbers stay real); the
+   step and score live in the page only. Phone first.
+4. **Started by the person:** the home page's first button "Try one case — 2 minutes"; a "Try
+   it" link in the header; the "First time here?" box points to it. Never pops up by itself.
+5. **Less to read on the full pages** (Queue, Case, Review, Manager): each section keeps a
+   heading and at most one short line; longer explanations move behind a small "What is this?"
+   toggle (one shared component, closed by default, keyboard-usable). Words visible on first
+   load measured before and after from the built pages (`scripts/ui/words.mjs`, in the CI
+   image): **at least half fewer** on Queue and Case; the S7.12 banned-words test still holds.
+6. **Checked like S7.12-S7.17:** screenshots of every tour step (laptop, phone, dark), a click
+   test through all three cases, the full test suite.
+
+**Acceptance criteria**
+- [x] Unit (first): the case rule (top 60, ≤ 12 payments, model reasons, not Sam's, 2 laundering
+      of different types + 1 clean) and the tour file equal to the database; no other answers.
+- [x] `/try` works in four steps with no API call and no AI call; nothing written to the server.
+- [x] The answer and the second opinion are shown only after the visitor taps a decision.
+- [x] Started only by the visitor; reachable from the home page's first button and the header.
+- [x] Visible words on first load: Queue and Case at least halved (numbers in the Done note).
+- [x] Screenshots + click test through all three cases; zero failures.
+
+**Done (2026-11-23).** `/try`: case 1 laundering (scatter-gather, rank 18), case 2 a clean
+own-account payment that looks like structuring (rank 1 — the queue's top alert was a false
+alarm), case 3 laundering (fan-in, rank 34); picked by the rule in `demo/tour.py` (one change
+while building: a picture of at least 3 payments — a single arrow teaches nothing). Static
+`web/lib/tour.json`, compared with the database by a live test. Visible prose on first load
+(`scripts/ui/words.sh`, the browser's own text, tables excluded): **Queue 312 → 153, Case 736 →
+352** (Review 56 and Manager 211 unchanged; `/try` 208). Cut by: one shared "What is this?"
+(`components/Explain.tsx`), reason groups showing their first sentence, the AI draft's two
+paragraphs, its unchecked summary and all but two of its checked facts folded, the picture's
+how-to in one line. The "First time here?" box was removed: the "Try one case — 2 minutes"
+button above it does its job. Click test through all three cases (1 of 3 right when answering
+suspicious, suspicious, normal), screenshots laptop / phone / dark.
+
 ## S7.11 — The test on a real person (the Phase 7 gate)
 
 **As** Lubo, **I want** a non-technical person to use it, **so that** "it is clear" is
@@ -1006,7 +1076,7 @@ measured, not assumed.
   gets the Queue page and no explanation. Written down: what they say the system does,
   what they would do next, where they got stuck. Fixes from it, then the gate is marked.
 
-S7.11 runs **after** S7.12-S7.17, on the improved site.
+S7.11 runs **after** S7.12-S7.18, on the improved site (the tester starts on the home page and may or may not take the tour — that choice is part of the test).
 
 Out of scope for Phase 7: a public URL (separate step, LuBot session first), logins and
 roles for many users, live re-scoring, money totals, live (non-precomputed) AI calls. (The

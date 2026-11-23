@@ -1,0 +1,4 @@
+.explain { margin: 4px 0 8px; font-size: 13px; }
+.explain summary { cursor: pointer; color: var(--accent-ink); width: fit-content; }
+.body { color: var(--ink-2); margin-top: 6px; }
+.body p { margin: 0 0 6px; }

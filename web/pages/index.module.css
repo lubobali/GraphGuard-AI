@@ -57,3 +57,6 @@
 .score { background: var(--surface-2); border-radius: 8px; padding: 8px 12px; margin: 8px 0; font-size: 14px; }
 .mineChip { background: var(--accent); color: #fff; }
 .aiChip { border: 1px solid var(--accent); background: transparent; color: var(--accent-ink); }
+.tryRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px !important; }
+.tryBtn { background: var(--accent); color: #fff; border-radius: 10px; padding: 11px 18px;
+  font-weight: 700; text-decoration: none; }

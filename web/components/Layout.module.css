@@ -3,11 +3,11 @@
 .bar { display: flex; align-items: center; justify-content: space-between; height: 56px; }
 .brand { font-weight: 700; font-size: 17px; color: var(--ink); text-decoration: none; }
 .sub { font-weight: 400; color: var(--muted); font-size: 14px; margin-left: 6px; }
-.link, .on { margin-left: 18px; text-decoration: none; color: var(--ink-2); font-size: 14px;
+.link, .on { margin-left: 18px; white-space: nowrap; text-decoration: none; color: var(--ink-2); font-size: 14px;
   padding: 6px 0; }
 .on { color: var(--ink); border-bottom: 2px solid var(--accent); }
 .footer { color: var(--muted); font-size: 13px; padding: 32px 16px 48px; }
-@media (max-width: 560px) { .sub, .tagline { display: none; } }
+@media (max-width: 560px) { .sub, .tagline { display: none; } .link, .on { margin-left: 12px; } }
 .tagline { margin: -6px auto 0; padding-bottom: 10px; font-size: 14px; color: var(--ink-2); }
 .viewAs { display: inline-flex; align-items: center; gap: 2px; background: var(--surface-2); border: 1px solid var(--ring);
   border-radius: 999px; padding: 2px; font-size: 13px; }

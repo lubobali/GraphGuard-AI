@@ -60,8 +60,7 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
   return (
     <figure className={s.fig}>
       <figcaption className={s.cap}>
-        <strong>More checks find more laundering, and GraphGuard&apos;s list finds far more than fixed rules</strong>
-        <span className="muted"> · laundering payments found over the 2 days, by how many the team checks a day</span>
+        <strong>More checks find more laundering</strong>
       </figcaption>
       <ul className={s.legend} aria-label="Legend">
         {SERIES.map(({ key, label, color, dash }) => (
@@ -119,7 +118,7 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
         </div>
       </div>
       <details className={s.table}>
-        <summary>Show these numbers as a table</summary>
+        <summary>As a table</summary>
         <table>
           <thead>
             <tr><th scope="col">Checks a day</th>{TABLE_SERIES.map((r) => <th key={r.key} scope="col">{r.label}</th>)}<th scope="col">Groups found (our model)</th></tr>

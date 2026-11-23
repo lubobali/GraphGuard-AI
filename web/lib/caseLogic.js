@@ -111,6 +111,9 @@ const TYPE_TEXT = {
   RANDOM: "money hopped through a random chain of accounts",
 };
 
+/** A ring type in plain words, or null. */
+export function typeHow(type) { return TYPE_TEXT[type] ?? null; }
+
 export function answerText(answer) {
   if (!answer.is_laundering) {
     return { verdict: "NO", headline: "This payment was not money laundering.",

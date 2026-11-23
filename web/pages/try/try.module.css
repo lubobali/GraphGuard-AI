@@ -1,0 +1,31 @@
+.page { max-width: 760px; margin: 0 auto; padding: 18px 0 32px; }
+.page section + section { margin-top: 14px; }
+.kicker { color: var(--ink-2); font-size: 14px; margin: 0 0 8px; }
+.steps { list-style: none; display: flex; flex-wrap: wrap; gap: 6px; padding: 0; margin: 0 0 14px; }
+.step, .stepOn, .stepDone { font-size: 13px; border-radius: 999px; padding: 3px 10px;
+  border: 1px solid var(--ring); color: var(--muted); }
+.stepOn { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+.stepDone { color: var(--ink-2); }
+.h1 { font-size: 22px; line-height: 1.3; margin: 0 0 10px; }
+.h2 { font-size: 19px; font-weight: 700; margin: 4px 0 8px; }
+.payment { font-size: 17px; margin: 0 0 14px; }
+.lead { font-weight: 600; margin: 14px 0 6px; }
+.reasons, .claims { margin: 0 0 6px; padding-left: 20px; }
+.reasons li, .claims li { margin: 4px 0; }
+.go { margin-top: 16px; background: var(--accent); color: #fff; border: 0; border-radius: 10px;
+  padding: 12px 18px; font: inherit; font-weight: 600; font-size: 16px; cursor: pointer; }
+.choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.choices button { border-radius: 12px; padding: 18px 12px; font: inherit; font-size: 20px; font-weight: 700;
+  cursor: pointer; display: grid; gap: 4px; background: var(--surface-2); color: var(--ink); border: 2px solid var(--ring); }
+.choices button span { font-size: 13px; font-weight: 400; color: var(--ink-2); }
+.bad { border-color: var(--warn-ink) !important; }
+.ok { border-color: var(--good) !important; }
+.right, .wrong { font-size: 24px; font-weight: 800; margin: 0; }
+.right { color: var(--good); }
+.wrong { color: var(--warn-ink); }
+.limit { margin-top: 14px; font-size: 14px; color: var(--ink-2); border-left: 3px solid var(--accent); padding-left: 10px; }
+.opinion .strength { font-weight: 700; margin: 4px 0 6px; }
+.note { font-size: 13px; color: var(--ink-2); margin-top: 10px; }
+.end { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 8px; }
+.full { margin-top: 16px; }
+@media (max-width: 520px) { .choices { grid-template-columns: 1fr; } .h1 { font-size: 19px; } }

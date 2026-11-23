@@ -205,3 +205,13 @@ def test_every_stored_ring_is_strictly_before_its_alert_and_carries_no_label():
         assert cur.fetchone()[0] == 0
         cur.execute("SELECT max(jsonb_array_length(graph->'edges')) FROM subgraphs")
         assert cur.fetchone()[0] <= 1 + 6 * (1 + 6) * 2 + 6 * 2  # the cap's ceiling
+
+
+def test_the_tour_file_equals_the_database():
+    """S7.18: web/lib/tour.json is rebuilt from the database and compared, so it cannot drift."""
+    import json
+
+    from graphguard.demo import tour
+    from graphguard.demo.queries import PgRepo
+
+    assert tour.build(PgRepo()) == json.loads(tour.OUT.read_text())

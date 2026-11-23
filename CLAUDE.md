@@ -364,6 +364,9 @@ shown only after it; a model's strong/some/none label is shown only if it never 
 decision "strong" in testing (FINDING-020). Runs save after every review: re-run with `--resume`.
 The OpenRouter **account** credit can run out before the key's $10 limit — check
 `/api/v1/credits` before a long run.
+**Try one case (S7.18):** `/try`, four steps from the static `web/lib/tour.json` (`python -m
+graphguard.demo.tour build` after a demo rebuild; a live test compares it). Long explanations go
+in `components/Explain.tsx`; `scripts/ui/words.sh <paths>` counts what a visitor must read.
 
 ## Shadow scoring (S6.10, 2026-11-21)
 

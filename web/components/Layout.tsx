@@ -5,6 +5,7 @@ import { ROLES, readRole, roleForPath, saveRole } from "../lib/role.js";
 import s from "./Layout.module.css";
 
 const NAV = [
+  { href: "/try/", label: "Try it" },
   { href: "/", label: "Queue" },
   { href: "/about/", label: "About" },
 ];

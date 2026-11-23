@@ -1,3 +1,4 @@
+import Explain from "../components/Explain";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import CapacityChart from "../components/CapacityChart";
@@ -28,39 +29,13 @@ function useDebounced<T>(value: T, ms: number): T {
 }
 
 type Flow = ReturnType<typeof flowCounts>;
-const FIRST_TIME_KEY = "gg-first-time-closed";
-
-function FirstTime() {
-  const [open, setOpen] = useState(false);
-  useEffect(() => {
-    try { setOpen(localStorage.getItem(FIRST_TIME_KEY) !== "1"); } catch { setOpen(true); }
-  }, []);
-  if (!open) return null;
-  function close() {
-    setOpen(false);
-    try { localStorage.setItem(FIRST_TIME_KEY, "1"); } catch { /* storage blocked: closes for now */ }
-  }
-  return (
-    <aside className={s.first} aria-label="First time here?">
-      <div>
-        <strong>First time here?</strong>
-        <ol>
-          <li>The list further down holds the most suspicious payments, worst first.</li>
-          <li>Click one to see why it was flagged and where the money went.</li>
-          <li>Decide: suspicious, or a false alarm.</li>
-        </ol>
-      </div>
-      <button type="button" onClick={close} className={s.firstClose} aria-label="Close the first-time box">Got it</button>
-    </aside>
-  );
-}
 
 function GuessFirst({ flow }: { flow: Flow }) {
   const [pick, setPick] = useState<number | null>(null);
   const options = [flow.total, Math.round(flow.total / 2), flow.found];
   return (
     <details className={`card ${s.fold}`}>
-      <summary>Guess first: a team checks the top {fmt(flow.checked)}. How many of the {fmt(flow.total)} laundering payments will they find?</summary>
+      <summary>Guess first: how many will they find?</summary>
       <div className={s.guess}>
         {options.map((o) => (
           <button key={o} type="button" onClick={() => setPick(o)} aria-pressed={pick === o}>about {fmt(o)}</button>
@@ -158,16 +133,14 @@ export default function QueuePage() {
       <section className={s.hero}>
         <h1>Find money laundering in a million payments</h1>
         <p className="ink2">
-          A computer gives every payment a risk score. A small team checks the riskiest ones
-          first and decides: money laundering, or not.
+          A computer scores every payment. A small team checks the riskiest first and decides.
         </p>
-        <p className={s.limit}>
-          No system finds all laundering: some of it looks exactly like normal payments. More
-          checks find more, but need more people.
+        <p className={s.limit}>No system finds all of it.</p>
+        <p className={s.tryRow}>
+          <Link href="/try/" className={s.tryBtn}>Try one case — 2 minutes</Link>
         </p>
       </section>
 
-      <FirstTime />
 
       {error && <p role="alert" className={s.error}>Could not load the data ({error}).</p>}
 
@@ -183,14 +156,15 @@ export default function QueuePage() {
         {flow && (
           <div aria-live="polite">
             <p className="ink2" style={{ margin: "4px 0 10px" }}>
-              Over these 2 days ({fmt(N.split.shown.transactions)} payments, {fmt(flow.total)} of them laundering):
+              Over 2 days: {fmt(N.split.shown.transactions)} payments, {fmt(flow.total)} laundering
             </p>
             <ol className={s.flow}>
-              <li className={s.tile}><strong className="num">{fmt(flow.checked)}</strong><span>checked: the top of the list</span></li>
+              <li className={s.tile}><strong className="num">{fmt(flow.checked)}</strong><span>checked</span></li>
               <li className={`${s.tile} ${s.good}`}><strong className="num">{fmt(flow.found)}</strong><span>laundering found</span></li>
-              <li className={s.tile}><strong className="num">{fmt(flow.falseAlarms)}</strong><span>false alarms (checked, were fine)</span></li>
-              <li className={`${s.tile} ${s.bad}`}><strong className="num">{fmt(flow.missed)}</strong><span>laundering missed (lower on the list, never checked)</span></li>
+              <li className={s.tile}><strong className="num">{fmt(flow.falseAlarms)}</strong><span>false alarms</span></li>
+              <li className={`${s.tile} ${s.bad}`}><strong className="num">{fmt(flow.missed)}</strong><span>laundering missed</span></li>
             </ol>
+            <Explain label="What do these mean?"><p>Checked = the top of the list. Some laundering looks exactly like normal payments, so no list finds all of it. False alarms were checked and were fine. Missed = laundering lower on the list, never checked.</p></Explain>
             <p className={s.rulesLine}>
               Old fixed rules, same {fmt(flow.checked)} checks: <strong className="num">{plural(flow.rulesFound, "laundering payment", "laundering payments")}</strong> found.
             </p>
@@ -208,7 +182,7 @@ export default function QueuePage() {
           <h2 id="queue-h" className={s.h2}>The list: most suspicious payments first</h2>
           {queue && (
             <span className="muted num">
-              the top {fmt(queue.alerts)} of {fmt(N.split.shown.transactions)} payments, grouped by sender ({fmt(queue.accounts)}) · click one to see why
+              {fmt(queue.alerts)} payments from {fmt(queue.accounts)} senders
             </span>
           )}
         </div>
@@ -268,11 +242,11 @@ export default function QueuePage() {
         {queue && shown < queue.accounts && (
           <button type="button" onClick={more} className={s.more}>Show more ({fmt(queue.accounts - shown)} accounts left)</button>
         )}
-        <p className={`muted ${s.small}`}>
-          Why a list? The team has time for only so many checks a day, so the riskiest go
+        <Explain label="What is rank?">
+          <p>The team has time for only so many checks a day, so the riskiest go
           first. Rank = place in the list (the model&apos;s score, with two-rule and both-new-account
-          alerts first). It is not a probability. Check by = 24 hours after the payment.
-        </p>
+          alerts first). It is not a probability. Check by = 24 hours after the payment.</p>
+        </Explain>
       </section>
     </>
   );
