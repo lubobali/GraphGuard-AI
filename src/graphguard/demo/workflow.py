@@ -164,6 +164,10 @@ def metrics(cases: list[dict], reviews_done: int) -> dict:
         "reviews_done": reviews_done,
         "matched": sum((c["decision"] == "escalate") == bool(c["is_laundering"]) for c in decided),
         "model_right": sum(bool(c["is_laundering"]) for c in decided),
+        "ai_strong_against": {  # S7.17: the AI second reviewer found a strong case against
+            "cases": sum(c.get("ai_strong_against") is not None for c in decided),
+            "strong": sum(c.get("ai_strong_against") is True for c in decided),
+        },
         "ai_agreement": {
             "cases": len(with_ai),
             "agree": sum(

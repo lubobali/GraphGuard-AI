@@ -1,0 +1,65 @@
+{
+  "note": "S7.17: the AI second reviewer, measured on eval set 2 (64 alerts, both directions), judged by the S7.10 checker frozen at c16b79c.",
+  "models": [
+    {
+      "model": "anthropic/claude-sonnet-5.5",
+      "reviews": 121,
+      "claims": 359,
+      "unsupported_before_checker": 51,
+      "unsupported_rate": 0.1421,
+      "unsupported_rate_95ci": [
+        0.1097,
+        0.182
+      ],
+      "unsupported_after_checker": 0,
+      "strong_when_wrong": "7 of 61",
+      "strong_when_right": "0 of 60",
+      "strength_counts": {
+        "strong": 7,
+        "some": 106,
+        "none": 8
+      },
+      "strong_by_direction": {
+        "escalate": {
+          "when_wrong": "0 of 21",
+          "when_right": "0 of 40"
+        },
+        "close": {
+          "when_wrong": "7 of 40",
+          "when_right": "0 of 20"
+        }
+      },
+      "cost_usd": 2.7832
+    },
+    {
+      "model": "deepseek/deepseek-v4.1-flash",
+      "reviews": 128,
+      "claims": 533,
+      "unsupported_before_checker": 40,
+      "unsupported_rate": 0.075,
+      "unsupported_rate_95ci": [
+        0.0556,
+        0.1006
+      ],
+      "unsupported_after_checker": 0,
+      "strong_when_wrong": "14 of 64",
+      "strong_when_right": "7 of 64",
+      "strength_counts": {
+        "strong": 21,
+        "some": 106,
+        "none": 1
+      },
+      "strong_by_direction": {
+        "escalate": {
+          "when_wrong": "2 of 24",
+          "when_right": "0 of 40"
+        },
+        "close": {
+          "when_wrong": "12 of 40",
+          "when_right": "7 of 24"
+        }
+      },
+      "cost_usd": 0.2966
+    }
+  ]
+}

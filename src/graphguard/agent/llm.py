@@ -183,13 +183,15 @@ class Investigator:
         choice = resp["choices"][0]
         return {**choice["message"], "finish_reason": choice.get("finish_reason")}
 
-    def report(self, repo, event_id: int) -> tuple[dict, dict]:
-        """The model's report for one alert, and a trace (tool calls, turns, seconds)."""
+    def report(self, repo, event_id: int, system: str = SYSTEM, ask: str | None = None,
+               empty: dict | None = None) -> tuple[dict, dict]:  # fmt: skip
+        """The model's report for one alert, and a trace (tool calls, turns, seconds). The
+        instructions are a parameter so the S7.17 reviewer runs the same loop and tools."""
         bound = {name: functools.partial(getattr(tools, name), repo, event_id)
                  for name in tools.TOOLS}  # fmt: skip
         messages = [
-            {"role": "system", "content": SYSTEM},
-            {"role": "user", "content": f"Review alert {event_id} and draft the report."},
+            {"role": "system", "content": system},
+            {"role": "user", "content": ask or f"Review alert {event_id} and draft the report."},
         ]
         trace = {"tool_calls": [], "turns": 0, "repaired": False}
         t0 = time.monotonic()
@@ -223,7 +225,7 @@ class Investigator:
         trace["seconds"] = round(time.monotonic() - t0, 2)
         if report is None:
             trace["no_report"] = True
-            report = {"summary": "", "typology": "none evident", "claims": []}
+            report = dict(empty or {"summary": "", "typology": "none evident", "claims": []})
         return report, trace
 
 

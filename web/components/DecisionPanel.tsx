@@ -2,7 +2,8 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useCallback, useEffect, useState } from "react";
 import { get } from "../lib/api";
-import { closeCodes, reviewText, stateText, timeline, trainingText } from "../lib/caseLogic.js";
+import { closeCodes, reviewText, reviewView, stateText, strengthText, timeline, trainingText } from "../lib/caseLogic.js";
+import R from "../lib/reviewerNumbers.json";
 import { visitorId } from "../lib/visitor.js";
 import s from "./DecisionPanel.module.css";
 
@@ -14,7 +15,34 @@ export type Case = { state: string; decision: string | null; code: string | null
   sar_due: string | null; history: Row[] };
 type Cases = { mine: Case; sam: Case | null };
 type AlertLite = { event_id: number; rank: number; event_time: string; rules: string[];
-  agent: { model: string; at: string }[] };
+  agent: { model: string; at: string }[]; reviews?: Review[] };
+type Review = { direction: string; model: string; review: { strength: string; summary: string;
+  kept: { text: string; cites: number[] }[]; dropped: { text: string; cites: number[]; why: string }[] } };
+
+// S7.17: the AI second reviewer, shown only AFTER a decision (it must not anchor the person).
+function SecondOpinion({ reviews, decision }: { reviews?: Review[]; decision: string | null }) {
+  const views = reviewView(reviews, decision, R.models);
+  if (!views.length) return null;
+  return (
+    <div className={s.second}>
+      <p className={s.secondHead}>AI second opinion: the case against {decision === "close" ? "closing" : "escalating"}</p>
+      {views.map((v: { model: string; label: string; strength: string | null; note: string; summary: string;
+        kept: { text: string; cites: number[] }[]; dropped: { text: string; why: string }[] }) => (
+        <div key={v.model} className={s.opinion}>
+          <p className={`${s.strength} ${v.strength ? s["st_" + v.strength] : ""}`}>{strengthText(v.strength, decision)} <span className="muted">({v.label})</span></p>
+          {v.summary && <p className={s.lockedDetail}><span className="muted">Summary (not checked):</span> {v.summary}</p>}
+          {v.kept.length > 0 && <ul className={s.claims}>{v.kept.map((c, i) => <li key={i}>{c.text} <span className="muted">· tx {c.cites.join(", ")}</span></li>)}</ul>}
+          {v.dropped.length > 0 && (
+            <details className={s.dropped}><summary>{v.dropped.length} claim{v.dropped.length === 1 ? "" : "s"} dropped by the checker</summary>
+              <ul>{v.dropped.map((c, i) => <li key={i}><s>{c.text}</s> <span className="muted">· {c.why}</span></li>)}</ul></details>
+          )}
+          {v.note && <p className={s.note}>{v.note}</p>}
+        </div>
+      ))}
+      <p className={s.note}>{R.note}</p>
+    </div>
+  );
+}
 const MAX = 500;
 
 async function post(id: number, body: object) {
@@ -141,6 +169,7 @@ export default function DecisionPanel({ a }: { a: AlertLite }) {
           <div className={s.note}>Training mode: the data is synthetic, so the answer is known. A real bank would not know it today.</div>
         </div>
       )}
+      {!open && <SecondOpinion reviews={a.reviews} decision={mine.decision ?? lastDecision?.action ?? null} />}
       <History a={a} rows={mine.history} />
     </div>
   );
@@ -234,6 +263,7 @@ export function ReviewPanel({ a, owner }: { a: AlertLite; owner: "demo" | "mine"
           <div className={s.note}>Training mode: the data is synthetic, so the answer is known.</div>
         </div>
       )}
+      <SecondOpinion reviews={a.reviews} decision={decisionRow.action} />
       <History a={a} rows={c.history} />
     </div>
   );

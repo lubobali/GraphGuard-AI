@@ -47,3 +47,26 @@ def test_where_the_numbers_come_from_matches_the_frozen_split():
     assert s["shown"]["transactions"] == N["transactions_in_window"]["value"]
     assert s["shown"]["laundering"] == N["laundering_in_window"]["value"]
     assert f"{s['file_rows']['value']:,}" in (REPO_ROOT / "CLAUDE.md").read_text()
+
+
+def test_the_ai_reviewers_rates_on_the_case_page_are_the_measured_ones():
+    """S7.17: the second opinion quotes the set-2 measurement, and a model's strong/some/none
+    label is shown only if it never called a right decision "strong" in testing."""
+    shown = json.loads((REPO_ROOT / "web" / "lib" / "reviewerNumbers.json").read_text())
+    out = json.loads((REPO_ROOT / "docs" / "analysis" / "s7.17-reviewer.json").read_text())
+    measured = {m["model"]: m for m in out["models"]}
+    assert set(shown["models"]) == set(measured)
+    for model, s in shown["models"].items():
+        m = measured[model]
+        assert (s["strong_when_wrong"], s["strong_when_right"]) == (
+            m["strong_when_wrong"], m["strong_when_right"])  # fmt: skip
+        assert s["show_strength"] == m["strong_when_right"].startswith("0 of ")
+        k, n = s["strong_when_wrong" if s["show_strength"] else "strong_when_right"].split(" of ")
+        assert f"{k} of {n}" in s["note"]
+
+
+def test_the_managers_strong_count_uses_the_reviewer_whose_label_is_shown():
+    from graphguard.demo.queries import TRUSTED_REVIEWER
+
+    shown = json.loads((REPO_ROOT / "web" / "lib" / "reviewerNumbers.json").read_text())
+    assert [m for m, s in shown["models"].items() if s["show_strength"]] == [TRUSTED_REVIEWER]

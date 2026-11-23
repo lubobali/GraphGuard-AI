@@ -191,3 +191,35 @@ test("roles: one control, three choices, each with its start page", () => {
   assert.equal(roleHome("reviewer"), "/review/");
   assert.equal(roleHome("manager"), "/manager/");
 });
+
+// ---- S7.17: the AI second opinion ------------------------------------------------------
+import { reviewView, strengthText } from "../lib/caseLogic.js";
+
+const NUMBERS = {
+  "anthropic/claude-sonnet-5.5": { show_strength: true, note: "sonnet note" },
+  "deepseek/deepseek-v4.1-flash": { show_strength: false, note: "deepseek note" },
+};
+
+test("the second opinion argues against THIS decision, never shown before one", () => {
+  const reviews = [
+    { direction: "close", model: "deepseek/deepseek-v4.1-flash", review: { strength: "strong", summary: "s", kept: [{ text: "k", cites: [1] }], dropped: [] } },
+    { direction: "close", model: "anthropic/claude-sonnet-5.5", review: { strength: "some", summary: "", kept: [], dropped: [] } },
+    { direction: "escalate", model: "anthropic/claude-sonnet-5.5", review: { strength: "none", summary: "", kept: [], dropped: [] } },
+  ];
+  assert.equal(reviewView(reviews, null, NUMBERS).length, 0);
+  const v = reviewView(reviews, "close", NUMBERS);
+  assert.deepEqual(v.map((x) => x.model), ["anthropic/claude-sonnet-5.5", "deepseek/deepseek-v4.1-flash"]);
+  assert.equal(v[0].strength, "some");
+  assert.equal(v[1].strength, null); // its label did not tell right from wrong in testing
+  assert.equal(v[1].note, "deepseek note");
+  assert.equal(v[1].label, "DeepSeek V4.1 Flash");
+  assert.equal(reviewView(reviews, "escalate", NUMBERS)[0].strength, "none");
+  assert.equal(reviewView(reviews, "close")[0].strength, null); // no numbers: no label
+});
+
+test("strength in words", () => {
+  assert.match(strengthText("strong", "close"), /strong case that this IS suspicious/);
+  assert.match(strengthText("strong", "escalate"), /strong case that this is NOT suspicious/);
+  assert.match(strengthText("none", "close"), /found nothing/);
+  assert.match(strengthText(null, "close"), /Points to check that this IS suspicious/);
+});

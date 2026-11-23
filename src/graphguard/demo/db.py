@@ -69,6 +69,7 @@ TABLES = (
     *LOADED,
     "verdicts",
     "case_actions",
+    "ai_reviews",
     "agent_reports",
     "build_info",
 )  # what demo_reader may SELECT
@@ -122,6 +123,15 @@ CREATE TABLE IF NOT EXISTS case_actions (
 );
 CREATE INDEX IF NOT EXISTS case_actions_by_event ON case_actions (event_id, id);
 CREATE INDEX IF NOT EXISTS case_actions_by_actor ON case_actions (actor, id);
+-- S7.17: the AI second reviewer's checked reviews, precomputed (both directions). No labels.
+CREATE TABLE IF NOT EXISTS ai_reviews (
+    event_id   bigint NOT NULL,
+    direction  text NOT NULL CHECK (direction IN ('escalate', 'close')),
+    model      text NOT NULL,
+    review     jsonb NOT NULL,
+    at         timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (event_id, direction, model)
+);
 -- S7.3: the slider's numbers -- four rankings x k = 1..5,000 (counts, never money).
 CREATE TABLE IF NOT EXISTS capacity (
     ranking       text NOT NULL,

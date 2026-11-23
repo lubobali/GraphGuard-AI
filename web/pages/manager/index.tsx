@@ -72,6 +72,7 @@ export default function ManagerPage() {
               <Tile n={`${m.matched} of ${m.decided}`} label="decisions matched the answer key" tone="good" />
               <Tile n={`${m.model_right} of ${m.decided}`} label="of those alerts were really laundering (the model's flag was right)" />
               <Tile n={m.ai_agreement.cases ? `${m.ai_agreement.agree} of ${m.ai_agreement.cases}` : "—"} label="AI drafts agreed with the decision (where there was a draft)" />
+              <Tile n={m.ai_strong_against.cases ? `${m.ai_strong_against.strong} of ${m.ai_strong_against.cases}` : "—"} label="decisions where the AI second reviewer (Claude, the one whose label held up in testing) found a strong case against" />
             </div>
             <h3 className={s.h3}>Quality check: {m.qa.length} closed alerts, re-checked blind</h3>
             {m.qa.length === 0 ? <p className="muted">Nothing closed yet.</p> : (

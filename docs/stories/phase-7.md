@@ -959,11 +959,44 @@ specific decision* with code-checked evidence and publishes how often it is righ
   person was right, how often it argued wrongly (the cost of a nagging reviewer).
 - **AI visible:** an "AI" badge in the queue; "AI draft" and "AI second opinion" on every top-400 case.
 
+**Sub-steps (expanded 2026-11-23, before building)**
+1. **`agent/reviewer.py`, test first.** The same loop and the same four read-only tools as
+   S7.10 (bound to one alert; `Investigator.report` takes the instructions as a parameter). The
+   prompt states the person's decision (escalate or close) and asks for the strongest facts
+   AGAINST it, as claims citing payments, plus a `strength` of the case against: strong / some /
+   none. Every claim through the frozen checker; an unknown strength becomes "none".
+2. **Measured on a set it was not built on:** the prompt is tried on 3 set-1 alerts only; the
+   measurement is **set 2** (64 alerts: 40 laundering, 24 clean), both directions = 128 reviews
+   per model. Numbers: unsupported claims before the checker (Wilson 95%); **when the decision is
+   wrong** (close on laundering, escalate on clean) how often the reviewer says "strong" — it should;
+   **when the decision is right**, how often it still says "strong" — the cost of a nagging reviewer.
+   DeepSeek V4.1 Flash and Claude Sonnet 5.5. `docs/analysis/s7.17-reviewer.json`, FINDING-020,
+   MLflow stage `s7.17-reviewer`.
+3. **Precomputed for the demo:** both directions for the top 400 alerts (DeepSeek), and the S7.10
+   draft for the top-400 alerts that have none; table `ai_reviews (event_id, direction, model,
+   review)`, reader SELECT only. Spend: per-run dollar caps, the $10 console limit stays.
+4. **On the Case page:** after the person decides (never before: no anchoring), "AI second
+   opinion: the case against your decision" with the strength, the kept claims linked to their
+   payments, dropped claims shown, and the measured rates. The reviewer's panel shows it too.
+5. **Manager:** "the AI found a strong case against" counted next to the decisions.
+
 **Acceptance criteria**
-- [ ] Unit (first): the reviewer prompt never names the answer key (code test, as S7.10); output
+- [x] Unit (first): the reviewer prompt never names the answer key (code test, as S7.10); output
       through the checker; tools bound to one alert; spend cap holds.
-- [ ] Runs published in `docs/analysis/s7.17-reviewer.json` + a FINDING, whatever they say.
-- [ ] The page shows "AI, checked by code, can still be wrong" and the measured rates.
+- [x] Runs published in `docs/analysis/s7.17-reviewer.json` + a FINDING, whatever they say.
+- [x] The page shows "AI, checked by code, can still be wrong" and the measured rates.
+
+**Done (2026-11-23), with one part short.** FINDING-020: DeepSeek's "strong" said nothing about
+whether the decision was right (about 30% of closes either way), so its label is hidden and its
+facts shown as "points to check"; Sonnet's "strong" was right all 7 times it spoke (7 of 61
+wrong decisions), so its label is shown with that rate. Rule, test-enforced: a label is shown
+only if it never called a right decision "strong". The manager's count uses Sonnet only. A
+crash on a malformed claim lost a paid run: claims in the wrong shape are now dropped before the
+checker, runs save after every review and resume. The S7.10 draft now covers all top-400 alerts
+(362 added, $0.65). **Short:** the OpenRouter account ran out of credit (the account, not the
+key's $10 limit), so the precompute covers only the 64 set-2 alerts (19 of them in the top 400)
+and Sonnet's measurement is 121 of 128 reviews. The top-400 pass waits for Lubo's decision on
+credit. API image 0.1.22.
 
 ## S7.11 — The test on a real person (the Phase 7 gate)
 

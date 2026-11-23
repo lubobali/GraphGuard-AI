@@ -20,6 +20,7 @@ type Alert = {
   history: { from: Hist[]; to: Hist[] }; ring: Parameters<typeof RingGraph>[0]["graph"] | null;
   model_version: string;
   agent: { model: string; at: string; report: unknown }[];
+  reviews?: { direction: string; model: string; review: { strength: string; summary: string; kept: { text: string; cites: number[] }[]; dropped: { text: string; cites: number[]; why: string }[] } }[];
   from_account: string; to_account: string; groups: Group[] | null;
 };
 type Group = { key: string; label: string; look: "sender" | "receiver" | null; contribution: number;

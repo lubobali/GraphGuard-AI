@@ -1,0 +1,863 @@
+{
+ "model": "deepseek/deepseek-v4.1-flash",
+ "usage": {
+  "calls": 12,
+  "prompt_tokens": 20630,
+  "completion_tokens": 17385,
+  "cost": 0.012580793600000001
+ },
+ "rows": [
+  {
+   "event_id": 2348507,
+   "laundering": true,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The alerted payment is a single ACH transfer into a receiver whose only other visible activity is a steady, recurring payer sending the same two amounts on consecutive days, with no money flowing back out and no fan-out from the sender \u2014 consistent with ordinary business activity rather than layering.",
+    "kept": [
+     {
+      "text": "The receiver's other payer, Partnership #3577, sent four payments in the 72 hours before the alert, repeating exactly the same two amounts (1190.22 and 704.28) on two consecutive days \u2014 a regular counterparty with steady amounts.",
+      "cites": [
+       2381419,
+       2381420,
+       2844043,
+       2844044
+      ],
+      "amount": null,
+      "time": null,
+      "relation": {
+       "from": "Partnership #3577",
+       "to": "Corporation #47382"
+      },
+      "count": 4
+     },
+     {
+      "text": "Every payment in the 72-hour window flows into the receiver; no payment leaves the receiver, so there is no pass-through or onward layering.",
+      "cites": [
+       2381419,
+       2381420,
+       2844043,
+       2844044,
+       2348507
+      ],
+      "amount": null,
+      "time": null,
+      "relation": {
+       "from": "Partnership #3577",
+       "to": "Corporation #47382"
+      },
+      "count": 5
+     },
+     {
+      "text": "The alert itself is one single ACH payment of 5645.78 US Dollar, not a split into several payments to different accounts.",
+      "cites": [
+       2348507
+      ],
+      "amount": {
+       "value": 5645.78,
+       "currency": "US Dollar"
+      },
+      "time": "2022-09-06 13:34",
+      "relation": {
+       "from": "Corporation #27852",
+       "to": "Corporation #47382"
+      },
+      "count": 1
+     },
+     {
+      "text": "The sender's only earlier payment in its history is a transfer to its own account (Corporation #27852 to Corporation #27852) of 4818.11 Euro, so the sender shows no distribution to multiple third parties.",
+      "cites": [
+       2348506
+      ],
+      "amount": {
+       "value": 4818.11,
+       "currency": "Euro"
+      },
+      "time": "2022-09-06 13:34",
+      "relation": {
+       "from": "Corporation #27852",
+       "to": "Corporation #27852"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 11.72,
+    "raw": {
+     "strength": "some",
+     "summary": "The alerted payment is a single ACH transfer into a receiver whose only other visible activity is a steady, recurring payer sending the same two amounts on consecutive days, with no money flowing back out and no fan-out from the sender \u2014 consistent with ordinary business activity rather than layering.",
+     "claims": [
+      {
+       "text": "The receiver's other payer, Partnership #3577, sent four payments in the 72 hours before the alert, repeating exactly the same two amounts (1190.22 and 704.28) on two consecutive days \u2014 a regular counterparty with steady amounts.",
+       "cites": [
+        2381419,
+        2381420,
+        2844043,
+        2844044
+       ],
+       "amount": null,
+       "time": null,
+       "relation": {
+        "from": "Partnership #3577",
+        "to": "Corporation #47382"
+       },
+       "count": 4
+      },
+      {
+       "text": "Every payment in the 72-hour window flows into the receiver; no payment leaves the receiver, so there is no pass-through or onward layering.",
+       "cites": [
+        2381419,
+        2381420,
+        2844043,
+        2844044,
+        2348507
+       ],
+       "amount": null,
+       "time": null,
+       "relation": {
+        "from": "Partnership #3577",
+        "to": "Corporation #47382"
+       },
+       "count": 5
+      },
+      {
+       "text": "The alert itself is one single ACH payment of 5645.78 US Dollar, not a split into several payments to different accounts.",
+       "cites": [
+        2348507
+       ],
+       "amount": {
+        "value": 5645.78,
+        "currency": "US Dollar"
+       },
+       "time": "2022-09-06 13:34",
+       "relation": {
+        "from": "Corporation #27852",
+        "to": "Corporation #47382"
+       },
+       "count": 1
+      },
+      {
+       "text": "The sender's only earlier payment in its history is a transfer to its own account (Corporation #27852 to Corporation #27852) of 4818.11 Euro, so the sender shows no distribution to multiple third parties.",
+       "cites": [
+        2348506
+       ],
+       "amount": {
+        "value": 4818.11,
+        "currency": "Euro"
+       },
+       "time": "2022-09-06 13:34",
+       "relation": {
+        "from": "Corporation #27852",
+        "to": "Corporation #27852"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 2348507,
+   "laundering": true,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The sender's only prior payment in the window was a same-minute transfer to itself (4,818.11 Euro), immediately followed by the 5,645.78 US Dollar ACH to the receiver \u2014 a possible pass-through the close decision did not address.",
+    "kept": [
+     {
+      "text": "At the same minute as the alert, the sender paid itself 4,818.11 Euro (Corporation #27852 to Corporation #27852).",
+      "cites": [
+       2348506
+      ],
+      "amount": {
+       "value": 4818.11,
+       "currency": "Euro"
+      },
+      "time": "2022-09-06 13:34",
+      "relation": {
+       "from": "Corporation #27852",
+       "to": "Corporation #27852"
+      },
+      "count": 1
+     },
+     {
+      "text": "The alerted payment of 5,645.78 US Dollar went by ACH from Corporation #27852 to Corporation #47382 at 2022-09-06 13:34, the same minute as the sender's self-payment.",
+      "cites": [
+       2348507
+      ],
+      "amount": {
+       "value": 5645.78,
+       "currency": "US Dollar"
+      },
+      "time": "2022-09-06 13:34",
+      "relation": {
+       "from": "Corporation #27852",
+       "to": "Corporation #47382"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 16.37,
+    "raw": {
+     "strength": "some",
+     "summary": "The sender's only prior payment in the window was a same-minute transfer to itself (4,818.11 Euro), immediately followed by the 5,645.78 US Dollar ACH to the receiver \u2014 a possible pass-through the close decision did not address.",
+     "claims": [
+      {
+       "text": "At the same minute as the alert, the sender paid itself 4,818.11 Euro (Corporation #27852 to Corporation #27852).",
+       "cites": [
+        2348506
+       ],
+       "amount": {
+        "value": 4818.11,
+        "currency": "Euro"
+       },
+       "time": "2022-09-06 13:34",
+       "relation": {
+        "from": "Corporation #27852",
+        "to": "Corporation #27852"
+       },
+       "count": 1
+      },
+      {
+       "text": "The alerted payment of 5,645.78 US Dollar went by ACH from Corporation #27852 to Corporation #47382 at 2022-09-06 13:34, the same minute as the sender's self-payment.",
+       "cites": [
+        2348507
+       ],
+       "amount": {
+        "value": 5645.78,
+        "currency": "US Dollar"
+       },
+       "time": "2022-09-06 13:34",
+       "relation": {
+        "from": "Corporation #27852",
+        "to": "Corporation #47382"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 2348516,
+   "laundering": true,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The alerted payment is an isolated ACH transfer: the 72-hour window shows no other money moving to or from either account, so there is no split-and-gather, layering, or pass-through shape. The receiver has no prior payments at all, and the sender's only earlier payment was a same-name transfer, not a fan-out to many counterparties.",
+    "kept": [
+     {
+      "text": "The only payment in the 72-hour window around the alert is the alerted transfer itself; no other incoming or outgoing flows touch either account.",
+      "cites": [
+       2348516
+      ],
+      "amount": {
+       "value": 19895.17,
+       "currency": "US Dollar"
+      },
+      "time": "2022-09-06 19:50",
+      "relation": {
+       "from": "Partnership #26814",
+       "to": "Partnership #14979"
+      },
+      "count": 1
+     },
+     {
+      "text": "The sender's only earlier payment was a same-name transfer to itself, not a distribution to multiple different accounts.",
+      "cites": [
+       2348515
+      ],
+      "amount": {
+       "value": 16978.54,
+       "currency": "Euro"
+      },
+      "time": "2022-09-06 19:50",
+      "relation": {
+       "from": "Partnership #26814",
+       "to": "Partnership #26814"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 6.01,
+    "raw": {
+     "strength": "some",
+     "summary": "The alerted payment is an isolated ACH transfer: the 72-hour window shows no other money moving to or from either account, so there is no split-and-gather, layering, or pass-through shape. The receiver has no prior payments at all, and the sender's only earlier payment was a same-name transfer, not a fan-out to many counterparties.",
+     "claims": [
+      {
+       "text": "The only payment in the 72-hour window around the alert is the alerted transfer itself; no other incoming or outgoing flows touch either account.",
+       "cites": [
+        2348516
+       ],
+       "amount": {
+        "value": 19895.17,
+        "currency": "US Dollar"
+       },
+       "time": "2022-09-06 19:50",
+       "relation": {
+        "from": "Partnership #26814",
+        "to": "Partnership #14979"
+       },
+       "count": 1
+      },
+      {
+       "text": "The sender's only earlier payment was a same-name transfer to itself, not a distribution to multiple different accounts.",
+       "cites": [
+        2348515
+       ],
+       "amount": {
+        "value": 16978.54,
+        "currency": "Euro"
+       },
+       "time": "2022-09-06 19:50",
+       "relation": {
+        "from": "Partnership #26814",
+        "to": "Partnership #26814"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 2348516,
+   "laundering": true,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The sender fired off a self-directed payment of 16978.54 EUR and, at the same minute, an outbound 19895.17 USD to a counterparty it had never paid before, a rapid in-and-out pattern that argues against treating the alert as ordinary. There is no visible onward movement or fan-out from the receiver, so the laundering shape is suggestive rather than proven.",
+    "kept": [
+     {
+      "text": "The alerted payment sent 19895.17 USD from Partnership #26814 to Partnership #14979, a receiver the sender had never paid before.",
+      "cites": [
+       2348516
+      ],
+      "amount": {
+       "value": 19895.17,
+       "currency": "US Dollar"
+      },
+      "time": "2022-09-06 19:50:00",
+      "relation": {
+       "from": "Partnership #26814",
+       "to": "Partnership #14979"
+      },
+      "count": 1
+     },
+     {
+      "text": "At the same timestamp, less than a minute before the alert, the sender paid 16978.54 EUR to itself (Partnership #26814 to Partnership #26814), a self-loop immediately preceding the outbound transfer.",
+      "cites": [
+       2348515
+      ],
+      "amount": {
+       "value": 16978.54,
+       "currency": "Euro"
+      },
+      "time": "2022-09-06 19:50:00",
+      "relation": {
+       "from": "Partnership #26814",
+       "to": "Partnership #26814"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 7.76,
+    "raw": {
+     "strength": "some",
+     "summary": "The sender fired off a self-directed payment of 16978.54 EUR and, at the same minute, an outbound 19895.17 USD to a counterparty it had never paid before, a rapid in-and-out pattern that argues against treating the alert as ordinary. There is no visible onward movement or fan-out from the receiver, so the laundering shape is suggestive rather than proven.",
+     "claims": [
+      {
+       "text": "The alerted payment sent 19895.17 USD from Partnership #26814 to Partnership #14979, a receiver the sender had never paid before.",
+       "cites": [
+        2348516
+       ],
+       "amount": {
+        "value": 19895.17,
+        "currency": "US Dollar"
+       },
+       "time": "2022-09-06 19:50:00",
+       "relation": {
+        "from": "Partnership #26814",
+        "to": "Partnership #14979"
+       },
+       "count": 1
+      },
+      {
+       "text": "At the same timestamp, less than a minute before the alert, the sender paid 16978.54 EUR to itself (Partnership #26814 to Partnership #26814), a self-loop immediately preceding the outbound transfer.",
+       "cites": [
+        2348515
+       ],
+       "amount": {
+        "value": 16978.54,
+        "currency": "Euro"
+       },
+       "time": "2022-09-06 19:50:00",
+       "relation": {
+        "from": "Partnership #26814",
+        "to": "Partnership #26814"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 2631784,
+   "laundering": true,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The alerted 35257.83 SAR payment fits the sender's ordinary business pattern: Partnership #6126 is an established account (19 prior sends to only 4 distinct payees) and made a larger routine ACH payment of 60072.36 SAR just hours earlier, so the amount and format are unremarkable. The model's own score was low (0.29) and no rules fired, leaving only generic reasons (new receiver, cross-border, SAR currency).",
+    "kept": [
+     {
+      "text": "The sender's other recent payments go to a single different payee in varied amounts and formats (Cheque, Wire, Cash, Credit Card), a normal business pattern rather than a split-and-gather.",
+      "cites": [
+       3113650,
+       3113653,
+       3113652,
+       3113651
+      ],
+      "amount": null,
+      "time": null,
+      "relation": {
+       "from": "Partnership #6126",
+       "to": "Sole Proprietorship #38291"
+      },
+      "count": 4
+     },
+     {
+      "text": "The alerted transfer is a single ACH payment; the sender made no other payments to this receiver in the preceding 72 hours, so there is no structuring or fan-out from the sender.",
+      "cites": [
+       2631784
+      ],
+      "amount": {
+       "value": 35257.83,
+       "currency": "Saudi Riyal"
+      },
+      "time": "2022-09-06 19:08",
+      "relation": {
+       "from": "Partnership #6126",
+       "to": "Partnership #39"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [
+     {
+      "text": "Four hours before the alert, the sender made a larger routine ACH payment of 60072.36 SAR to another payee, so the alerted 35257.83 SAR is not an unusual amount for this account.",
+      "cites": [
+       2132654
+      ],
+      "amount": {
+       "value": 60072.36,
+       "currency": "Saudi Riyal"
+      },
+      "time": "2022-09-06 14:49",
+      "relation": {
+       "from": "Partnership #6126",
+       "to": "Corporation #14622"
+      },
+      "count": 1,
+      "why": "number 35257.83 in the text is in no cited payment"
+     }
+    ],
+    "n_claims": 3,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 21.26,
+    "raw": {
+     "strength": "some",
+     "summary": "The alerted 35257.83 SAR payment fits the sender's ordinary business pattern: Partnership #6126 is an established account (19 prior sends to only 4 distinct payees) and made a larger routine ACH payment of 60072.36 SAR just hours earlier, so the amount and format are unremarkable. The model's own score was low (0.29) and no rules fired, leaving only generic reasons (new receiver, cross-border, SAR currency).",
+     "claims": [
+      {
+       "text": "Four hours before the alert, the sender made a larger routine ACH payment of 60072.36 SAR to another payee, so the alerted 35257.83 SAR is not an unusual amount for this account.",
+       "cites": [
+        2132654
+       ],
+       "amount": {
+        "value": 60072.36,
+        "currency": "Saudi Riyal"
+       },
+       "time": "2022-09-06 14:49",
+       "relation": {
+        "from": "Partnership #6126",
+        "to": "Corporation #14622"
+       },
+       "count": 1
+      },
+      {
+       "text": "The sender's other recent payments go to a single different payee in varied amounts and formats (Cheque, Wire, Cash, Credit Card), a normal business pattern rather than a split-and-gather.",
+       "cites": [
+        3113650,
+        3113653,
+        3113652,
+        3113651
+       ],
+       "amount": null,
+       "time": null,
+       "relation": {
+        "from": "Partnership #6126",
+        "to": "Sole Proprietorship #38291"
+       },
+       "count": 4
+      },
+      {
+       "text": "The alerted transfer is a single ACH payment; the sender made no other payments to this receiver in the preceding 72 hours, so there is no structuring or fan-out from the sender.",
+       "cites": [
+        2631784
+       ],
+       "amount": {
+        "value": 35257.83,
+        "currency": "Saudi Riyal"
+       },
+       "time": "2022-09-06 19:08",
+       "relation": {
+        "from": "Partnership #6126",
+        "to": "Partnership #39"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 2631784,
+   "laundering": true,
+   "direction": "close",
+   "checked": {
+    "strength": "strong",
+    "summary": "The receiver is a distribution hub, not a one-off: in the six hours before the alert it sent six payments out to three different accounts, and those accounts passed money on to at least four further accounts, with repeated identical amounts \u2014 a fan-out/layering shape. The sender also dispersed five payments within two hours before the alert, including 60072.36 to another account at the receiver's own bank.",
+    "kept": [
+     {
+      "text": "In the six hours before the alert the receiver (Partnership #39) sent six payments out to three different accounts: 756.58 and 91.77 to Sole Proprietorship #38194, 27558.38 and 48714.26 to Partnership #17358, and 1374.53 and 652.19 to Partnership #38226.",
+      "cites": [
+       3045451,
+       3045452,
+       3074642,
+       3074643,
+       3084159,
+       3084158
+      ],
+      "amount": null,
+      "time": null,
+      "relation": null,
+      "count": 6
+     },
+     {
+      "text": "One of those downstream accounts (Sole Proprietorship #38194) passed money on the same morning to two further accounts: four payments (214.43, 596.96, 208.76, 73.13) to Partnership #828 and two payments (9549.19, 6368.8) to Partnership #4825.",
+      "cites": [
+       2976818,
+       2976815,
+       2976814,
+       2976817,
+       3016031,
+       3016032
+      ],
+      "amount": null,
+      "time": null,
+      "relation": null,
+      "count": 6
+     },
+     {
+      "text": "Partnership #17358 also sent the identical amount 548.7 twice to Sole Proprietorship #38415 on consecutive days.",
+      "cites": [
+       2281149,
+       2631773
+      ],
+      "amount": {
+       "value": 548.7,
+       "currency": "Saudi Riyal"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #17358",
+       "to": "Sole Proprietorship #38415"
+      },
+      "count": 2
+     },
+     {
+      "text": "The sender (Partnership #6126) made five payments to two different payees within the two hours before the alert (14:49 to 16:49), including 60072.36, 16005.31, 4253.48, 2583.32 and 892.95.",
+      "cites": [
+       3113650,
+       3113653,
+       3113652,
+       3113651,
+       2132654
+      ],
+      "amount": null,
+      "time": null,
+      "relation": null,
+      "count": 5
+     },
+     {
+      "text": "Four hours before the alert the sender paid 60072.36 to Corporation #14622, an account at the same bank as the alerted receiver (Saudi Arabia Bank #5).",
+      "cites": [
+       2132654
+      ],
+      "amount": {
+       "value": 60072.36,
+       "currency": "Saudi Riyal"
+      },
+      "time": "2022-09-06 14:49",
+      "relation": {
+       "from": "Partnership #6126",
+       "to": "Corporation #14622"
+      },
+      "count": 1
+     },
+     {
+      "text": "The sender sent the identical amount 16005.31 to Sole Proprietorship #38291 twice, about 20 hours apart (the evening before and again 16:32 on the alert day).",
+      "cites": [
+       2709039,
+       3113651
+      ],
+      "amount": {
+       "value": 16005.31,
+       "currency": "Saudi Riyal"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #6126",
+       "to": "Sole Proprietorship #38291"
+      },
+      "count": 2
+     }
+    ],
+    "dropped": [
+     {
+      "text": "Partnership #17358, which received 27558.38 and 48714.26 from the receiver, sent the same two amounts on to Corporation #36623 within about three hours \u2014 8835.59 and 27539.77 each appearing twice.",
+      "cites": [
+       2757650,
+       2757649,
+       2830738,
+       2830737
+      ],
+      "amount": null,
+      "time": null,
+      "relation": {
+       "from": "Partnership #17358",
+       "to": "Corporation #36623"
+      },
+      "count": 4,
+      "why": "number 27558.38 in the text is in no cited payment"
+     }
+    ],
+    "n_claims": 7,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 33.71,
+    "raw": {
+     "strength": "strong",
+     "summary": "The receiver is a distribution hub, not a one-off: in the six hours before the alert it sent six payments out to three different accounts, and those accounts passed money on to at least four further accounts, with repeated identical amounts \u2014 a fan-out/layering shape. The sender also dispersed five payments within two hours before the alert, including 60072.36 to another account at the receiver's own bank.",
+     "claims": [
+      {
+       "text": "In the six hours before the alert the receiver (Partnership #39) sent six payments out to three different accounts: 756.58 and 91.77 to Sole Proprietorship #38194, 27558.38 and 48714.26 to Partnership #17358, and 1374.53 and 652.19 to Partnership #38226.",
+       "cites": [
+        3045451,
+        3045452,
+        3074642,
+        3074643,
+        3084159,
+        3084158
+       ],
+       "amount": null,
+       "time": null,
+       "relation": null,
+       "count": 6
+      },
+      {
+       "text": "One of those downstream accounts (Sole Proprietorship #38194) passed money on the same morning to two further accounts: four payments (214.43, 596.96, 208.76, 73.13) to Partnership #828 and two payments (9549.19, 6368.8) to Partnership #4825.",
+       "cites": [
+        2976818,
+        2976815,
+        2976814,
+        2976817,
+        3016031,
+        3016032
+       ],
+       "amount": null,
+       "time": null,
+       "relation": null,
+       "count": 6
+      },
+      {
+       "text": "Partnership #17358, which received 27558.38 and 48714.26 from the receiver, sent the same two amounts on to Corporation #36623 within about three hours \u2014 8835.59 and 27539.77 each appearing twice.",
+       "cites": [
+        2757650,
+        2757649,
+        2830738,
+        2830737
+       ],
+       "amount": null,
+       "time": null,
+       "relation": {
+        "from": "Partnership #17358",
+        "to": "Corporation #36623"
+       },
+       "count": 4
+      },
+      {
+       "text": "Partnership #17358 also sent the identical amount 548.7 twice to Sole Proprietorship #38415 on consecutive days.",
+       "cites": [
+        2281149,
+        2631773
+       ],
+       "amount": {
+        "value": 548.7,
+        "currency": "Saudi Riyal"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #17358",
+        "to": "Sole Proprietorship #38415"
+       },
+       "count": 2
+      },
+      {
+       "text": "The sender (Partnership #6126) made five payments to two different payees within the two hours before the alert (14:49 to 16:49), including 60072.36, 16005.31, 4253.48, 2583.32 and 892.95.",
+       "cites": [
+        3113650,
+        3113653,
+        3113652,
+        3113651,
+        2132654
+       ],
+       "amount": null,
+       "time": null,
+       "relation": null,
+       "count": 5
+      },
+      {
+       "text": "Four hours before the alert the sender paid 60072.36 to Corporation #14622, an account at the same bank as the alerted receiver (Saudi Arabia Bank #5).",
+       "cites": [
+        2132654
+       ],
+       "amount": {
+        "value": 60072.36,
+        "currency": "Saudi Riyal"
+       },
+       "time": "2022-09-06 14:49",
+       "relation": {
+        "from": "Partnership #6126",
+        "to": "Corporation #14622"
+       },
+       "count": 1
+      },
+      {
+       "text": "The sender sent the identical amount 16005.31 to Sole Proprietorship #38291 twice, about 20 hours apart (the evening before and again 16:32 on the alert day).",
+       "cites": [
+        2709039,
+        3113651
+       ],
+       "amount": {
+        "value": 16005.31,
+        "currency": "Saudi Riyal"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #6126",
+        "to": "Sole Proprietorship #38291"
+       },
+       "count": 2
+      }
+     ]
+    }
+   }
+  }
+ ]
+}

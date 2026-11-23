@@ -34,3 +34,10 @@
 .person { background: var(--surface-2); border: 1px solid var(--ring); }
 @media (max-width: 560px) { .choices { grid-template-columns: 1fr; } }
 .under { border-radius: 10px; padding: 10px 12px; background: var(--surface-2); border: 1px solid var(--ring); margin-bottom: 12px; }
+.second { margin-top: 14px; border: 1px solid var(--accent); border-radius: 10px; padding: 10px 12px; }
+.secondHead { font-weight: 700; margin: 0 0 6px; }
+.strength { margin: 0 0 6px; font-weight: 600; }
+.opinion + .opinion { border-top: 1px solid var(--grid); margin-top: 10px; padding-top: 10px; }
+.st_strong { color: var(--warn-ink); }
+.claims { margin: 4px 0; padding-left: 18px; font-size: 14px; }
+.dropped { font-size: 13px; color: var(--ink-2); }

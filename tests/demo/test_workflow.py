@@ -155,3 +155,10 @@ def test_the_qa_sample_is_fixed_by_its_seed_and_checked_blind_against_the_key():
     assert [c["event_id"] for c in a] == [c["event_id"] for c in b] and len(a) == 5
     assert all(c["ok"] == (not c["is_laundering"]) for c in a)
     assert W.qa_sample(closed[:2], seed="x") and len(W.qa_sample(closed[:2], seed="x")) == 2
+
+
+def test_metrics_count_how_often_the_ai_reviewer_found_a_strong_case_against():
+    cases = [{**case("awaiting_review", "escalate", True, eid=1), "ai_strong_against": True},
+             {**case("closed", "close", False, eid=2), "ai_strong_against": False},
+             {**case("closed", "close", True, eid=3), "ai_strong_against": None}]  # fmt: skip
+    assert W.metrics(cases, 0)["ai_strong_against"] == {"cases": 2, "strong": 1}

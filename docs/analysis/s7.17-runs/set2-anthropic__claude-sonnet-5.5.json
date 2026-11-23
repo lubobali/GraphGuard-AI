@@ -1,0 +1,2719 @@
+{
+ "model": "anthropic/claude-sonnet-5.5",
+ "usage": {
+  "calls": 12,
+  "prompt_tokens": 32063,
+  "completion_tokens": 6025,
+  "cost": 2.7831759999999997
+ },
+ "rows": [
+  {
+   "event_id": 2348514,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2348514,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2631778,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2631778,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2699457,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2699457,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3557055,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3557055,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3805125,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3805125,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2192349,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "none",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 0,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2192349,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2204240,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2204240,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3162481,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3162481,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3342049,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3342049,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3352019,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3352019,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2285045,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2285045,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2358576,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "none",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 0,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2358576,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2825552,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2825552,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3084285,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "none",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 0,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3084285,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3625787,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3625787,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2160251,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2160251,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2244731,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2244731,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2976945,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "none",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 0,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2976945,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "strong",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3162503,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3162503,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 6,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3162511,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3162511,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 1237951,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 1237951,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 1854515,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "none",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 0,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 1854515,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "strong",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 1896457,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 1896457,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 1896459,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 1896459,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2387727,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2387727,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2358619,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2358619,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2908918,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 1,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2908918,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2991066,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "none",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 0,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2991066,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3055204,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3055204,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3162472,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "none",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 0,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3162472,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "strong",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 6,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2273025,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "none",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 0,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2273025,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2332860,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2332860,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "strong",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2612157,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2612157,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3035774,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3035774,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "strong",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3123449,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3123449,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2248690,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2248690,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "strong",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2248692,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2248692,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2248701,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2248701,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "strong",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 5,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2651078,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 2651078,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3351995,
+   "laundering": true,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3351995,
+   "laundering": true,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3087361,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3087361,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3097993,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3097993,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3098600,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3098600,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3109624,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3109624,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3116765,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3116765,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 3
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3122754,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 1,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3122754,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 1,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3142935,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3142935,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3152708,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3152708,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3170314,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3170314,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3204874,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3204874,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3332911,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 1,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3332911,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3335912,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 1,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3335912,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3368993,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3368993,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3458736,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3458736,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 2
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3466546,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3466546,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3484648,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3484648,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3505376,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3505376,
+   "laundering": false,
+   "direction": "close",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3514462,
+   "laundering": false,
+   "direction": "escalate",
+   "from_log": true,
+   "checked": {
+    "strength": "some",
+    "summary": "",
+    "kept": [],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "seconds": null
+   }
+  },
+  {
+   "event_id": 3514462,
+   "laundering": false,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The alert looks like part of a circle with a gathering shape. The receiver sent money to Corporation #28927, and that company sent most of it back three days later. The receiver also got three payments in 11 minutes, including the alert. The counterparties are new, and the receiver has little earlier history.",
+    "kept": [
+     {
+      "text": "Partnership #30900 sent 19,264.82 Yuan to Corporation #28927 on 4 Sep.",
+      "cites": [
+       2202834
+      ],
+      "amount": {
+       "value": 19264.82,
+       "currency": "Yuan"
+      },
+      "time": "2022-09-04 13:43",
+      "relation": {
+       "from": "Partnership #30900",
+       "to": "Corporation #28927"
+      },
+      "count": 1
+     },
+     {
+      "text": "Corporation #28927 sent 17,425.11 Yuan back to Partnership #30900 on 7 Sep, minutes before the alert. This closes a circle: receiver to company and back to receiver.",
+      "cites": [
+       3514459
+      ],
+      "amount": {
+       "value": 17425.11,
+       "currency": "Yuan"
+      },
+      "time": "2022-09-07 12:38",
+      "relation": {
+       "from": "Corporation #28927",
+       "to": "Partnership #30900"
+      },
+      "count": 1
+     },
+     {
+      "text": "Partnership #30596 paid Partnership #30900 29,953.07 Yuan, 11 minutes before the alert. This is a separate payer from the alert's sender.",
+      "cites": [
+       3514461
+      ],
+      "amount": {
+       "value": 29953.07,
+       "currency": "Yuan"
+      },
+      "time": "2022-09-07 12:31",
+      "relation": {
+       "from": "Partnership #30596",
+       "to": "Partnership #30900"
+      },
+      "count": 1
+     },
+     {
+      "text": "The alert's sender, Sole Proprietorship #29453, also paid Corporation #28927 (3,432.04 Yuan) on 4 Sep. That company is the same one that later returned money to the receiver. The sender and receiver are therefore linked through a shared counterparty.",
+      "cites": [
+       2202838
+      ],
+      "amount": {
+       "value": 3432.04,
+       "currency": "Yuan"
+      },
+      "time": "2022-09-04 13:30",
+      "relation": {
+       "from": "Sole Proprietorship #29453",
+       "to": "Corporation #28927"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [
+     {
+      "text": "The alert payment was the third incoming payment to Partnership #30900 in 11 minutes, from three different payers. The two earlier ones are 3514461 and 3514459. This is a gathering pattern.",
+      "cites": [
+       3514461,
+       3514459,
+       3514462
+      ],
+      "amount": null,
+      "time": null,
+      "relation": null,
+      "count": 3,
+      "why": "number 3514461 in the text is in no cited payment"
+     }
+    ],
+    "n_claims": 5,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 9.71,
+    "raw": {
+     "strength": "some",
+     "summary": "The alert looks like part of a circle with a gathering shape. The receiver sent money to Corporation #28927, and that company sent most of it back three days later. The receiver also got three payments in 11 minutes, including the alert. The counterparties are new, and the receiver has little earlier history.",
+     "claims": [
+      {
+       "text": "Partnership #30900 sent 19,264.82 Yuan to Corporation #28927 on 4 Sep.",
+       "cites": [
+        2202834
+       ],
+       "amount": {
+        "value": 19264.82,
+        "currency": "Yuan"
+       },
+       "time": "2022-09-04 13:43",
+       "relation": {
+        "from": "Partnership #30900",
+        "to": "Corporation #28927"
+       },
+       "count": 1
+      },
+      {
+       "text": "Corporation #28927 sent 17,425.11 Yuan back to Partnership #30900 on 7 Sep, minutes before the alert. This closes a circle: receiver to company and back to receiver.",
+       "cites": [
+        3514459
+       ],
+       "amount": {
+        "value": 17425.11,
+        "currency": "Yuan"
+       },
+       "time": "2022-09-07 12:38",
+       "relation": {
+        "from": "Corporation #28927",
+        "to": "Partnership #30900"
+       },
+       "count": 1
+      },
+      {
+       "text": "Partnership #30596 paid Partnership #30900 29,953.07 Yuan, 11 minutes before the alert. This is a separate payer from the alert's sender.",
+       "cites": [
+        3514461
+       ],
+       "amount": {
+        "value": 29953.07,
+        "currency": "Yuan"
+       },
+       "time": "2022-09-07 12:31",
+       "relation": {
+        "from": "Partnership #30596",
+        "to": "Partnership #30900"
+       },
+       "count": 1
+      },
+      {
+       "text": "The alert payment was the third incoming payment to Partnership #30900 in 11 minutes, from three different payers. The two earlier ones are 3514461 and 3514459. This is a gathering pattern.",
+       "cites": [
+        3514461,
+        3514459,
+        3514462
+       ],
+       "amount": null,
+       "time": null,
+       "relation": null,
+       "count": 3
+      },
+      {
+       "text": "The alert's sender, Sole Proprietorship #29453, also paid Corporation #28927 (3,432.04 Yuan) on 4 Sep. That company is the same one that later returned money to the receiver. The sender and receiver are therefore linked through a shared counterparty.",
+       "cites": [
+        2202838
+       ],
+       "amount": {
+        "value": 3432.04,
+        "currency": "Yuan"
+       },
+       "time": "2022-09-04 13:30",
+       "relation": {
+        "from": "Sole Proprietorship #29453",
+        "to": "Corporation #28927"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 3514942,
+   "laundering": false,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The alerted payment looks like a recurring, fixed-amount cheque to a regular payee. The same 16,169.80 Yen went to the same payee three times in the three days before the alert. The sender's outgoing payments are small and go to only a few payees, so there is no wide split. The big inflows to the sender are a worry, but none of that money visibly moves on to this receiver.",
+    "kept": [
+     {
+      "text": "The same sender paid the same receiver the identical amount of 16,169.80 Yen by cheque three times in the 72 hours before the alert. This points to a regular counterparty and a steady, repeated amount.",
+      "cites": [
+       2267871,
+       2764591,
+       3052229
+      ],
+      "amount": {
+       "value": 16169.8,
+       "currency": "Yen"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #31813",
+       "to": "Corporation #29861"
+      },
+      "count": 3
+     },
+     {
+      "text": "The sender also repeated another small payment of 11,771.53 Yen by cheque to the same payee (Sole Proprietorship #39247), on 6 and 7 September. This looks like routine repeated billing, not a split into varied amounts.",
+      "cites": [
+       3217573,
+       3514861
+      ],
+      "amount": {
+       "value": 11771.53,
+       "currency": "Yen"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #31813",
+       "to": "Sole Proprietorship #39247"
+      },
+      "count": 2
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 7.24,
+    "raw": {
+     "strength": "some",
+     "summary": "The alerted payment looks like a recurring, fixed-amount cheque to a regular payee. The same 16,169.80 Yen went to the same payee three times in the three days before the alert. The sender's outgoing payments are small and go to only a few payees, so there is no wide split. The big inflows to the sender are a worry, but none of that money visibly moves on to this receiver.",
+     "claims": [
+      {
+       "text": "The same sender paid the same receiver the identical amount of 16,169.80 Yen by cheque three times in the 72 hours before the alert. This points to a regular counterparty and a steady, repeated amount.",
+       "cites": [
+        2267871,
+        2764591,
+        3052229
+       ],
+       "amount": {
+        "value": 16169.8,
+        "currency": "Yen"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #31813",
+        "to": "Corporation #29861"
+       },
+       "count": 3
+      },
+      {
+       "text": "The sender also repeated another small payment of 11,771.53 Yen by cheque to the same payee (Sole Proprietorship #39247), on 6 and 7 September. This looks like routine repeated billing, not a split into varied amounts.",
+       "cites": [
+        3217573,
+        3514861
+       ],
+       "amount": {
+        "value": 11771.53,
+        "currency": "Yen"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #31813",
+        "to": "Sole Proprietorship #39247"
+       },
+       "count": 2
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 3514942,
+   "laundering": false,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The sender is a pass-through-looking account. It received very large, repeated Yen amounts from one upstream account. It then sent the same 16,169.80 Yen cheque to the same payee four times in about three days, and it paid two payees at the same minute. These patterns are not typical of ordinary, steady activity, so the close decision deserves a check.",
+    "kept": [
+     {
+      "text": "The sender paid the identical amount of 16,169.80 Yen by cheque to the same receiver four times within about three days, including the alert. Repeated identical cheques could be duplicates or structuring.",
+      "cites": [
+       2267871,
+       2764591,
+       3052229,
+       3514942
+      ],
+      "amount": {
+       "value": 16169.8,
+       "currency": "Yen"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #31813",
+       "to": "Corporation #29861"
+      },
+      "count": 4
+     },
+     {
+      "text": "The sender received the identical large cheque of 35,526,865.15 Yen from one upstream account three times within about two days. The amounts are far larger than the small payments it sends on.",
+      "cites": [
+       2715596,
+       3236934,
+       3388117
+      ],
+      "amount": {
+       "value": 35526865.15,
+       "currency": "Yen"
+      },
+      "time": null,
+      "relation": {
+       "from": "Corporation #29514",
+       "to": "Partnership #31813"
+      },
+      "count": 3
+     },
+     {
+      "text": "At the same minute as the alert, the sender made a second cheque to a different payee. This is a burst of rapid payments to several payees.",
+      "cites": [
+       3514861,
+       3514942
+      ],
+      "amount": null,
+      "time": "2022-09-07 12:37",
+      "relation": null,
+      "count": 2
+     }
+    ],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 8.26,
+    "raw": {
+     "strength": "some",
+     "summary": "The sender is a pass-through-looking account. It received very large, repeated Yen amounts from one upstream account. It then sent the same 16,169.80 Yen cheque to the same payee four times in about three days, and it paid two payees at the same minute. These patterns are not typical of ordinary, steady activity, so the close decision deserves a check.",
+     "claims": [
+      {
+       "text": "The sender paid the identical amount of 16,169.80 Yen by cheque to the same receiver four times within about three days, including the alert. Repeated identical cheques could be duplicates or structuring.",
+       "cites": [
+        2267871,
+        2764591,
+        3052229,
+        3514942
+       ],
+       "amount": {
+        "value": 16169.8,
+        "currency": "Yen"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #31813",
+        "to": "Corporation #29861"
+       },
+       "count": 4
+      },
+      {
+       "text": "The sender received the identical large cheque of 35,526,865.15 Yen from one upstream account three times within about two days. The amounts are far larger than the small payments it sends on.",
+       "cites": [
+        2715596,
+        3236934,
+        3388117
+       ],
+       "amount": {
+        "value": 35526865.15,
+        "currency": "Yen"
+       },
+       "time": null,
+       "relation": {
+        "from": "Corporation #29514",
+        "to": "Partnership #31813"
+       },
+       "count": 3
+      },
+      {
+       "text": "At the same minute as the alert, the sender made a second cheque to a different payee. This is a burst of rapid payments to several payees.",
+       "cites": [
+        3514861,
+        3514942
+       ],
+       "amount": null,
+       "time": "2022-09-07 12:37",
+       "relation": null,
+       "count": 2
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 3553389,
+   "laundering": false,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The alert looks like an ordinary, isolated payment. It is a small ACH payment in Yuan with no rules triggered. The data shows no onward movement from the receiver, no fan-out or fan-in, and no circular flow. The case against escalating is thin, but nothing here clearly shows layering.",
+    "kept": [
+     {
+      "text": "The alerted payment is a single small ACH payment in Yuan from Corporation #28806 to Partnership #30422. No rules fired on it.",
+      "cites": [
+       3553389
+      ],
+      "amount": {
+       "value": 2110.96,
+       "currency": "Yuan"
+      },
+      "time": "2022-09-07 14:32",
+      "relation": {
+       "from": "Corporation #28806",
+       "to": "Partnership #30422"
+      },
+      "count": 1
+     },
+     {
+      "text": "The only other payment into the receiver in the 72 hours before the alert came from a different payer, Partnership #22504. It is a single ACH payment in Yuan. The data shows no payments leaving the receiver afterwards, so the money is not being passed on or split.",
+      "cites": [
+       3553386
+      ],
+      "amount": {
+       "value": 23464.73,
+       "currency": "Yuan"
+      },
+      "time": "2022-09-07 14:30",
+      "relation": {
+       "from": "Partnership #22504",
+       "to": "Partnership #30422"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 6.87,
+    "raw": {
+     "strength": "some",
+     "summary": "The alert looks like an ordinary, isolated payment. It is a small ACH payment in Yuan with no rules triggered. The data shows no onward movement from the receiver, no fan-out or fan-in, and no circular flow. The case against escalating is thin, but nothing here clearly shows layering.",
+     "claims": [
+      {
+       "text": "The alerted payment is a single small ACH payment in Yuan from Corporation #28806 to Partnership #30422. No rules fired on it.",
+       "cites": [
+        3553389
+       ],
+       "amount": {
+        "value": 2110.96,
+        "currency": "Yuan"
+       },
+       "time": "2022-09-07 14:32",
+       "relation": {
+        "from": "Corporation #28806",
+        "to": "Partnership #30422"
+       },
+       "count": 1
+      },
+      {
+       "text": "The only other payment into the receiver in the 72 hours before the alert came from a different payer, Partnership #22504. It is a single ACH payment in Yuan. The data shows no payments leaving the receiver afterwards, so the money is not being passed on or split.",
+       "cites": [
+        3553386
+       ],
+       "amount": {
+        "value": 23464.73,
+        "currency": "Yuan"
+       },
+       "time": "2022-09-07 14:30",
+       "relation": {
+        "from": "Partnership #22504",
+        "to": "Partnership #30422"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 3553389,
+   "laundering": false,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The case against closing is thin. Two different payers sent money to Partnership #30422 within two minutes of each other. That could be the start of a gathering pattern, and the alert ranks in the 99.7th percentile. The data shows no onward movement, no circular flow and no split.",
+    "kept": [
+     {
+      "text": "Two minutes before the alert, Partnership #30422 received a much larger ACH payment from a different payer at a different bank (Partnership #22504). That is about eleven times the alert amount. Two unrelated payers funding the same account in quick succession could be the start of a gathering shape.",
+      "cites": [
+       3553386,
+       3553389
+      ],
+      "amount": null,
+      "time": null,
+      "relation": null,
+      "count": 2
+     }
+    ],
+    "dropped": [
+     {
+      "text": "The alerted payment was 2110.96 Yuan from Corporation #28806 to Partnership #30422 by ACH. The model ranked it high (rank 2738, 99.7th percentile), even though no rules fired.",
+      "cites": [
+       3553389
+      ],
+      "amount": {
+       "value": 2110.96,
+       "currency": "Yuan"
+      },
+      "time": "2022-09-07 14:32",
+      "relation": {
+       "from": "Corporation #28806",
+       "to": "Partnership #30422"
+      },
+      "count": 1,
+      "why": "number 2738, in the text is in no cited payment"
+     }
+    ],
+    "n_claims": 2,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 5.57,
+    "raw": {
+     "strength": "some",
+     "summary": "The case against closing is thin. Two different payers sent money to Partnership #30422 within two minutes of each other. That could be the start of a gathering pattern, and the alert ranks in the 99.7th percentile. The data shows no onward movement, no circular flow and no split.",
+     "claims": [
+      {
+       "text": "Two minutes before the alert, Partnership #30422 received a much larger ACH payment from a different payer at a different bank (Partnership #22504). That is about eleven times the alert amount. Two unrelated payers funding the same account in quick succession could be the start of a gathering shape.",
+       "cites": [
+        3553386,
+        3553389
+       ],
+       "amount": null,
+       "time": null,
+       "relation": null,
+       "count": 2
+      },
+      {
+       "text": "The alerted payment was 2110.96 Yuan from Corporation #28806 to Partnership #30422 by ACH. The model ranked it high (rank 2738, 99.7th percentile), even though no rules fired.",
+       "cites": [
+        3553389
+       ],
+       "amount": {
+        "value": 2110.96,
+        "currency": "Yuan"
+       },
+       "time": "2022-09-07 14:32",
+       "relation": {
+        "from": "Corporation #28806",
+        "to": "Partnership #30422"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 3645567,
+   "laundering": false,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The alert looks like part of a steady, repeating pattern between the same two accounts. The sender repeats the same amounts to the same payee each day, and the sender has only a few counterparties, so there is no fan-out. The receiver's visible payouts are small next to what it takes in. The very short gaps between the sender's payments are the one thing that still points toward suspicion.",
+    "kept": [
+     {
+      "text": "The same payment of 6924.51 USD by credit card from Partnership #66 to Corporation #42280 was made the evening before the alert. The alert repeats it exactly, which fits a routine rather than a one-off.",
+      "cites": [
+       3172790,
+       3645567
+      ],
+      "amount": {
+       "value": 6924.51,
+       "currency": "US Dollar"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #66",
+       "to": "Corporation #42280"
+      },
+      "count": 2
+     },
+     {
+      "text": "Partnership #66 paid Corporation #42280 an identical 140871.61 USD cheque on three separate occasions, on 5, 6 and 7 September. This is a regular counterparty with fixed amounts.",
+      "cites": [
+       2348836,
+       3172789,
+       3645566
+      ],
+      "amount": {
+       "value": 140871.61,
+       "currency": "US Dollar"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #66",
+       "to": "Corporation #42280"
+      },
+      "count": 3
+     },
+     {
+      "text": "Corporation #42280 sent on only small amounts, such as 4922.76 USD in cash to Sole Proprietorship #45583. These are far below the large sums it received, so the money is not clearly being passed on quickly.",
+      "cites": [
+       3421190
+      ],
+      "amount": {
+       "value": 4922.76,
+       "currency": "US Dollar"
+      },
+      "time": "2022-09-07 08:02",
+      "relation": {
+       "from": "Corporation #42280",
+       "to": "Sole Proprietorship #45583"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 9.76,
+    "raw": {
+     "strength": "some",
+     "summary": "The alert looks like part of a steady, repeating pattern between the same two accounts. The sender repeats the same amounts to the same payee each day, and the sender has only a few counterparties, so there is no fan-out. The receiver's visible payouts are small next to what it takes in. The very short gaps between the sender's payments are the one thing that still points toward suspicion.",
+     "claims": [
+      {
+       "text": "The same payment of 6924.51 USD by credit card from Partnership #66 to Corporation #42280 was made the evening before the alert. The alert repeats it exactly, which fits a routine rather than a one-off.",
+       "cites": [
+        3172790,
+        3645567
+       ],
+       "amount": {
+        "value": 6924.51,
+        "currency": "US Dollar"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #66",
+        "to": "Corporation #42280"
+       },
+       "count": 2
+      },
+      {
+       "text": "Partnership #66 paid Corporation #42280 an identical 140871.61 USD cheque on three separate occasions, on 5, 6 and 7 September. This is a regular counterparty with fixed amounts.",
+       "cites": [
+        2348836,
+        3172789,
+        3645566
+       ],
+       "amount": {
+        "value": 140871.61,
+        "currency": "US Dollar"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #66",
+        "to": "Corporation #42280"
+       },
+       "count": 3
+      },
+      {
+       "text": "Corporation #42280 sent on only small amounts, such as 4922.76 USD in cash to Sole Proprietorship #45583. These are far below the large sums it received, so the money is not clearly being passed on quickly.",
+       "cites": [
+        3421190
+       ],
+       "amount": {
+        "value": 4922.76,
+        "currency": "US Dollar"
+       },
+       "time": "2022-09-07 08:02",
+       "relation": {
+        "from": "Corporation #42280",
+        "to": "Sole Proprietorship #45583"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "note": "Rows 1-115 rebuilt from private run log (counts only: strength, claims, dropped); the run crashed on review 116 when the model wrote an amount as a bare number. The rest was resumed after the shape guard."
+}

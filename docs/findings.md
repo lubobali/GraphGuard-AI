@@ -778,3 +778,50 @@ summary marked unchecked, the type marked a hint, the person decides. Both model
 shown on the 128 eval alerts. Spent: $3.07 of the key's $10 limit. Not done: a human rating of
 summaries, and claims about durations (the checker could compute them from the cited times — a
 Phase 8 candidate).
+
+---
+
+## FINDING-020 — The AI second reviewer: one model's "strong" is right when it speaks; the other's tells you nothing
+
+*Found: 2026-11-23, Phase 7 (S7.17). Acts on: the Case page's AI second opinion, which labels
+are shown, how a challenging AI is measured. Data: synthetic (IBM AMLworld), validation window.*
+
+**Setup.** After a person decides an alert, an LLM gets the same four read-only tools as the
+S7.10 investigator (bound to that alert, never the answer key) and is told the decision. It
+argues AGAINST it: a strength (strong / some / none), a summary and claims citing transaction
+ids. The S7.10 checker, frozen at c16b79c, keeps only claims it can match to payments. Measured
+on eval set 2 (64 alerts: 40 laundering, 24 clean), each alert reviewed against both decisions
+— 128 reviews per model, so half the decisions are wrong by construction. Results:
+`docs/analysis/s7.17-reviewer.json`.
+
+| Set 2 | Reviews | "Strong" on a wrong decision | "Strong" on a right one | Unsupported before checker | 95% CI | Cost |
+|---|---|---|---|---|---|---|
+| DeepSeek V4.1 Flash | 128 | 14 of 64 | 7 of 64 | 40 of 533 (7.5%) | 5.6-10.1% | $0.30 |
+| Claude Sonnet 5.5 | 121 | 7 of 61 | 0 of 60 | 51 of 359 (14.2%) | 11.0-18.2% | $2.78 |
+
+**The overall rate flatters DeepSeek.** Wrong decisions in this design are mostly closes (40
+of 64), and DeepSeek says "strong" to about 30% of closes whatever the truth: 12 of 40 wrong
+closes, 7 of 24 right ones. Within each kind of decision its label does not separate right from
+wrong. Sonnet said "strong" only against closes of laundering (7 of 40), never against a right
+decision, and "none" only on right escalations (8 of 40). When it speaks it is right; it
+speaks rarely, so its silence means little.
+
+**Decision.** A model's strength label is shown only if, in testing, it never called a right
+decision "strong" (test-enforced from the published file). Sonnet's label is shown with its
+rates; DeepSeek's facts are shown as "points to check", label hidden. Both are shown only after
+the person decides, so neither can anchor the decision.
+
+**Unsupported claims are higher when arguing against** than when drafting (S7.10: 4.0% and
+5.6%). DeepSeek's 40 drops: 28 numbers not in the cited payments, 11 relations, 1 with no
+citation. The checker still shows none of them as facts.
+
+**Robustness bug, found by the run.** Sonnet wrote one claim's amount as a bare number; the
+frozen checker assumes `{value, currency}` and raised, and the run — which saved only at the
+end — lost 115 paid reviews. Claims in the wrong shape are now dropped as unsupported before the
+checker (the checker itself is unchanged), every run saves after each review and can resume.
+Sonnet's first 115 rows were rebuilt from the run log (counts only, marked `from_log`, not shown
+on the site); the provider's credit ran out 7 reviews short of 128, so Sonnet's numbers are on
+121.
+
+**Not done.** Reviews for the whole top-400 queue (the precompute needs more credit); a human
+rating of whether the "points to check" helped anyone change a wrong decision.

@@ -274,3 +274,29 @@ export function reviewText(action, decision, isLaundering) {
   return { right, title: right ? "Good review" : "Not this time",
     detail: `The investigator ${what}; you ${action === "approve" ? "approved it" : "sent it back"}.` };
 }
+
+// ---- S7.17: the AI second opinion ------------------------------------------------------
+
+/** The reviews that argue against `decision` (shown only after a decision: no anchoring). */
+// `numbers`: reviewerNumbers.json's models. A model's strong/some/none label is shown only if
+// testing earned it (show_strength); otherwise strength is null and only the facts are shown.
+// A model whose label is shown comes first.
+export function reviewView(reviews, decision, numbers = {}) {
+  if (!decision) return [];
+  return (reviews ?? []).filter((r) => r.direction === decision).map((r) => {
+    const n = numbers[r.model] ?? {};
+    return {
+      model: r.model, label: MODEL_LABELS[r.model] ?? r.model,
+      strength: n.show_strength ? r.review.strength : null, note: n.note ?? "",
+      summary: r.review.summary, kept: r.review.kept ?? [], dropped: r.review.dropped ?? [],
+    };
+  }).sort((a, b) => (b.strength !== null) - (a.strength !== null));
+}
+
+export function strengthText(strength, decision) {
+  const other = decision === "close" ? "IS suspicious" : "is NOT suspicious";
+  if (strength === "strong") return `The AI found a strong case that this ${other}.`;
+  if (strength === "some") return `The AI found some points that this ${other}.`;
+  if (strength === "none") return "The AI found nothing that argues against your decision.";
+  return `Points to check that this ${other}:`;
+}

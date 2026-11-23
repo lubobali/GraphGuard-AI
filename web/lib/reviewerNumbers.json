@@ -1,0 +1,18 @@
+{
+  "_note": "S7.17: the reviewer's measured rates, from docs/analysis/s7.17-reviewer.json (tests/demo/test_about_numbers.py checks them). A model's strong/some/none label is shown only if, in testing, it never said \"strong\" about a right decision.",
+  "models": {
+    "anthropic/claude-sonnet-5.5": {
+      "strong_when_wrong": "7 of 61",
+      "strong_when_right": "0 of 60",
+      "show_strength": true,
+      "note": "Tested on 64 other alerts: it said \"strong\" 7 times, and the decision was wrong every time. But it missed most wrong decisions (7 of 61), so silence does not mean you were right."
+    },
+    "deepseek/deepseek-v4.1-flash": {
+      "strong_when_wrong": "14 of 64",
+      "strong_when_right": "7 of 64",
+      "show_strength": false,
+      "note": "Tested on 64 other alerts, its \"strong\" label did not tell right decisions from wrong ones (7 of 64 right decisions were called \"strong\" too), so the label is not shown. Use the facts as things to check."
+    }
+  },
+  "note": "Written by an AI from the same read-only data you see (never the answer key). A checker kept only facts it could match to a payment."
+}

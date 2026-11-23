@@ -31,6 +31,11 @@ def _env(path: str) -> dict[str, str]:
         return dict(ln.strip().split("=", 1) for ln in f if "=" in ln and not ln.startswith("#"))
 
 
+# S7.17 / FINDING-020: the only reviewer whose "strong" label held up in testing (it never
+# called a right decision "strong"); the manager's count uses it alone.
+TRUSTED_REVIEWER = "anthropic/claude-sonnet-5.5"
+
+
 class PgRepo:
     """Small connection pools: reads as demo_reader, the verdict as demo_writer."""
 
@@ -167,6 +172,11 @@ class PgRepo:
         }
         g = self._one("SELECT graph FROM subgraphs WHERE event_id = %s", (event_id,))
         tx["ring"] = g["graph"] if g else None
+        tx["reviews"] = self._all(
+            "SELECT direction, model, review FROM ai_reviews WHERE event_id = %s "
+            "ORDER BY direction, model",
+            (event_id,),
+        )
         tx["agent"] = self._all(
             "SELECT model, report, at FROM agent_reports WHERE event_id = %s ORDER BY model",
             (event_id,),
@@ -312,8 +322,17 @@ class PgRepo:
                 (sorted(decided),),
             )
         }
+        strong = {
+            (r["event_id"], r["direction"]): r["strength"] == "strong"
+            for r in self._all(
+                "SELECT event_id, direction, review->>'strength' AS strength FROM ai_reviews "
+                "WHERE model = %s AND event_id = ANY(%s)",
+                (TRUSTED_REVIEWER, sorted(decided)),
+            )
+        }
         for c in cases:
             c["ai_leans_suspicious"] = leans.get(c["event_id"])
+            c["ai_strong_against"] = strong.get((c["event_id"], c["decision"]))
         as_of = self._one("SELECT max(event_time) AS t FROM transactions")["t"]
         undecided = self._all(
             "SELECT event_time FROM transactions WHERE rank <= %s AND NOT (event_id = ANY(%s))",

@@ -40,6 +40,7 @@ export type Manager = {
   scope: "me" | "all"; as_of: string; decided: number; escalated: number; closed: number;
   waiting_review: number; sent_back: number; final_escalated: number; final_closed: number;
   reviews_done: number; matched: number; model_right: number; ai_agreement: { cases: number; agree: number };
+  ai_strong_against: { cases: number; strong: number };
   backlog: { total: number; under_24h: number; h24_48: number; over_48h: number; oldest: string | null };
   qa: { event_id: number; code: string; ok: boolean; reason?: string }[];
 };

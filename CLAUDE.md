@@ -358,6 +358,12 @@ rescore | publish | store`; OpenRouter key `.secrets/openrouter.env` ($10 limit 
 console; per-run dollar cap in `llm.SPEND_CAP`); tools bound to one alert, never the answer key;
 `agent/mcp_server.py` serves them over MCP. The checker is the judge — change it only with a
 test, and measure on a set it was not fitted to (FINDING-019).
+**The AI second reviewer (S7.17):** `python -m graphguard.agent.reviewer run --model M --set 2
+[--resume] | publish | demo --top N | store` → table `ai_reviews`; argues against a decision,
+shown only after it; a model's strong/some/none label is shown only if it never called a right
+decision "strong" in testing (FINDING-020). Runs save after every review: re-run with `--resume`.
+The OpenRouter **account** credit can run out before the key's $10 limit — check
+`/api/v1/credits` before a long run.
 
 ## Shadow scoring (S6.10, 2026-11-21)
 
