@@ -801,9 +801,32 @@ collect → spread without help.
 - Role badges in words: "Sender (this alert)", "Receiver (this alert)", "Paid the sender earlier",
   "Paid by the receiver later". "+4 more payees" becomes "4 more accounts this one paid (not drawn)".
 
+**Sub-steps (expanded 2026-11-23, before building)**
+1. **Logic, test first** (`web/lib/caseLogic.js`): `stepNumbers(edges)` (1..n by time, then id;
+   the "+N more" links get none) — the one source for both the arrow labels and the table;
+   `roleText(role)` for the data's seven roles ("Paid the sender", "The receiver paid on", "Also
+   paid the receiver", ...); `nodeRole(kind)` ("Sender (this alert)"); `moreText(direction, n)`
+   ("4 more accounts this one paid, not drawn"); `stepCaption(edge, names)` ("Step 3 of 9 ·
+   09-07 10:28 · A paid B 9,500 Euro · paid the sender").
+2. **The picture:** one sentence above it on how to read it; each arrow labelled "3 · 9,500
+   Euro"; node badges in words; "+N more" boxes in words.
+3. **Step through:** Back / Next buttons and a caption under the picture (the current payment
+   bright, earlier ones normal, later ones faint); "Play all" kept; keyboard ← → when focused.
+4. **The table:** a "#" column with the same numbers and the role in words; shown open, not
+   folded, when the ring has 12 payments or fewer.
+5. **Screenshots:** alert #21 (wide ring) and #9 (small), light and dark.
+
 **Acceptance criteria**
-- [ ] Unit (first): numbering follows (time, id); the table and the arrows carry the same numbers.
-- [ ] Screenshot check on alert #21 (the wide ring) and one small ring, light and dark.
+- [x] Unit (first): numbering follows (time, id); the table and the arrows carry the same numbers.
+- [x] Screenshot check on alert #21 (the wide ring) and one small ring, light and dark.
+
+**Done 2026-11-23.** `stepNumbers` (one source for arrow labels and table), roles in words,
+node badges "Sender (this alert)" / "Receiver (this alert)", "+N more · this one paid, not drawn",
+a how-to sentence, Back / Next / Play all with a step caption ("Step 3 of 17 · 09-05 13:33 · A paid
+B 10,048.81 Canadian Dollar · paid the sender"), the table numbered and open for small rings.
+Checked by screenshot (#21 wide, #9 light and dark) and by a click test: `scripts/ui/clickshot.sh`
+drives the same throwaway Chromium over its DevTools port (Node's own WebSocket, no packages). A
+first dark/light difference in labels was screenshot timing, not the page (render budget 10 s).
 
 ## S7.15 — A decision workflow like a real bank's
 

@@ -2,22 +2,23 @@ import dagre from "@dagrejs/dagre";
 import { Background, Controls, Handle, MarkerType, Position, ReactFlow } from "@xyflow/react";
 import type { Edge, Node, NodeProps } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { money, playOrder, toFlow } from "../lib/caseLogic.js";
+import { money, nodeRole, playOrder, roleText, stepCaption, stepNumbers, toFlow } from "../lib/caseLogic.js";
 import s from "./RingGraph.module.css";
 
 // The ring as of the alert (S7.5 data), left to right in time. Accounts are nodes, payments
 // are edges. Play reveals the money in time order; a table holds the same payments.
 type Graph = Parameters<typeof toFlow>[0];
 type AccountData = { name: string; bank: string; kind: string };
-const NW = 160, NH = 54;
+const NW = 160, NH = 64; // room for the role line on the sender and receiver (S7.14)
 const MIN_READABLE = 0.75; // below this the 11-12 px labels are unreadable (screenshot #21)
 
 function AccountNode({ data }: NodeProps<Node<AccountData>>) {
   return (
     <div className={`${s.node} ${s[data.kind] ?? ""}`}>
       <Handle type="target" position={Position.Left} className={s.handle} />
+      {nodeRole(data.kind) && <div className={s.role}>{nodeRole(data.kind)}</div>}
       <div className={s.name}>{data.name}</div>
-      <div className={s.bank}>{data.kind === "sender" ? "sender · " : data.kind === "receiver" ? "receiver · " : ""}{data.bank}</div>
+      <div className={s.bank}>{data.bank}</div>
       <Handle type="source" position={Position.Right} className={s.handle} />
     </div>
   );
@@ -82,6 +83,9 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
   }, [playing, shown, order.length]);
 
   const visible = new Set(order.slice(0, shown));
+  const steps = useMemo(() => stepNumbers(flow.edges), [flow]);
+  const stepping = shown < order.length; // a step is in focus: show it moving
+  const current = shown > 0 ? order[shown - 1] : null;
   const edges: Edge[] = flow.edges.map((e: ReturnType<typeof toFlow>["edges"][number]) => {
     const inRing = ringTx !== null && e.tx !== null && ringTx.has(e.tx);
     const on = e.tx === null || visible.has(e.id);
@@ -89,13 +93,13 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
     const color = e.alert ? "var(--accent)" : inRing ? "var(--ring-hl)" : "var(--edge)";
     return {
       id: e.id, source: e.source, target: e.target,
-      label: e.amount !== null ? money(e.amount, e.currency) : undefined,
+      label: e.amount !== null ? `${steps.get(e.id)} · ${money(e.amount, e.currency)}` : undefined,
       labelStyle: { fontSize: 11, fill: "var(--ink-2)" },
       labelBgStyle: { fill: "var(--surface)" },
       style: { stroke: color, strokeWidth: e.alert || inRing ? 3 : 1.5,
         strokeDasharray: e.role === "more" ? "4 4" : undefined, opacity: on ? 1 : 0.12 },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
-      animated: playing && on && order[shown - 1] === e.id,
+      animated: (playing || stepping) && current === e.id,
     };
   });
 
@@ -104,21 +108,39 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
     setShown(0);
     setPlaying(true);
   }
+  // Step through (S7.14): Back / Next one payment at a time, in time order.
+  const step = (d: number) => { setPlaying(false); setShown((n) => Math.max(1, Math.min(order.length, (n >= order.length && d > 0 ? 0 : n) + d))); };
+  function keys(e: React.KeyboardEvent) {
+    if (e.key === "ArrowRight") { e.preventDefault(); step(1); }
+    if (e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+  }
 
   const rows = order.map((id: string) => flow.edges.find((e: { id: string }) => e.id === id)!);
   const nameOf = (id: string) => flow.nodes.find((n: { id: string }) => n.id === id)?.name ?? id;
 
   return (
     <div>
-      <div className={s.toolbar}>
+      <p className={s.howto}>
+        Each box is an account, each arrow a payment, numbered in time order. Everything here
+        happened <strong>before</strong> the flagged payment (the blue arrow). Step through to see
+        where the money came from and where it went.
+      </p>
+      <div className={s.toolbar} onKeyDown={keys}>
+        <button type="button" onClick={() => step(-1)} className={s.btn2} disabled={shown <= 1 || playing} aria-label="Previous payment">← Back</button>
+        <button type="button" onClick={() => step(1)} className={s.btn2} disabled={playing} aria-label="Next payment">Next →</button>
         <button type="button" onClick={play} className={s.btn} disabled={playing}>
-          {playing ? "Playing…" : "▶ Play the money in time order"}
+          {playing ? "Playing…" : "▶ Play all"}
         </button>
         <span className="muted">
           {graph.window_hours} h before the alert · nothing after it · at most {graph.cap} payments per account and direction
         </span>
       </div>
       {wide && <p className="muted" style={{ fontSize: 12, margin: "0 0 6px" }}>Wide ring: drag to see more, or press ⛶ (bottom left) to see it all.</p>}
+      {stepping && current && (
+        <p className={s.caption} aria-live="polite">
+          {stepCaption(flow.edges.find((e: { id: string }) => e.id === current)!, shown, order.length, nameOf)}
+        </p>
+      )}
       <div ref={box} className={s.canvas} style={{ height: canvasHeight(size.h) }} aria-hidden="true">
         {/* colorMode: the controls and attribution were light-on-dark blanks (screenshots) */}
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.2}
@@ -134,18 +156,19 @@ export default function RingGraph({ graph, ringTx }: { graph: Graph; ringTx: Set
         {ringTx && <li><span className={s.swatch} style={{ background: "var(--ring-hl)" }} />in the laundering scheme (answer key)</li>}
         <li><span className={s.swatchDash} />more payments, not drawn</li>
       </ul>
-      <details className={s.table}>
+      <details className={s.table} open={rows.length <= 12}>
         <summary>The same payments as a table ({rows.length})</summary>
         <table>
-          <thead><tr><th scope="col">When</th><th scope="col">From</th><th scope="col">To</th><th scope="col">Amount</th><th scope="col">Role</th></tr></thead>
+          <thead><tr><th scope="col">#</th><th scope="col">When</th><th scope="col">From</th><th scope="col">To</th><th scope="col">Amount</th><th scope="col">What it is</th></tr></thead>
           <tbody>
             {rows.map((e: ReturnType<typeof toFlow>["edges"][number]) => (
               <tr key={e.id} className={e.alert ? s.alertRow : ringTx?.has(e.tx!) ? s.ringRow : undefined}>
+                <td className="num">{steps.get(e.id)}</td>
                 <td className="num">{e.t?.slice(5, 16)}</td>
                 <td>{nameOf(e.source)}</td>
                 <td>{nameOf(e.target)}</td>
                 <td className="num">{money(e.amount!, e.currency!)}</td>
-                <td>{e.role}{ringTx?.has(e.tx!) ? " · in ring" : ""}</td>
+                <td>{roleText(e.role)}{ringTx?.has(e.tx!) ? " · in the scheme (answer key)" : ""}</td>
               </tr>
             ))}
           </tbody>

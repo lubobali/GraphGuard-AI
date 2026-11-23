@@ -89,3 +89,44 @@ test("ring types in plain words, always a pattern, not proof", () => {
   assert.match(typeText("SCATTER-GATHER"), /a pattern, not proof/);
   assert.match(typeText("none evident"), /no clear pattern/);
 });
+
+// ---- S7.14: the money picture, step by step -----------------------------------------
+import { moreText, nodeRole, roleText, stepCaption, stepNumbers } from "../lib/caseLogic.js";
+
+const EDGES = [
+  { id: "e30", tx: 30, t: "2022-09-07 10:00:00", role: "alert", source: "S", target: "R", amount: 9500, currency: "Euro" },
+  { id: "e12", tx: 12, t: "2022-09-07 09:00:00", role: "upstream", source: "U", target: "S", amount: 9612.34, currency: "Euro" },
+  { id: "e11", tx: 11, t: "2022-09-07 09:00:00", role: "receiver's other payers", source: "P", target: "R", amount: 50, currency: "Euro" },
+  { id: "m-x", tx: null, t: null, role: "more", source: "S", target: "more:S:out" },
+];
+
+test("payments are numbered by time, then id; '+N more' links get no number", () => {
+  const n = stepNumbers(EDGES);
+  assert.deepEqual([n.get("e11"), n.get("e12"), n.get("e30")], [1, 2, 3]);
+  assert.equal(n.has("m-x"), false);
+});
+
+test("the table and the arrows read the same numbers (one source)", () => {
+  const n = stepNumbers(EDGES);
+  const arrows = EDGES.filter((e) => e.tx !== null).map((e) => n.get(e.id));
+  const table = [...n.entries()].sort((a, b) => a[1] - b[1]).map(([, v]) => v);
+  assert.deepEqual([...arrows].sort(), table);
+});
+
+test("roles in words", () => {
+  assert.equal(roleText("alert"), "the flagged payment");
+  assert.equal(roleText("upstream"), "paid the sender");
+  assert.equal(roleText("downstream"), "the receiver paid it on");
+  assert.equal(roleText("receiver's other payers"), "also paid the receiver");
+  for (const r of ["upstream 2", "downstream 2", "sender's other payees"]) assert.ok(roleText(r) && !/stream/.test(roleText(r)));
+  assert.equal(nodeRole("sender"), "Sender (this alert)");
+  assert.equal(nodeRole("account"), null);
+  assert.equal(moreText("out", 4), "4 more accounts this one paid, not drawn");
+  assert.equal(moreText("in", 1), "1 more account that paid this one, not drawn");
+});
+
+test("a step caption says when, who paid whom, how much, and the role", () => {
+  const names = { S: "Corp S", R: "Corp R", U: "Corp U", P: "Corp P" };
+  const c = stepCaption(EDGES[1], 2, 3, (id) => names[id]);
+  assert.equal(c, "Step 2 of 3 · 09-07 09:00 · Corp U paid Corp S 9,612.34 Euro · paid the sender");
+});

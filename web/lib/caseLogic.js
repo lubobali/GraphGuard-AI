@@ -56,7 +56,8 @@ export function toFlow(graph) {
   }));
   for (const m of graph.more) {
     const id = `more:${m.node}:${m.direction}`;
-    nodes.push({ id, kind: "more", name: `+${m.count} more`, bank: m.direction === "in" ? "payers" : "payees" });
+    nodes.push({ id, kind: "more", name: `+${m.count} more`,
+      bank: m.direction === "in" ? "paid this one, not drawn" : "this one paid, not drawn" });
     edges.push({
       id: `m-${id}`, tx: null, source: m.direction === "in" ? id : m.node,
       target: m.direction === "in" ? m.node : id, t: null, amount: null, currency: null,
@@ -156,4 +157,43 @@ export function typeText(type) {
   if (!type || type === "none evident") return "no clear pattern";
   const how = TYPE_TEXT[type];
   return how ? `${how} (${type}): a pattern, not proof` : `${type}: a pattern, not proof`;
+}
+
+// ---- S7.14: the money picture, step by step -----------------------------------------
+
+/** Step numbers 1..n by (time, id) -- the one source for the arrow labels and the table.
+ *  "+N more" links (tx null) get none. */
+export function stepNumbers(edges) {
+  const order = playOrder(edges);
+  return new Map(order.map((id, i) => [id, i + 1]));
+}
+
+const ROLE_TEXT = {
+  alert: "the flagged payment",
+  upstream: "paid the sender",
+  "upstream 2": "paid someone who paid the sender",
+  downstream: "the receiver paid it on",
+  "downstream 2": "paid on again",
+  "sender's other payees": "the sender also paid",
+  "receiver's other payers": "also paid the receiver",
+};
+
+/** The data's edge roles in words (every edge is BEFORE the alert, S7.5). */
+export function roleText(role) {
+  return ROLE_TEXT[role] ?? role;
+}
+
+export function nodeRole(kind) {
+  return kind === "sender" ? "Sender (this alert)" : kind === "receiver" ? "Receiver (this alert)" : null;
+}
+
+export function moreText(direction, n) {
+  const acc = n === 1 ? "account" : "accounts";
+  return direction === "out" ? `${n} more ${acc} this one paid, not drawn`
+    : `${n} more ${acc} that paid this one, not drawn`;
+}
+
+export function stepCaption(edge, step, total, nameOf) {
+  return `Step ${step} of ${total} · ${edge.t.slice(5, 16)} · ${nameOf(edge.source)} paid ${nameOf(edge.target)} ` +
+    `${money(edge.amount, edge.currency)} · ${roleText(edge.role)}`;
 }

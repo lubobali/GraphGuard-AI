@@ -14,7 +14,7 @@ cmds=""
 for spec in "$@"; do
   name="${spec%%=*}"; rest="${spec#*=}"; path="${rest%@*}"; size="${rest##*@}"
   scheme=""; [[ "$size" == *:dark ]] && { scheme="--blink-settings=preferredColorScheme=0"; size="${size%:dark}"; }
-  cmds+="$CH --headless=new --no-sandbox --disable-gpu --hide-scrollbars $scheme --virtual-time-budget=6000 --window-size=${size/x/,} --screenshot=/out/$name.png 'http://127.0.0.1:8130$path' 2>/dev/null; "
+  cmds+="$CH --headless=new --no-sandbox --disable-gpu --hide-scrollbars $scheme --virtual-time-budget=10000 --window-size=${size/x/,} --screenshot=/out/$name.png 'http://127.0.0.1:8130$path' 2>/dev/null; "
 done
 docker run --rm --network host --memory 1g --cpus 1 --pids-limit 256 --cap-drop ALL \
   --security-opt no-new-privileges --user pwuser -v "$(realpath "$OUT")":/out "$IMAGE" bash -c "$cmds"
