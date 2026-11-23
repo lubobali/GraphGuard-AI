@@ -31,20 +31,22 @@ export function teamSize(perDay) {
 
 /**
  * The slider's plain sentence. `r` = the API's /capacity rankings.
- * Counts, never percentages or money (ADR 0008).
+ * Counts, never percentages or money (ADR 0008). The model ranks and the team checks:
+ * people find what the model put in the part of the list they have time for.
  */
 export function capacitySentence(perDay, r) {
   const s = r.system;
   const total = s.caught + s.missed;
   const team = teamSize(perDay);
-  const people = team === 1 ? "one investigator" : `about ${team} investigators`;
+  const people = team === 1 ? "one person" : `about ${team} people`;
   return {
-    lead: `A team of ${people} working ${fmt(perDay)} alerts a day catches ` +
-      `${fmt(s.caught)} of ${fmt(total)} laundering transactions and ` +
-      `${fmt(s.rings_caught)} of ${plural(s.rings_total, "ring", "rings")}.`,
-    missed: `It misses ${fmt(s.missed)}.`,
-    rules: `Simple rules alone, same workload: ${plural(r.rules.caught, "transaction", "transactions")}` +
-      ` and ${plural(r.rules.rings_caught, "ring", "rings")}.`,
+    lead: `If your team checks the top ${fmt(perDay)} payments a day (${people}), ` +
+      `they find ${fmt(s.caught)} of the ${fmt(total)} laundering payments, and ` +
+      `${fmt(s.rings_caught)} of the ${fmt(s.rings_total)} laundering groups.`,
+    missed: `The other ${fmt(s.missed)} are lower on the list, never checked.`,
+    rules: `With old-style fixed rules instead of the model, the same ${fmt(perDay)} checks a day ` +
+      `find ${plural(r.rules.caught, "laundering payment", "laundering payments")} and ` +
+      `${plural(r.rules.rings_caught, "group", "groups")}.`,
   };
 }
 

@@ -35,3 +35,12 @@
 .more { margin-top: 12px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--ring);
   border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
 @media (max-width: 860px) { .grid2 { grid-template-columns: 1fr; } .sentence { font-size: 16px; } }
+.flow { list-style: none; padding: 0; margin: 16px 0 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; counter-reset: step; }
+.flow li { background: var(--surface); border: 1px solid var(--ring); border-radius: 10px; padding: 12px 14px; display: grid; gap: 2px; position: relative; }
+.flow li strong { font-size: 22px; }
+.flow li span { color: var(--ink-2); font-size: 14px; }
+.flow li + li::before { content: "→"; position: absolute; left: -12px; top: 50%; transform: translate(-50%, -50%); color: var(--muted); }
+.managers { padding: 28px 0 12px; border-top: 1px solid var(--grid); margin-top: 24px; }
+.h1b { font-size: 21px; margin-bottom: 6px; }
+.managers p { margin: 0; max-width: 760px; }
+@media (max-width: 700px) { .flow { grid-template-columns: 1fr; } .flow li + li::before { content: "↓"; left: 50%; top: -6px; } }

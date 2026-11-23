@@ -15,19 +15,21 @@ test("a daily workload maps to the same k as the API (100 a day -> 211)", () => 
   assert.equal(Math.round(perDayFor(5000)), 2373);
 });
 
-test("the sentence speaks in counts, with the team and the rules", () => {
+test("the sentence says who finds what: the model ranks, the team checks (Lubo, 2026-11-23)", () => {
   const s = capacitySentence(100, R100);
-  assert.equal(s.lead, "A team of about 5 investigators working 100 alerts a day catches " +
-    "167 of 1,083 laundering transactions and 35 of 168 rings.");
-  assert.equal(s.missed, "It misses 916.");
-  assert.equal(s.rules, "Simple rules alone, same workload: 1 transaction and 0 rings.");
+  assert.equal(s.lead, "If your team checks the top 100 payments a day (about 5 people), " +
+    "they find 167 of the 1,083 laundering payments, and 35 of the 168 laundering groups.");
+  assert.equal(s.missed, "The other 916 are lower on the list, never checked.");
+  assert.equal(s.rules, "With old-style fixed rules instead of the model, the same 100 checks " +
+    "a day find 1 laundering payment and 0 groups.");
   assert.ok(!/[%$€]/.test(s.lead + s.missed + s.rules));
+  assert.ok(!/catches/.test(s.lead), "the team does not catch; the model ranks");
 });
 
 test("team size and plural forms", () => {
   assert.equal(teamSize(10), 1);
   assert.equal(teamSize(1000), 50);
-  assert.match(capacitySentence(10, R100).lead, /^A team of one investigator/);
+  assert.match(capacitySentence(10, R100).lead, /\(one person\)/);
 });
 
 test("top share reads like a ranking, never a probability", () => {

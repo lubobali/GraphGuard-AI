@@ -8,9 +8,9 @@ import s from "./CapacityChart.module.css";
 // a crosshair that snaps to the nearest point, the same readout on keyboard focus,
 // and a table view of the same numbers.
 const SERIES = [
-  { key: "system", label: "Model + rules (this system)", color: "var(--series-system)", dash: "" },
-  { key: "rules", label: "Rules only", color: "var(--series-rules)", dash: "" },
-  { key: "random", label: "Random picks", color: "var(--series-random)", dash: "5 4" },
+  { key: "system", label: "Our model (GraphGuard)", color: "var(--series-system)", dash: "" },
+  { key: "rules", label: "Fixed rules (old way)", color: "var(--series-rules)", dash: "" },
+  { key: "random", label: "Random checks (no help)", color: "var(--series-random)", dash: "5 4" },
 ] as const;
 const W = 720, H = 300, M = { l: 52, r: 128, t: 14, b: 40 };
 const TABLE_PER_DAY = [25, 50, 100, 200, 500, 1000, 2000];
@@ -57,8 +57,8 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
   return (
     <figure className={s.fig}>
       <figcaption className={s.cap}>
-        <strong>Laundering transactions caught</strong>
-        <span className="muted"> · by alerts worked a day, over the 2.1-day window</span>
+        <strong>Laundering payments found</strong>
+        <span className="muted"> · by how many the team checks a day. Higher line = better list.</span>
       </figcaption>
       <ul className={s.legend} aria-label="Legend">
         {SERIES.map(({ key, label, color, dash }) => (
@@ -72,7 +72,7 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
       </ul>
       <div className={s.plot}>
         <svg ref={svg} viewBox={`0 0 ${W} ${H}`} className={s.svg} role="img" tabIndex={0}
-          aria-label={`Chart: at ${fmt(at)} alerts a day, ${readout.map((r) => `${r.label} ${fmt(r.p.caught)}`).join(", ")}. Arrow keys move.`}
+          aria-label={`Chart: at ${fmt(at)} checks a day, ${readout.map((r) => `${r.label} ${fmt(r.p.caught)}`).join(", ")}. Arrow keys move.`}
           onPointerMove={move} onPointerLeave={() => setHover(null)} onKeyDown={key}>
           {yTicks.map((t) => (
             <g key={t}>
@@ -83,7 +83,7 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
           {ticks(maxX, 6).filter((t) => t <= maxX).map((t) => (
             <text key={t} x={x(t)} y={H - M.b + 18} className={s.tick} textAnchor="middle">{fmt(t)}</text>
           ))}
-          <text x={(M.l + W - M.r) / 2} y={H - 4} className={s.axisLabel} textAnchor="middle">alerts worked a day</text>
+          <text x={(M.l + W - M.r) / 2} y={H - 4} className={s.axisLabel} textAnchor="middle">payments checked a day</text>
           {SERIES.map(({ key, color, dash }) => (
             <path key={key} d={path(key)} fill="none" stroke={color} strokeWidth="2"
               strokeDasharray={dash} strokeLinejoin="round" strokeLinecap="round" />
@@ -105,7 +105,7 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
           ))}
         </svg>
         <div className={s.tip} style={tipStyle} aria-hidden="true">
-          <div className={s.tipHead}>{fmt(readout[0].p.perDay)} alerts a day</div>
+          <div className={s.tipHead}>{fmt(readout[0].p.perDay)} checks a day</div>
           {readout.map(({ key, label, color, p }) => (
             <div key={key} className={s.tipRow}>
               <span className={s.key} style={{ background: color }} />
@@ -119,7 +119,7 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
         <summary>Show these numbers as a table</summary>
         <table>
           <thead>
-            <tr><th scope="col">Alerts a day</th>{SERIES.map((r) => <th key={r.key} scope="col">{r.label}</th>)}<th scope="col">Rings caught (system)</th></tr>
+            <tr><th scope="col">Checks a day</th>{SERIES.map((r) => <th key={r.key} scope="col">{r.label}</th>)}<th scope="col">Groups found (our model)</th></tr>
           </thead>
           <tbody>
             {TABLE_PER_DAY.filter((d) => d <= maxX).map((d) => {

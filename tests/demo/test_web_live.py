@@ -44,7 +44,7 @@ def test_each_page_and_every_asset_it_references_loads_with_the_csp(page):
 
 def test_the_queue_page_carries_the_synthetic_data_banner():
     _, _, html = _get("/")
-    assert "Synthetic data." in html and "How many alerts can your team work?" in html
+    assert "Synthetic data." in html and "People check only the riskiest." in html
 
 
 def test_the_about_page_is_prerendered_with_its_numbers():
