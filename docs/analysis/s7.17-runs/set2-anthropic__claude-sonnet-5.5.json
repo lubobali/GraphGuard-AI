@@ -1,10 +1,10 @@
 {
  "model": "anthropic/claude-sonnet-5.5",
  "usage": {
-  "calls": 12,
-  "prompt_tokens": 32063,
-  "completion_tokens": 6025,
-  "cost": 2.7831759999999997
+  "calls": 26,
+  "prompt_tokens": 68180,
+  "completion_tokens": 13213,
+  "cost": 2.9272899999999993
  },
  "rows": [
   {
@@ -2707,6 +2707,875 @@
        "relation": {
         "from": "Corporation #42280",
         "to": "Sole Proprietorship #45583"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 3645567,
+   "laundering": false,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The alert is one of a bundle of three payments, in the same amounts, that Partnership #66 sent to Corporation #42280 on both 6 and 7 September, within minutes of each other. Corporation #42280 then paid money on to several other accounts. This looks like repeated structured transfers with onward movement, so the CLOSE decision deserves a second look.",
+    "kept": [
+     {
+      "text": "The alerted payment of 6,924.51 USD by credit card was an exact repeat of a payment the same sender made to the same receiver the previous evening.",
+      "cites": [
+       3645567,
+       3172790
+      ],
+      "amount": {
+       "value": 6924.51,
+       "currency": "US Dollar"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #66",
+       "to": "Corporation #42280"
+      },
+      "count": 2
+     },
+     {
+      "text": "The sender paid the same large cheque of 140,871.61 USD to the same receiver on two consecutive evenings. This was in the same evening burst as the alerted payment.",
+      "cites": [
+       3172789,
+       3645566
+      ],
+      "amount": {
+       "value": 140871.61,
+       "currency": "US Dollar"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #66",
+       "to": "Corporation #42280"
+      },
+      "count": 2
+     },
+     {
+      "text": "The sender paid the same cash amount of 32,894.80 USD to the same receiver on two consecutive evenings, a repeated fixed-amount cash transfer.",
+      "cites": [
+       3172791,
+       3645568
+      ],
+      "amount": {
+       "value": 32894.8,
+       "currency": "US Dollar"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #66",
+       "to": "Corporation #42280"
+      },
+      "count": 2
+     },
+     {
+      "text": "Before these payments, the sender had received only small amounts: 241.31 USD and 94.99 USD from Partnership #37. It then sent much larger sums, such as the 140,871.61 USD cheque, so the source of the funds is unexplained.",
+      "cites": [
+       2860622,
+       2860621,
+       3172789
+      ],
+      "amount": null,
+      "time": null,
+      "relation": null,
+      "count": 3
+     }
+    ],
+    "dropped": [
+     {
+      "text": "The receiver, Corporation #42280, passes money on to other accounts. On 7 September it paid 4,922.76 USD in cash to Sole Proprietorship #45583. That account's earlier payments out include two transfers of more than 160,000 USD each, so the money moves through several layers.",
+      "cites": [
+       3421190
+      ],
+      "amount": {
+       "value": 4922.76,
+       "currency": "US Dollar"
+      },
+      "time": "2022-09-07 08:02",
+      "relation": {
+       "from": "Corporation #42280",
+       "to": "Sole Proprietorship #45583"
+      },
+      "count": 1,
+      "why": "number 160,000 in the text is in no cited payment"
+     }
+    ],
+    "n_claims": 5,
+    "n_unsupported": 1
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 10.85,
+    "raw": {
+     "strength": "some",
+     "summary": "The alert is one of a bundle of three payments, in the same amounts, that Partnership #66 sent to Corporation #42280 on both 6 and 7 September, within minutes of each other. Corporation #42280 then paid money on to several other accounts. This looks like repeated structured transfers with onward movement, so the CLOSE decision deserves a second look.",
+     "claims": [
+      {
+       "text": "The alerted payment of 6,924.51 USD by credit card was an exact repeat of a payment the same sender made to the same receiver the previous evening.",
+       "cites": [
+        3645567,
+        3172790
+       ],
+       "amount": {
+        "value": 6924.51,
+        "currency": "US Dollar"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #66",
+        "to": "Corporation #42280"
+       },
+       "count": 2
+      },
+      {
+       "text": "The sender paid the same large cheque of 140,871.61 USD to the same receiver on two consecutive evenings. This was in the same evening burst as the alerted payment.",
+       "cites": [
+        3172789,
+        3645566
+       ],
+       "amount": {
+        "value": 140871.61,
+        "currency": "US Dollar"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #66",
+        "to": "Corporation #42280"
+       },
+       "count": 2
+      },
+      {
+       "text": "The sender paid the same cash amount of 32,894.80 USD to the same receiver on two consecutive evenings, a repeated fixed-amount cash transfer.",
+       "cites": [
+        3172791,
+        3645568
+       ],
+       "amount": {
+        "value": 32894.8,
+        "currency": "US Dollar"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #66",
+        "to": "Corporation #42280"
+       },
+       "count": 2
+      },
+      {
+       "text": "The receiver, Corporation #42280, passes money on to other accounts. On 7 September it paid 4,922.76 USD in cash to Sole Proprietorship #45583. That account's earlier payments out include two transfers of more than 160,000 USD each, so the money moves through several layers.",
+       "cites": [
+        3421190
+       ],
+       "amount": {
+        "value": 4922.76,
+        "currency": "US Dollar"
+       },
+       "time": "2022-09-07 08:02",
+       "relation": {
+        "from": "Corporation #42280",
+        "to": "Sole Proprietorship #45583"
+       },
+       "count": 1
+      },
+      {
+       "text": "Before these payments, the sender had received only small amounts: 241.31 USD and 94.99 USD from Partnership #37. It then sent much larger sums, such as the 140,871.61 USD cheque, so the source of the funds is unexplained.",
+       "cites": [
+        2860622,
+        2860621,
+        3172789
+       ],
+       "amount": null,
+       "time": null,
+       "relation": null,
+       "count": 3
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 3721741,
+   "laundering": false,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The case against escalating is modest. Several of the receiver's incoming payments come from accounts with the same name as the receiver, which looks like routine consolidation. All payments are same-currency ACH, and I saw no money leaving the receiver afterwards. The gather shape, with many payers in a short time, still fits the escalation.",
+    "kept": [
+     {
+      "text": "Three of the payments into the receiving account come from accounts named Corporation #34629, the same name as the receiver. That points to a company moving money between its own accounts, not to unrelated parties.",
+      "cites": [
+       3721739,
+       3721732,
+       3721740
+      ],
+      "amount": null,
+      "time": null,
+      "relation": {
+       "from": "Corporation #34629",
+       "to": "Corporation #34629"
+      },
+      "count": 3
+     },
+     {
+      "text": "The alerted payment is an ordinary-looking ACH transfer in Brazil Real, the same currency and format as the other payments into the receiving account. I saw no onward payment from the receiver in the earlier payments I was shown.",
+      "cites": [
+       3721741
+      ],
+      "amount": {
+       "value": 25857.29,
+       "currency": "Brazil Real"
+      },
+      "time": "2022-09-07 23:29",
+      "relation": {
+       "from": "Corporation #7448",
+       "to": "Corporation #34629"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 8.05,
+    "raw": {
+     "strength": "some",
+     "summary": "The case against escalating is modest. Several of the receiver's incoming payments come from accounts with the same name as the receiver, which looks like routine consolidation. All payments are same-currency ACH, and I saw no money leaving the receiver afterwards. The gather shape, with many payers in a short time, still fits the escalation.",
+     "claims": [
+      {
+       "text": "Three of the payments into the receiving account come from accounts named Corporation #34629, the same name as the receiver. That points to a company moving money between its own accounts, not to unrelated parties.",
+       "cites": [
+        3721739,
+        3721732,
+        3721740
+       ],
+       "amount": null,
+       "time": null,
+       "relation": {
+        "from": "Corporation #34629",
+        "to": "Corporation #34629"
+       },
+       "count": 3
+      },
+      {
+       "text": "The alerted payment is an ordinary-looking ACH transfer in Brazil Real, the same currency and format as the other payments into the receiving account. I saw no onward payment from the receiver in the earlier payments I was shown.",
+       "cites": [
+        3721741
+       ],
+       "amount": {
+        "value": 25857.29,
+        "currency": "Brazil Real"
+       },
+       "time": "2022-09-07 23:29",
+       "relation": {
+        "from": "Corporation #7448",
+        "to": "Corporation #34629"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 3721741,
+   "laundering": false,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The receiving account was gathering money in a short burst before the alert. Six payments came in from several different payers over about 16 minutes, and two of them came from accounts with the receiver's own name. The alert payment fits that pattern, and it is the sender's largest in the window. Nothing shown moves money out of the receiver, so this is a gather shape, not a confirmed laundering chain.",
+    "kept": [
+     {
+      "text": "Six payments from different payer accounts at five different banks arrived at the receiving account between 23:12 and 23:28, just before the alert payment at 23:29. This is a gather shape.",
+      "cites": [
+       3721738,
+       3721735,
+       3721732,
+       3721737,
+       3721736,
+       3721739
+      ],
+      "amount": null,
+      "time": null,
+      "relation": null,
+      "count": 6
+     },
+     {
+      "text": "Two of the incoming payments came from accounts named Corporation #34629 at other banks. That is the receiver's own name, so the money may be moving between the owner's own accounts to pool funds.",
+      "cites": [
+       3721732,
+       3721739
+      ],
+      "amount": null,
+      "time": null,
+      "relation": {
+       "from": "Corporation #34629",
+       "to": "Corporation #34629"
+      },
+      "count": 2
+     },
+     {
+      "text": "Three accounts named Corporation #18817, at three different banks, paid the receiver within about 15 minutes. This is another sign of many accounts feeding one account.",
+      "cites": [
+       3721738,
+       3721735,
+       3721736
+      ],
+      "amount": null,
+      "time": null,
+      "relation": {
+       "from": "Corporation #18817",
+       "to": "Corporation #34629"
+      },
+      "count": 3
+     },
+     {
+      "text": "The alert payment itself went at 23:29 from Corporation #7448 to the same receiving account, a cross-bank ACH payment late at night. It came one minute after the previous incoming payment.",
+      "cites": [
+       3721741
+      ],
+      "amount": {
+       "value": 25857.29,
+       "currency": "Brazil Real"
+      },
+      "time": "2022-09-07 23:29",
+      "relation": {
+       "from": "Corporation #7448",
+       "to": "Corporation #34629"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 4,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 8.75,
+    "raw": {
+     "strength": "some",
+     "summary": "The receiving account was gathering money in a short burst before the alert. Six payments came in from several different payers over about 16 minutes, and two of them came from accounts with the receiver's own name. The alert payment fits that pattern, and it is the sender's largest in the window. Nothing shown moves money out of the receiver, so this is a gather shape, not a confirmed laundering chain.",
+     "claims": [
+      {
+       "text": "Six payments from different payer accounts at five different banks arrived at the receiving account between 23:12 and 23:28, just before the alert payment at 23:29. This is a gather shape.",
+       "cites": [
+        3721738,
+        3721735,
+        3721732,
+        3721737,
+        3721736,
+        3721739
+       ],
+       "amount": null,
+       "time": null,
+       "relation": null,
+       "count": 6
+      },
+      {
+       "text": "Two of the incoming payments came from accounts named Corporation #34629 at other banks. That is the receiver's own name, so the money may be moving between the owner's own accounts to pool funds.",
+       "cites": [
+        3721732,
+        3721739
+       ],
+       "amount": null,
+       "time": null,
+       "relation": {
+        "from": "Corporation #34629",
+        "to": "Corporation #34629"
+       },
+       "count": 2
+      },
+      {
+       "text": "Three accounts named Corporation #18817, at three different banks, paid the receiver within about 15 minutes. This is another sign of many accounts feeding one account.",
+       "cites": [
+        3721738,
+        3721735,
+        3721736
+       ],
+       "amount": null,
+       "time": null,
+       "relation": {
+        "from": "Corporation #18817",
+        "to": "Corporation #34629"
+       },
+       "count": 3
+      },
+      {
+       "text": "The alert payment itself went at 23:29 from Corporation #7448 to the same receiving account, a cross-bank ACH payment late at night. It came one minute after the previous incoming payment.",
+       "cites": [
+        3721741
+       ],
+       "amount": {
+        "value": 25857.29,
+        "currency": "Brazil Real"
+       },
+       "time": "2022-09-07 23:29",
+       "relation": {
+        "from": "Corporation #7448",
+        "to": "Corporation #34629"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 4013160,
+   "laundering": false,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The activity around the sender looks fairly ordinary. A single regular counterparty pays it identical amounts, and there is no wide split or gather. The case against escalating is only moderate, because the alert's counterparties also appear in a small loop.",
+    "kept": [
+     {
+      "text": "Corporation #38205, the sender, received three identical cheques of 4741.44 USD from the same payer, Partnership #9792. This is a steady, regular counterparty with a repeated amount.",
+      "cites": [
+       3126349,
+       3335427,
+       3807995
+      ],
+      "amount": {
+       "value": 4741.44,
+       "currency": "US Dollar"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #9792",
+       "to": "Corporation #38205"
+      },
+      "count": 3
+     },
+     {
+      "text": "The sender's only earlier outgoing payment was a small ACH of 1624.02 USD to Partnership #18654. The sender has no fan-out to many payees, and the alert amount differs from what it received.",
+      "cites": [
+       3443110
+      ],
+      "amount": {
+       "value": 1624.02,
+       "currency": "US Dollar"
+      },
+      "time": "2022-09-07 09:22",
+      "relation": {
+       "from": "Corporation #38205",
+       "to": "Partnership #18654"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 7.45,
+    "raw": {
+     "strength": "some",
+     "summary": "The activity around the sender looks fairly ordinary. A single regular counterparty pays it identical amounts, and there is no wide split or gather. The case against escalating is only moderate, because the alert's counterparties also appear in a small loop.",
+     "claims": [
+      {
+       "text": "Corporation #38205, the sender, received three identical cheques of 4741.44 USD from the same payer, Partnership #9792. This is a steady, regular counterparty with a repeated amount.",
+       "cites": [
+        3126349,
+        3335427,
+        3807995
+       ],
+       "amount": {
+        "value": 4741.44,
+        "currency": "US Dollar"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #9792",
+        "to": "Corporation #38205"
+       },
+       "count": 3
+      },
+      {
+       "text": "The sender's only earlier outgoing payment was a small ACH of 1624.02 USD to Partnership #18654. The sender has no fan-out to many payees, and the alert amount differs from what it received.",
+       "cites": [
+        3443110
+       ],
+       "amount": {
+        "value": 1624.02,
+        "currency": "US Dollar"
+       },
+       "time": "2022-09-07 09:22",
+       "relation": {
+        "from": "Corporation #38205",
+        "to": "Partnership #18654"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 4013160,
+   "laundering": false,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The alert sits in a small loop of accounts. The receiver and the sender's earlier payee exchanged money in both directions, and the sender had just received repeated identical cheques. This does not prove laundering, but it is a circular, pass-through shape that argues against a plain close.",
+    "kept": [
+     {
+      "text": "Corporation #2796 (the alert's receiver) and Corporation #38205 (the alert's sender) each paid the same amount, 1624.02 USD by ACH, to Partnership #18654 about 21 minutes apart on 2022-09-07. The match suggests coordinated activity around a shared third account.",
+      "cites": [
+       3443111,
+       3443110
+      ],
+      "amount": {
+       "value": 1624.02,
+       "currency": "US Dollar"
+      },
+      "time": null,
+      "relation": null,
+      "count": 2
+     },
+     {
+      "text": "Nine minutes before the alert, Partnership #18654 paid 1873.17 USD to Corporation #2796. That is the same account the alert pays next, and Corporation #2796 had itself paid #18654 the day before. This is a circular flow in which money returns to its origin.",
+      "cites": [
+       4013161
+      ],
+      "amount": {
+       "value": 1873.17,
+       "currency": "US Dollar"
+      },
+      "time": "2022-09-08 13:35",
+      "relation": {
+       "from": "Partnership #18654",
+       "to": "Corporation #2796"
+      },
+      "count": 1
+     },
+     {
+      "text": "Partnership #9792 sent Corporation #38205 three cheques of the identical amount of 4741.44 USD within about 33 hours. The sender then paid out on the same days, which looks like gathering funds and passing them on rather than steady ordinary activity.",
+      "cites": [
+       3126349,
+       3335427,
+       3807995
+      ],
+      "amount": {
+       "value": 4741.44,
+       "currency": "US Dollar"
+      },
+      "time": null,
+      "relation": {
+       "from": "Partnership #9792",
+       "to": "Corporation #38205"
+      },
+      "count": 3
+     }
+    ],
+    "dropped": [],
+    "n_claims": 3,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 9.13,
+    "raw": {
+     "strength": "some",
+     "summary": "The alert sits in a small loop of accounts. The receiver and the sender's earlier payee exchanged money in both directions, and the sender had just received repeated identical cheques. This does not prove laundering, but it is a circular, pass-through shape that argues against a plain close.",
+     "claims": [
+      {
+       "text": "Corporation #2796 (the alert's receiver) and Corporation #38205 (the alert's sender) each paid the same amount, 1624.02 USD by ACH, to Partnership #18654 about 21 minutes apart on 2022-09-07. The match suggests coordinated activity around a shared third account.",
+       "cites": [
+        3443111,
+        3443110
+       ],
+       "amount": {
+        "value": 1624.02,
+        "currency": "US Dollar"
+       },
+       "time": null,
+       "relation": null,
+       "count": 2
+      },
+      {
+       "text": "Nine minutes before the alert, Partnership #18654 paid 1873.17 USD to Corporation #2796. That is the same account the alert pays next, and Corporation #2796 had itself paid #18654 the day before. This is a circular flow in which money returns to its origin.",
+       "cites": [
+        4013161
+       ],
+       "amount": {
+        "value": 1873.17,
+        "currency": "US Dollar"
+       },
+       "time": "2022-09-08 13:35",
+       "relation": {
+        "from": "Partnership #18654",
+        "to": "Corporation #2796"
+       },
+       "count": 1
+      },
+      {
+       "text": "Partnership #9792 sent Corporation #38205 three cheques of the identical amount of 4741.44 USD within about 33 hours. The sender then paid out on the same days, which looks like gathering funds and passing them on rather than steady ordinary activity.",
+       "cites": [
+        3126349,
+        3335427,
+        3807995
+       ],
+       "amount": {
+        "value": 4741.44,
+        "currency": "US Dollar"
+       },
+       "time": null,
+       "relation": {
+        "from": "Partnership #9792",
+        "to": "Corporation #38205"
+       },
+       "count": 3
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 4027609,
+   "laundering": false,
+   "direction": "escalate",
+   "checked": {
+    "strength": "some",
+    "summary": "The case against escalating is modest. The alert is one ordinary-sized ACH payment in a single currency. The money flow shows no onward movement, no split to many accounts, no gathering from many, and no circular return. The receiver's only other earlier payment is a similar-sized one, which fits routine business activity. The sender has no earlier payments, so there is no regular-counterparty history to confirm this.",
+    "kept": [
+     {
+      "text": "The alerted payment is a single mid-sized ACH payment in UK Pounds, from Corporation #42174 to Sole Proprietorship #34405. It has no rule hits and the flow around it shows nothing that looks like a laundering shape.",
+      "cites": [
+       4027609
+      ],
+      "amount": {
+       "value": 1855.81,
+       "currency": "UK Pound"
+      },
+      "time": "2022-09-08 14:12",
+      "relation": {
+       "from": "Corporation #42174",
+       "to": "Sole Proprietorship #34405"
+      },
+      "count": 1
+     },
+     {
+      "text": "Twelve minutes earlier the same receiver got a very similar ACH payment in the same currency from a different corporation. This looks like steady, routine incoming amounts. It is only two payers, not a wide gathering.",
+      "cites": [
+       4027613
+      ],
+      "amount": {
+       "value": 1770.84,
+       "currency": "UK Pound"
+      },
+      "time": "2022-09-08 14:00",
+      "relation": {
+       "from": "Corporation #32974",
+       "to": "Sole Proprietorship #34405"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 6.99,
+    "raw": {
+     "strength": "some",
+     "summary": "The case against escalating is modest. The alert is one ordinary-sized ACH payment in a single currency. The money flow shows no onward movement, no split to many accounts, no gathering from many, and no circular return. The receiver's only other earlier payment is a similar-sized one, which fits routine business activity. The sender has no earlier payments, so there is no regular-counterparty history to confirm this.",
+     "claims": [
+      {
+       "text": "The alerted payment is a single mid-sized ACH payment in UK Pounds, from Corporation #42174 to Sole Proprietorship #34405. It has no rule hits and the flow around it shows nothing that looks like a laundering shape.",
+       "cites": [
+        4027609
+       ],
+       "amount": {
+        "value": 1855.81,
+        "currency": "UK Pound"
+       },
+       "time": "2022-09-08 14:12",
+       "relation": {
+        "from": "Corporation #42174",
+        "to": "Sole Proprietorship #34405"
+       },
+       "count": 1
+      },
+      {
+       "text": "Twelve minutes earlier the same receiver got a very similar ACH payment in the same currency from a different corporation. This looks like steady, routine incoming amounts. It is only two payers, not a wide gathering.",
+       "cites": [
+        4027613
+       ],
+       "amount": {
+        "value": 1770.84,
+        "currency": "UK Pound"
+       },
+       "time": "2022-09-08 14:00",
+       "relation": {
+        "from": "Corporation #32974",
+        "to": "Sole Proprietorship #34405"
+       },
+       "count": 1
+      }
+     ]
+    }
+   }
+  },
+  {
+   "event_id": 4027609,
+   "laundering": false,
+   "direction": "close",
+   "checked": {
+    "strength": "some",
+    "summary": "The case against closing is weak. The receiver got a similar-sized ACH payment from a different corporation 12 minutes before the alert, and the sender has no earlier payments. That could be the start of money being gathered, but only two payers are visible and nothing moves on.",
+    "kept": [
+     {
+      "text": "Twelve minutes before the alert, the same receiver got a similar UK Pound ACH payment from a different corporation at a different bank. Two unrelated payers sending near-identical amounts in a short time can point to gathering.",
+      "cites": [
+       4027613,
+       4027609
+      ],
+      "amount": null,
+      "time": null,
+      "relation": null,
+      "count": 2
+     },
+     {
+      "text": "The alerted payment was 1855.81 UK Pound by ACH from Corporation #42174 to Sole Proprietorship #34405. The sender has no earlier payments, so there is no history showing this is a regular counterparty.",
+      "cites": [
+       4027609
+      ],
+      "amount": {
+       "value": 1855.81,
+       "currency": "UK Pound"
+      },
+      "time": "2022-09-08 14:12",
+      "relation": {
+       "from": "Corporation #42174",
+       "to": "Sole Proprietorship #34405"
+      },
+      "count": 1
+     }
+    ],
+    "dropped": [],
+    "n_claims": 2,
+    "n_unsupported": 0
+   },
+   "trace": {
+    "tool_calls": [
+     "get_alert",
+     "get_reasons",
+     "get_ring",
+     "get_history"
+    ],
+    "turns": 2,
+    "repaired": false,
+    "finish": [
+     "tool_calls",
+     "stop"
+    ],
+    "seconds": 5.2,
+    "raw": {
+     "strength": "some",
+     "summary": "The case against closing is weak. The receiver got a similar-sized ACH payment from a different corporation 12 minutes before the alert, and the sender has no earlier payments. That could be the start of money being gathered, but only two payers are visible and nothing moves on.",
+     "claims": [
+      {
+       "text": "Twelve minutes before the alert, the same receiver got a similar UK Pound ACH payment from a different corporation at a different bank. Two unrelated payers sending near-identical amounts in a short time can point to gathering.",
+       "cites": [
+        4027613,
+        4027609
+       ],
+       "amount": null,
+       "time": null,
+       "relation": null,
+       "count": 2
+      },
+      {
+       "text": "The alerted payment was 1855.81 UK Pound by ACH from Corporation #42174 to Sole Proprietorship #34405. The sender has no earlier payments, so there is no history showing this is a regular counterparty.",
+       "cites": [
+        4027609
+       ],
+       "amount": {
+        "value": 1855.81,
+        "currency": "UK Pound"
+       },
+       "time": "2022-09-08 14:12",
+       "relation": {
+        "from": "Corporation #42174",
+        "to": "Sole Proprietorship #34405"
        },
        "count": 1
       }

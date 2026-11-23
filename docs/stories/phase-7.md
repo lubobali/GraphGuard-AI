@@ -993,10 +993,10 @@ wrong decisions), so its label is shown with that rate. Rule, test-enforced: a l
 only if it never called a right decision "strong". The manager's count uses Sonnet only. A
 crash on a malformed claim lost a paid run: claims in the wrong shape are now dropped before the
 checker, runs save after every review and resume. The S7.10 draft now covers all top-400 alerts
-(362 added, $0.65). **Short:** the OpenRouter account ran out of credit (the account, not the
-key's $10 limit), so the precompute covers only the 64 set-2 alerts (19 of them in the top 400)
-and Sonnet's measurement is 121 of 128 reviews. The top-400 pass waits for Lubo's decision on
-credit. API image 0.1.22.
+(362 added, $0.65). The account's credit ran out mid-way (the account, not the key's limit);
+after Lubo's top-up the rest ran: Sonnet measured on all 128, DeepSeek's facts on every top-400
+alert (800 reviews, $1.57), Sonnet's labelled review on the top 60 incl. Sam's 8 (120, $2.63).
+API image 0.1.22.
 
 ## S7.11 — The test on a real person (the Phase 7 gate)
 

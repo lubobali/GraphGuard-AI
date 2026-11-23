@@ -797,7 +797,7 @@ on eval set 2 (64 alerts: 40 laundering, 24 clean), each alert reviewed against 
 | Set 2 | Reviews | "Strong" on a wrong decision | "Strong" on a right one | Unsupported before checker | 95% CI | Cost |
 |---|---|---|---|---|---|---|
 | DeepSeek V4.1 Flash | 128 | 14 of 64 | 7 of 64 | 40 of 533 (7.5%) | 5.6-10.1% | $0.30 |
-| Claude Sonnet 5.5 | 121 | 7 of 61 | 0 of 60 | 51 of 359 (14.2%) | 11.0-18.2% | $2.78 |
+| Claude Sonnet 5.5 | 128 | 7 of 64 | 0 of 64 | 52 of 379 (13.7%) | 10.6-17.6% | $2.93 |
 
 **The overall rate flatters DeepSeek.** Wrong decisions in this design are mostly closes (40
 of 64), and DeepSeek says "strong" to about 30% of closes whatever the truth: 12 of 40 wrong
@@ -820,8 +820,10 @@ frozen checker assumes `{value, currency}` and raised, and the run — which sav
 end — lost 115 paid reviews. Claims in the wrong shape are now dropped as unsupported before the
 checker (the checker itself is unchanged), every run saves after each review and can resume.
 Sonnet's first 115 rows were rebuilt from the run log (counts only, marked `from_log`, not shown
-on the site); the provider's credit ran out 7 reviews short of 128, so Sonnet's numbers are on
-121.
+on the site); the provider's credit ran out 7 reviews short of 128, and those 7 were resumed
+after a top-up — Sonnet's numbers are on all 128.
 
-**Not done.** Reviews for the whole top-400 queue (the precompute needs more credit); a human
-rating of whether the "points to check" helped anyone change a wrong decision.
+**On the site:** DeepSeek's facts for every top-400 alert, both decisions (800 reviews, $1.57);
+Sonnet's labelled review for the top 60, which hold Sam's 8 seeded cases (120 reviews, $2.63).
+**Not done:** a human rating of whether the "points to check" helped anyone change a wrong
+decision.
