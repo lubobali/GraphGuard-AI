@@ -9,6 +9,7 @@ export type QueueGroup = {
   alerts: number; event_id: number; rank: number; percentile: number; event_time: string;
   due: string; amount_paid: number; payment_currency: string; payment_format: string;
   cold_policy: string; rules: string[]; from_name: string | null; from_bank_name: string | null;
+  from_account?: string; to_account?: string;
   to_name: string | null; to_bank_name: string | null; top_reason: string | null;
 };
 export type Queue = { k: number; page: number; page_size: number; alerts: number;

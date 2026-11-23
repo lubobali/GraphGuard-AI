@@ -55,6 +55,22 @@ def test_an_alert_has_its_reasons_its_ring_and_never_a_label(client):
     assert "is_laundering" not in a and "pattern_id" not in str(a)
 
 
+def test_no_weekday_reason_in_the_top_of_the_queue_and_groups_add_up(client):
+    """S7.13: the simulator's weekday is never a shown reason; an alert's behaviour groups
+    add up to its per-feature contributions (nothing hidden, nothing double-counted)."""
+    rows = []
+    for page in range(1, 6):
+        rows += client.get(f"/api/queue?per_day=100&page={page}").json()["groups"]
+    assert len(rows) == 190  # the 211 alerts, grouped by sender
+    assert not [r for r in rows if r["top_reason"] and "Wednesday" in r["top_reason"]]
+    assert not [r for r in rows if r["top_reason"] and "simulator" in r["top_reason"]]
+    for r in rows[:20]:
+        a = client.get(f"/api/alerts/{r['event_id']}").json()
+        total = sum(c["contribution"] for c in a["contributions"])
+        assert sum(g["contribution"] for g in a["groups"]) == pytest.approx(total, abs=1e-9)
+        assert a["groups"][-1]["key"] == "calendar"
+
+
 def test_the_answer_key_agrees_with_truth(client):
     from graphguard.demo import db
 

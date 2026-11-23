@@ -112,7 +112,7 @@ class PgRepo:
                    q.event_time + interval '24 hours' AS due, q.amount_paid,
                    q.payment_currency, q.payment_format, q.cold_policy, q.rules,
                    q.from_name, q.from_bank_name, q.to_name, q.to_bank_name,
-                   e.reasons[1] AS top_reason
+                   q.from_account, q.to_account, e.reasons[1] AS top_reason
             FROM g JOIN q ON q.rank = g.best
             LEFT JOIN explanations e ON e.event_id = q.event_id
             ORDER BY g.best LIMIT %(lim)s OFFSET %(off)s
@@ -132,7 +132,7 @@ class PgRepo:
             "t.from_name, t.to_bank, t.to_account, t.to_bank_name, t.to_name, t.amount_paid, "
             "t.payment_currency, t.amount_received, t.receiving_currency, t.payment_format, "
             "t.rank, t.percentile, t.alert, t.cold_policy, t.rules, t.features, "
-            "t.model_version, e.base, e.contribs, e.reasons "
+            "t.model_version, e.base, e.contribs, e.reasons, e.groups "
             "FROM transactions t LEFT JOIN explanations e USING (event_id) WHERE event_id = %s",
             (event_id,),
         )

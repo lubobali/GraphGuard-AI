@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import RingGraph from "../../components/RingGraph";
 import WhyBars from "../../components/WhyBars";
 import { get } from "../../lib/api";
-import { agentView, answerText, money } from "../../lib/caseLogic.js";
+import { agentView, answerText, money, ownAccount, typeText, whyFirst } from "../../lib/caseLogic.js";
 import { fmt, topShare } from "../../lib/logic.js";
 import s from "./case.module.css";
 
@@ -19,7 +19,34 @@ type Alert = {
   history: { from: Hist[]; to: Hist[] }; ring: Parameters<typeof RingGraph>[0]["graph"] | null;
   verdicts: { verdict: string; note: string; at: string }[]; model_version: string;
   agent: { model: string; at: string; report: unknown }[];
+  from_account: string; to_account: string; groups: Group[] | null;
 };
+type Group = { key: string; label: string; look: "sender" | "receiver" | null; contribution: number;
+  direction: "up" | "against" | "artifact"; sentences: string[] };
+
+const LOOK = { sender: ["#sender-history", "the sender's payments"], receiver: ["#receiver-history", "the receiver's payments"] };
+
+// S7.13: the model's reasons as behaviours a person can check, up first, then against, the
+// simulator's calendar effect last (counted, never a reason to investigate).
+function Groups({ groups }: { groups: Group[] }) {
+  const part = (d: Group["direction"]) => groups.filter((g) => g.direction === d);
+  const item = (g: Group) => (
+    <li key={g.key}>
+      <strong>{g.label}.</strong> {g.sentences.join(" ")}
+      {g.look && <> <a href={LOOK[g.look][0]}>Check {LOOK[g.look][1]}</a></>}
+    </li>
+  );
+  const up = part("up"), against = part("against"), art = part("artifact");
+  return (
+    <div className={s.groups}>
+      <h3 className={s.h3}>What pushed the model&apos;s score up</h3>
+      {up.length ? <ol className={s.reasons}>{up.map(item)}</ol>
+        : <p className="muted">Nothing: the model&apos;s own score for this payment is low.</p>}
+      {against.length > 0 && (<><h3 className={s.h3}>Points against</h3><ul className={s.against}>{against.map(item)}</ul></>)}
+      {art.map((g) => <p key={g.key} className={`muted ${s.artifact}`}>{g.label}: {g.sentences.join(" ")}</p>)}
+    </div>
+  );
+}
 
 type Claim = { text: string; cites: number[] };
 type AgentReport = { model: string; label: string; typology: string; summary: string;
@@ -43,7 +70,7 @@ function AgentDraft({ reports }: { reports: Alert["agent"] }) {
       <div className={s.agentGrid}>
         {views.map((v) => (
           <div key={v.model}>
-            <h3 className={s.h3}>{v.label} · <span className="ink2">ring-type guess: {v.typology}</span></h3>
+            <h3 className={s.h3}>{v.label} · <span className="ink2">pattern guess: {typeText(v.typology)}</span></h3>
             <p className={s.agentSummary}><span className="muted">Summary (not checked):</span> {v.summary}</p>
             {v.kept.length > 0 && (
               <ul className={s.claims}>
@@ -71,9 +98,9 @@ function AgentDraft({ reports }: { reports: Alert["agent"] }) {
 type Answer = { is_laundering: boolean; pattern_id: number | null; pattern_type: string | null;
   hop: number | null; ring_hops: number[] };
 
-function HistoryTable({ rows, title }: { rows: Hist[]; title: string }) {
+function HistoryTable({ rows, title, id }: { rows: Hist[]; title: string; id: string }) {
   return (
-    <div>
+    <div id={id}>
       <h3 className={s.h3}>{title}</h3>
       {rows.length === 0 ? <p className="muted">No earlier payments in the window.</p> : (
         <table className={s.hist}>
@@ -147,13 +174,19 @@ export default function CasePage() {
       <div className={s.grid}>
         <section className="card" aria-labelledby="why-h">
           <h2 id="why-h" className={s.h2}>Why this alert</h2>
-          {a.reasons ? (
+          {whyFirst(a) && <p className={s.firstWhy}>{whyFirst(a)}</p>}
+          {ownAccount(a) && (
+            <p className={s.own}><span className={s.ownChip}>{ownAccount(a)!.label}</span> {ownAccount(a)!.text}</p>
+          )}
+          {a.groups ? <Groups groups={a.groups} /> : a.reasons ? (
             <ol className={s.reasons}>{a.reasons.map((r) => <li key={r}>{r}</li>)}</ol>
           ) : <p className="muted">Explanations are kept for the top 20,000 of the queue.</p>}
           {a.rule_text.length > 0 && (
             <div className={s.rules}>{a.rule_text.map((r) => <p key={r}>{r}</p>)}</div>
           )}
-          {a.contributions && <WhyBars contributions={a.contributions} />}
+          {a.contributions && (
+            <details className={s.detail}><summary>Model detail: every feature</summary><WhyBars contributions={a.contributions} /></details>
+          )}
         </section>
 
         <section className="card" aria-labelledby="decide-h">
@@ -203,8 +236,8 @@ export default function CasePage() {
 
       <section className={`card ${s.histCard}`}>
         <div className={s.grid}>
-          <HistoryTable rows={a.history.from} title="Sender's recent payments" />
-          <HistoryTable rows={a.history.to} title="Receiver's recent payments" />
+          <HistoryTable rows={a.history.from} title="Sender's recent payments" id="sender-history" />
+          <HistoryTable rows={a.history.to} title="Receiver's recent payments" id="receiver-history" />
         </div>
       </section>
     </>

@@ -753,10 +753,41 @@ I can check them against the payments.
   at two banks — common, sometimes used to layer money").
 - **Ring shapes in plain words** plus "a pattern, not proof".
 
+**Sub-steps (expanded 2026-11-23, before building)**
+1. **`demo/reasons.py`, test first:** `ARTIFACT_FEATURES = {"weekday"}`; `top_features` skips
+   them (so the stored three reasons and the queue's "why flagged" never say "Wednesday");
+   `FAMILIES` puts the 15 features into 5 behaviours — money moved on fast · many payments into
+   the receiver · the sender's history · the payment itself · simulator calendar effect — and
+   `groups()` returns each with its summed contribution, its value-filled sentences and which
+   history table it points to. Order: pushes up (largest first), then "points against", the
+   calendar effect always last and labelled "not a reason to investigate".
+2. **`demo/explain.py`:** stores `groups` per explained alert; the score check is unchanged.
+3. **`demo/db.py`:** `explanations.groups jsonb` (added with `ADD COLUMN IF NOT EXISTS`);
+   `queries.alert` returns it.
+4. **Rebuild** with `just demo-build` (one transaction; `verdicts` and `agent_reports` untouched).
+5. **Web:** "Why this alert" shows the groups (behaviour, effect, sentences, a link to the
+   payments: the sender's or receiver's history table); the raw per-feature bars fold under
+   "Model detail". `ownAccount()` → an "Own account" chip (queue and Case) with one sentence;
+   the AI draft's ring type in plain words + "a pattern, not proof".
+6. **Live test:** the top 211 have no weekday reason; an alert's groups add up to its
+   contributions.
+
 **Acceptance criteria**
-- [ ] Unit (first): weekday never in a queue reason; groups sum to the same score as the raw
+- [x] Unit (first): weekday never in a queue reason; groups sum to the same score as the raw
       contributions; own-account detection on hand-built rows (same name, two accounts).
-- [ ] On the live top 211: 0 rows with weekday as the shown reason.
+- [x] On the live top 211: 0 rows with weekday as the shown reason.
+
+**Done 2026-11-23.** `reasons.ARTIFACT_FEATURES` (weekday) is never one of the three reasons;
+`FAMILIES` groups the 15 features into 5 behaviours stored per alert (`explanations.groups`,
+demo rebuilt in 85 s, capacity unchanged), up / against / calendar effect last, adding up exactly
+to the contributions (live test). **Found while building:** the first 8 alerts are in the list
+because of **rules** (both accounts new, or two rules — ADR 0007), and alert #1's own model score
+pushes *down* on every behaviour; the queue and Case page now say "Two rules fired, so it is
+checked first, whatever the model's score" instead of a model reason. Two alerts have no model
+reason at all (only the weekday pushed them up; both are rule alerts) — the old "at least one
+reason" check was changed on purpose for that. "Own account" / "Same account" chips; ring types in
+plain words, "a pattern, not proof". API image 0.1.18 (queue carries the account columns);
+0.1.15/0.1.16 removed, 0.1.17 kept as the rollback.
 
 ## S7.14 — The money picture, step by step
 

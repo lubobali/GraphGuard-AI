@@ -134,7 +134,13 @@ def test_the_top_of_the_queue_is_explained_in_three_plain_reasons():
         cur.execute("SELECT count(*), min(cardinality(reasons)), max(cardinality(reasons)), "
                     "min(cardinality(contribs)) FROM explanations")  # fmt: skip
         n, lo, hi, nf = cur.fetchone()
-        assert (n, nf) == (20_000, 15) and 1 <= lo and hi == 3
+        assert (n, nf) == (20_000, 15) and 0 <= lo and hi == 3
+        # S7.13 (changed on purpose): weekday is never a reason, so an alert whose only upward
+        # push was the weekday has no model reason -- allowed only when a rule (ADR 0007's
+        # priority: both accounts new, or two rules) is what put it in the queue.
+        cur.execute("SELECT t.rules FROM explanations e JOIN transactions t USING (event_id) "
+                    "WHERE cardinality(e.reasons) = 0")  # fmt: skip
+        assert all("both_new" in r or len(r) >= 2 for (r,) in cur.fetchall())
         cur.execute("SELECT count(*) FROM explanations e JOIN transactions t USING (event_id) "
                     "WHERE t.rank > 20000")  # fmt: skip
         assert cur.fetchone()[0] == 0

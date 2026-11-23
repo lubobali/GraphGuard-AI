@@ -4,6 +4,7 @@ import CapacityChart from "../components/CapacityChart";
 import type { Capacity, Curve, Performance, Queue } from "../lib/api";
 import { get } from "../lib/api";
 import N from "../lib/aboutNumbers.json";
+import { ownAccount, whyFirst } from "../lib/caseLogic.js";
 import { flowCounts, fmt, peopleFor, plural, topShare } from "../lib/logic.js";
 import s from "./index.module.css";
 
@@ -235,8 +236,9 @@ export default function QueuePage() {
                     <div className={`muted ${s.small}`}>{g.payment_format}</div>
                   </td>
                   <td>
-                    <span className={s.reason}>{g.top_reason ?? "Score from the model"}</span>
+                    <span className={s.reason}>{whyFirst(g) ?? g.top_reason ?? "Score from the model"}</span>
                     <div className={s.chips}>
+                      {ownAccount(g) && <span className={s.chip} title={ownAccount(g)!.text}>{ownAccount(g)!.label}</span>}
                       {g.rules.map((r) => <span key={r} className={s.chip}>rule: {r.replace("_", " ")}</span>)}
                       {COLD[g.cold_policy] && <span className={s.chip}>{COLD[g.cold_policy]}</span>}
                     </div>

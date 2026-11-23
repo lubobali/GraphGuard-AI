@@ -119,6 +119,8 @@ CREATE TABLE IF NOT EXISTS explanations (
     contribs  double precision[] NOT NULL,
     reasons   text[] NOT NULL
 );
+-- S7.13: the same contributions as 5 behaviours (demo/reasons.py FAMILIES), for the Case page.
+ALTER TABLE explanations ADD COLUMN IF NOT EXISTS groups jsonb;
 -- S7.5: the ring as of each top alert (money-flow view, 72 h, capped). No labels.
 CREATE TABLE IF NOT EXISTS subgraphs (
     event_id  bigint PRIMARY KEY,

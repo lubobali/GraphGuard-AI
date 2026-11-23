@@ -65,3 +65,27 @@ test("the answer key says YES or NO in plain words", async () => {
   assert.match(yes.detail, /split to many accounts, then collected into one/);
   assert.equal(answerText({ is_laundering: false, pattern_type: null, ring_hops: [] }).verdict, "NO");
 });
+
+// ---- S7.13: reasons a person can trust ----------------------------------------------
+import { ownAccount, typeText, whyFirst } from "../lib/caseLogic.js";
+
+test("own account: same owner, two accounts; same account; or not", () => {
+  const base = { from_name: "Corporation #1", to_name: "Corporation #1", from_account: "A", to_account: "B" };
+  assert.equal(ownAccount(base).label, "Own account");
+  assert.match(ownAccount(base).text, /same owner/);
+  assert.equal(ownAccount({ ...base, to_account: "A" }).label, "Same account");
+  assert.equal(ownAccount({ ...base, to_name: "Corporation #2" }), null);
+  assert.equal(ownAccount({ ...base, from_name: null, to_name: null }), null);
+});
+
+test("why it is first: two rules or two new accounts beat the score, said in words", () => {
+  assert.match(whyFirst({ rules: ["fan_in", "structuring"], cold_policy: "warm" }), /Two rules fired/);
+  assert.match(whyFirst({ rules: ["both_new"], cold_policy: "review: both accounts new" }), /brand new/);
+  assert.equal(whyFirst({ rules: ["structuring"], cold_policy: "warm" }), null);
+});
+
+test("ring types in plain words, always a pattern, not proof", () => {
+  assert.match(typeText("SCATTER-GATHER"), /split to many accounts, then collected/);
+  assert.match(typeText("SCATTER-GATHER"), /a pattern, not proof/);
+  assert.match(typeText("none evident"), /no clear pattern/);
+});

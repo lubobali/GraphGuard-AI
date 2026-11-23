@@ -127,3 +127,33 @@ export function answerText(answer) {
     ].filter(Boolean).join(" "),
   };
 }
+
+// ---- S7.13: reasons a person can trust ----------------------------------------------
+
+/** One owner paying itself (names come from the accounts file: one name = one owner).
+ *  Common in real banks and also a way to layer money, so it is labelled, not hidden. */
+export function ownAccount(tx) {
+  if (!tx.from_name || tx.from_name !== tx.to_name) return null;
+  if (tx.from_account && tx.from_account === tx.to_account)
+    return { label: "Same account", text: "The account paid itself." };
+  return { label: "Own account",
+    text: "The same owner moved money between two of its own accounts. Common, and sometimes used to layer money." };
+}
+
+/** Why an alert sits above the model's own order (ADR 0007 `priority()`): the hard rule
+ *  (both accounts new) or two rules at once go above every model-only alert. */
+export function whyFirst(row) {
+  const rules = row.rules || [];
+  if (rules.includes("both_new"))
+    return "Both accounts are brand new, so a person always checks it (a fixed rule, not the model's score).";
+  if (rules.length >= 2)
+    return `Two rules fired (${rules.map((r) => r.replace("_", " ")).join(", ")}), so it is checked first, whatever the model's score.`;
+  return null;
+}
+
+/** A ring type (the simulator's 8, or "none evident") in plain words. */
+export function typeText(type) {
+  if (!type || type === "none evident") return "no clear pattern";
+  const how = TYPE_TEXT[type];
+  return how ? `${how} (${type}): a pattern, not proof` : `${type}: a pattern, not proof`;
+}

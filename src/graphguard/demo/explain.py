@@ -7,6 +7,8 @@ No new library: the model that decided is the model that explains.
 
 from __future__ import annotations
 
+import json
+
 import numpy as np
 import polars as pl
 
@@ -70,30 +72,29 @@ def explain(tx: pl.DataFrame, feature_names: list[str], bundle) -> pl.DataFrame:
         f: share_below(all_X[:, feature_names.index(f)], X[:, feature_names.index(f)])
         for f in SUM_FEATURES
     }
-    reasons = []
+    reasons, groups = [], []
     tx_cols = top.select(
         "amount_paid", "payment_currency", "amount_received", "receiving_currency"
     ).to_dicts()
     for i in range(len(top)):
         c = dict(zip(feature_names, contribs[i].tolist(), strict=True))
         p = {f: float(pct[f][i]) for f in SUM_FEATURES}
-        reasons.append(
-            [
-                R.sentence(f, float(X[i, feature_names.index(f)]), tx_cols[i], p)
-                for f in R.top_features(c, n=3)
-            ]
-        )
+        v = dict(zip(feature_names, X[i].astype(np.float64).tolist(), strict=True))
+        reasons.append([R.sentence(f, v[f], tx_cols[i], p) for f in R.top_features(c, n=3)])
+        groups.append(json.dumps(R.groups(c, v, tx_cols[i], p)))  # S7.13
     return pl.DataFrame(
         {
             "event_id": top["event_id"],
             "base": [base] * len(top),
             "contribs": [row.tolist() for row in contribs],
             "reasons": reasons,
+            "groups": groups,
         },
         schema={
             "event_id": pl.Int64,
             "base": pl.Float64,
             "contribs": pl.List(pl.Float64),
             "reasons": pl.List(pl.Utf8),
+            "groups": pl.Utf8,
         },
     )

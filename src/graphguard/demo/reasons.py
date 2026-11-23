@@ -122,7 +122,59 @@ def sentence(feature: str, value: float, tx: dict, percentiles: dict) -> str:
     return text[0].upper() + text[1:]
 
 
+# S7.13: features that are simulator artifacts (FINDING-018). The model uses them, so their
+# contribution stays in the numbers, but they are never given as a reason to investigate.
+ARTIFACT_FEATURES = frozenset({"weekday"})
+
+
 def top_features(contribs: dict[str, float], n: int = 3) -> list[str]:
-    """The features that pushed the score UP the most (largest positive contributions)."""
-    up = [(c, f) for f, c in contribs.items() if c > 0]
+    """The features that pushed the score UP the most (largest positive contributions),
+    never a simulator artifact."""
+    up = [(c, f) for f, c in contribs.items() if c > 0 and f not in ARTIFACT_FEATURES]
     return [f for c, f in sorted(up, key=lambda x: (-x[0], x[1]))[:n]]
+
+
+# S7.13: the 15 features as 5 behaviours (like Google AML AI's "feature families"), each
+# pointing at the history table where a person can check it.
+FAMILIES: tuple[dict, ...] = (
+    {"key": "speed", "label": "Money moved on fast", "look": "sender",
+     "features": ("sender_seconds_since_last_send", "sender_sent_last_24h")},
+    {"key": "receiver", "label": "Many payments into the receiver", "look": "receiver",
+     "features": ("receiver_n_received_before", "receiver_distinct_in_before",
+                  "receiver_amount_received_before", "in_out_ratio_before")},
+    {"key": "sender", "label": "The sender's history", "look": "sender",
+     "features": ("sender_n_sent_before", "sender_amount_sent_before",
+                  "sender_distinct_out_before")},
+    {"key": "payment", "label": "The payment itself", "look": None,
+     "features": ("log_amount", "amount_ratio", "payment_currency_code", "is_same_bank",
+                  "hour")},
+    {"key": "calendar", "label": "Simulator calendar effect (not a reason to investigate)",
+     "look": None, "features": ("weekday",)},
+)  # fmt: skip
+
+
+def groups(contribs: dict[str, float], values: dict, tx: dict, percentiles: dict) -> list[dict]:
+    """Each behaviour with its summed contribution (log-odds; all groups together equal the
+    raw contributions) and its sentences. Pushes up first (largest first), then the ones
+    against, the artifact family always last."""
+    out = []
+    for fam in FAMILIES:
+        feats = [f for f in fam["features"] if f in contribs]
+        if not feats:
+            continue
+        total = float(sum(contribs[f] for f in feats))
+        artifact = all(f in ARTIFACT_FEATURES for f in feats)
+        out.append({
+            "key": fam["key"], "label": fam["label"], "look": fam["look"],
+            "contribution": total, "features": feats,
+            "direction": "artifact" if artifact else ("up" if total > 0 else "against"),
+            # strongest feature first inside the group
+            "sentences": [sentence(f, values[f], tx, percentiles)
+                          for f in sorted(feats, key=lambda f: -abs(contribs[f]))],
+        })  # fmt: skip
+    rank = {"up": 0, "against": 1, "artifact": 2}
+    return sorted(
+        out,
+        key=lambda g: (rank[g["direction"]], -g["contribution"] if g["direction"] == "up"
+                       else g["contribution"]),
+    )  # fmt: skip
