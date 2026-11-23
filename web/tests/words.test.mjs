@@ -2,7 +2,8 @@
 // Scans the page sources, not the built HTML: most text renders in the browser.
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const BANNED = [
@@ -12,7 +13,8 @@ const BANNED = [
   "A team of",             // the old sentence that said the team "catches"
   "How many alerts can your team work",
 ];
-const ROOTS = ["pages", "components", "lib"];
+const WEB = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOTS = ["pages", "components", "lib"].map((d) => join(WEB, d));
 
 function files(dir) {
   return readdirSync(dir).flatMap((f) => {
