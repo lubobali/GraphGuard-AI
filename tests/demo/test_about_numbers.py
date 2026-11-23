@@ -34,3 +34,16 @@ def test_numbers_quoted_in_the_findings_and_the_comparison():
     for key in ("by_amount", "random"):
         assert f"{N['pr_auc'][key]['value']:.5f}" in findings
     assert re.search(r"0\.0447", comparison)
+
+
+def test_where_the_numbers_come_from_matches_the_frozen_split():
+    """S7.12: the home page's "where the numbers come from" panel (counts only, no data read)."""
+    split = json.loads((REPO_ROOT / "data" / "splits" / "frozen_split.json").read_text())
+    s = N["split"]
+    assert s["tail_rows_dropped"]["value"] == split["tail_rows_dropped"]
+    for part, key in (("learn", "train"), ("shown", "validation"), ("locked", "test")):
+        assert s[part]["transactions"] == split["splits"][key]["transactions"], part
+        assert s[part]["laundering"] == split["splits"][key]["laundering"], part
+    assert s["shown"]["transactions"] == N["transactions_in_window"]["value"]
+    assert s["shown"]["laundering"] == N["laundering_in_window"]["value"]
+    assert f"{s['file_rows']['value']:,}" in (REPO_ROOT / "CLAUDE.md").read_text()

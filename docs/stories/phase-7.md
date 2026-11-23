@@ -705,11 +705,31 @@ system does and what it can and cannot catch, **so that** I understand it in one
 - **Words:** one glossary of plain terms (flag, ring = laundering group, rule, false alarm),
   used everywhere; a test fails on the banned words in page text ("catches", "random picks").
 
+**Sub-steps (expanded 2026-11-23, before building)**
+1. **Numbers file:** `web/lib/aboutNumbers.json` gains a `split` block — file rows (5,078,345),
+   the dropped tail (FINDING-001), and per part transactions + laundering (train 3,046,186 /
+   2,296; shown 1,015,300 / 1,083; locked 1,015,751 / 1,143), each with its source;
+   `tests/demo/test_about_numbers.py` checks them against `data/splits/frozen_split.json`.
+2. **Logic, test first** (`web/lib/logic.js`): `flowCounts(checked, system, rules)` →
+   checked, found, false alarms, missed, total, rules found — the one place these numbers are
+   made; `peopleFor(perDay)`; the old `capacitySentence` goes.
+3. **Words test** (`web/tests/words.test.mjs`): scans the source of pages, components and lib
+   for phrases that misled Lubo ("Random picks", "Rules only", "alerts worked", "A team of",
+   "How many alerts can your team work") and fails on any.
+4. **Header:** the one-line job statement under the brand on every page.
+5. **Home page, top to bottom:** job line + the limit sentence → the flow of counts (four big
+   numbers, the rules line under them) with the slider and "about N people" → the chart (two
+   lines; random only in the table) → guess first (folded, one click) → "Where the numbers come
+   from" (folded) → "First time here?" box (closable, remembered in the browser, works without
+   storage) → the list. The late-labels panel stays under the list until S7.16 moves it.
+6. **Live test:** the page carries the job line; `/api/capacity` gives found + missed = 1,083 and
+   found ≤ checked at three slider values.
+
 **Acceptance criteria**
-- [ ] Unit (first): the counts sentence and flow numbers from the API (found + missed = total,
-      found + false alarms = checked); banned-word test over the built pages.
+- [x] Unit (first): the counts sentence and flow numbers from the API (found + missed = total,
+      found + false alarms = checked); banned-word test over the page sources.
 - [ ] The first screen answers "what is this" without scrolling at 1280x800 and on a phone.
-- [ ] Live test: the counts on the page equal `/api/capacity` for the default and two slider values.
+- [x] Live test: the counts on the page equal `/api/capacity` for the default and two slider values.
 
 ## S7.13 — Reasons a person can trust
 

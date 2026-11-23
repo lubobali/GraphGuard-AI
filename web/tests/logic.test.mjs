@@ -1,7 +1,7 @@
 // S7.7: the screen's arithmetic and words. node --test tests/
 import assert from "node:assert/strict";
 import test from "node:test";
-import { capacitySentence, kFor, nearest, perDayFor, scale, teamSize, ticks, topShare } from "../lib/logic.js";
+import { flowCounts, kFor, peopleFor, nearest, perDayFor, scale, teamSize, ticks, topShare } from "../lib/logic.js";
 
 const R100 = {
   system: { caught: 167, missed: 916, rings_caught: 35, rings_total: 168 },
@@ -15,21 +15,19 @@ test("a daily workload maps to the same k as the API (100 a day -> 211)", () => 
   assert.equal(Math.round(perDayFor(5000)), 2373);
 });
 
-test("the sentence says who finds what: the model ranks, the team checks (Lubo, 2026-11-23)", () => {
-  const s = capacitySentence(100, R100);
-  assert.equal(s.lead, "If your team checks the top 100 payments a day (about 5 people), " +
-    "they find 167 of the 1,083 laundering payments, and 35 of the 168 laundering groups.");
-  assert.equal(s.missed, "The other 916 are lower on the list, never checked.");
-  assert.equal(s.rules, "With old-style fixed rules instead of the model, the same 100 checks " +
-    "a day find 1 laundering payment and 0 groups.");
-  assert.ok(!/[%$€]/.test(s.lead + s.missed + s.rules));
-  assert.ok(!/catches/.test(s.lead), "the team does not catch; the model ranks");
+test("the flow of counts: found + missed = all laundering, found + false alarms = checked", () => {
+  const f = flowCounts(211, R100.system, R100.rules);
+  assert.deepEqual(f, { checked: 211, found: 167, falseAlarms: 44, missed: 916, total: 1083,
+    rulesFound: 1, groupsFound: 35, groupsTotal: 168 });
+  assert.equal(f.found + f.missed, f.total);
+  assert.equal(f.found + f.falseAlarms, f.checked);
 });
 
-test("team size and plural forms", () => {
+test("team size in words", () => {
   assert.equal(teamSize(10), 1);
   assert.equal(teamSize(1000), 50);
-  assert.match(capacitySentence(10, R100).lead, /\(one person\)/);
+  assert.equal(peopleFor(10), "1 person");
+  assert.equal(peopleFor(100), "about 5 people");
 });
 
 test("top share reads like a ranking, never a probability", () => {

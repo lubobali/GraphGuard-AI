@@ -7,11 +7,14 @@ import s from "./CapacityChart.module.css";
 // One axis, thin 2px lines, a legend + direct labels (identity never by colour alone),
 // a crosshair that snaps to the nearest point, the same readout on keyboard focus,
 // and a table view of the same numbers.
+// Two lines on the chart (Lubo, 2026-11-23: a third "random" line confused a newcomer);
+// the random baseline stays in the table for experts.
 const SERIES = [
-  { key: "system", label: "Our model (GraphGuard)", color: "var(--series-system)", dash: "" },
+  { key: "system", label: "GraphGuard", color: "var(--series-system)", dash: "" },
   { key: "rules", label: "Fixed rules (old way)", color: "var(--series-rules)", dash: "" },
-  { key: "random", label: "Random checks (no help)", color: "var(--series-random)", dash: "5 4" },
 ] as const;
+const TABLE_SERIES = [...SERIES,
+  { key: "random", label: "Random checks", color: "var(--series-random)", dash: "5 4" }] as const;
 const W = 720, H = 300, M = { l: 52, r: 128, t: 14, b: 40 };
 const TABLE_PER_DAY = [25, 50, 100, 200, 500, 1000, 2000];
 
@@ -22,7 +25,7 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
   const svg = useRef<SVGSVGElement>(null);
   const pts = useMemo(() => {
     const out: Record<string, Pt[]> = {};
-    for (const { key } of SERIES)
+    for (const { key } of TABLE_SERIES)
       out[key] = (curve[key] || []).map(([k, caught, rings]) => ({ perDay: perDayFor(k), k, caught, rings }));
     return out;
   }, [curve]);
@@ -57,8 +60,8 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
   return (
     <figure className={s.fig}>
       <figcaption className={s.cap}>
-        <strong>Laundering payments found</strong>
-        <span className="muted"> · by how many the team checks a day. Higher line = better list.</span>
+        <strong>More checks find more laundering, and GraphGuard&apos;s list finds far more than fixed rules</strong>
+        <span className="muted"> · laundering payments found over the 2 days, by how many the team checks a day</span>
       </figcaption>
       <ul className={s.legend} aria-label="Legend">
         {SERIES.map(({ key, label, color, dash }) => (
@@ -119,11 +122,11 @@ export default function CapacityChart({ curve, perDay }: { curve: Curve; perDay:
         <summary>Show these numbers as a table</summary>
         <table>
           <thead>
-            <tr><th scope="col">Checks a day</th>{SERIES.map((r) => <th key={r.key} scope="col">{r.label}</th>)}<th scope="col">Groups found (our model)</th></tr>
+            <tr><th scope="col">Checks a day</th>{TABLE_SERIES.map((r) => <th key={r.key} scope="col">{r.label}</th>)}<th scope="col">Groups found (our model)</th></tr>
           </thead>
           <tbody>
             {TABLE_PER_DAY.filter((d) => d <= maxX).map((d) => {
-              const row = SERIES.map(({ key }) => nearest(pts[key], d));
+              const row = TABLE_SERIES.map(({ key }) => nearest(pts[key], d));
               return (
                 <tr key={d}>
                   <td className="num">≈ {fmt(row[0].perDay)}</td>

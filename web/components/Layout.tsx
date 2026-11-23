@@ -32,6 +32,10 @@ export default function Layout({ children }: { children: ReactNode }) {
             ))}
           </nav>
         </div>
+        <p className={`wrap ${s.tagline}`}>
+          GraphGuard finds likely money laundering in bank payments and gives investigators a
+          list to check, worst first.
+        </p>
       </header>
       <main className="wrap">{children}</main>
       <footer className={`wrap ${s.footer}`}>

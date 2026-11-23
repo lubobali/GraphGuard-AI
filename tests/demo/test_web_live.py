@@ -4,6 +4,7 @@ No browser here: this checks what can be checked without one -- the page and eve
 references load, every response carries the CSP, and nothing comes from another host.
 """
 
+import json
 import re
 import urllib.error
 import urllib.request
@@ -44,10 +45,21 @@ def test_each_page_and_every_asset_it_references_loads_with_the_csp(page):
 
 def test_the_queue_page_carries_the_synthetic_data_banner():
     _, _, html = _get("/")
-    assert "Synthetic data." in html and "People check only the riskiest." in html
+    assert "Synthetic data." in html and "Find money laundering in a million payments" in html
+    assert "worst first" in html  # the job line in the header (S7.12)
 
 
 def test_the_about_page_is_prerendered_with_its_numbers():
     _, _, html = _get("/about/")
     for text in ("What this is", "The leakage contract", "0.28155", "542 of 1,083", "SR 26-2"):
         assert text in html, text
+
+
+@pytest.mark.parametrize("per_day", [10, 100, 1000])
+def test_the_flow_of_counts_adds_up_at_three_slider_values(per_day):
+    """S7.12: found + missed = all laundering in the window; found <= checked."""
+    _, _, body = _get(f"/api/capacity?per_day={per_day}")
+    cap = json.loads(body)
+    s = cap["rankings"]["system"]
+    assert s["caught"] + s["missed"] == 1083
+    assert 0 <= s["caught"] <= cap["k"]

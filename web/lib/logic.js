@@ -29,24 +29,28 @@ export function teamSize(perDay) {
   return Math.max(1, Math.round(perDay / ALERTS_PER_ANALYST));
 }
 
+/** "1 person" / "about 5 people" for a daily workload. */
+export function peopleFor(perDay) {
+  const n = teamSize(perDay);
+  return n === 1 ? "1 person" : `about ${fmt(n)} people`;
+}
+
 /**
- * The slider's plain sentence. `r` = the API's /capacity rankings.
- * Counts, never percentages or money (ADR 0008). The model ranks and the team checks:
- * people find what the model put in the part of the list they have time for.
+ * The flow of counts (S7.12): of the `checked` payments at the top of the list, how many
+ * are laundering (found) and how many are not (false alarms); how many laundering payments
+ * sit lower and are never checked (missed). `system`/`rules` = the API's /capacity rankings.
+ * Counts, never percentages or money (ADR 0008). The model ranks; people confirm.
  */
-export function capacitySentence(perDay, r) {
-  const s = r.system;
-  const total = s.caught + s.missed;
-  const team = teamSize(perDay);
-  const people = team === 1 ? "one person" : `about ${team} people`;
+export function flowCounts(checked, system, rules) {
   return {
-    lead: `If your team checks the top ${fmt(perDay)} payments a day (${people}), ` +
-      `they find ${fmt(s.caught)} of the ${fmt(total)} laundering payments, and ` +
-      `${fmt(s.rings_caught)} of the ${fmt(s.rings_total)} laundering groups.`,
-    missed: `The other ${fmt(s.missed)} are lower on the list, never checked.`,
-    rules: `With old-style fixed rules instead of the model, the same ${fmt(perDay)} checks a day ` +
-      `find ${plural(r.rules.caught, "laundering payment", "laundering payments")} and ` +
-      `${plural(r.rules.rings_caught, "group", "groups")}.`,
+    checked,
+    found: system.caught,
+    falseAlarms: checked - system.caught,
+    missed: system.missed,
+    total: system.caught + system.missed,
+    rulesFound: rules.caught,
+    groupsFound: system.rings_caught,
+    groupsTotal: system.rings_total,
   };
 }
 
