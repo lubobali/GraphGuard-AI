@@ -199,8 +199,10 @@ the demo and the repo.
 
 **As** Lubo at re:Invent and in interviews, **I want** to explain it simply and the same way
 every time.
-- [ ] Demo video script, 2–3 minutes: home, try one case, Case page, manager page, one honest
-      finding. Lubo records it.
+- [x] Demo video script, 2–3 minutes: home, try one case, Case page, manager page, one honest
+      finding (`docs/pitch/video-script.md`, tips in `recording-tips.md`; every click dry-run on the
+      live site, every number with its source). Approved by Lubo 2026-11-27.
+- [ ] Lubo records it (Loom, voice, no face); the video is checked against the script.
 - [ ] A 90-second answer: the problem, why a graph, the result, what I'd do differently.
       Lubo says it out loud at least 3 times.
 - [ ] A LinkedIn post draft in Lubo's voice (not polished), with one honest finding as the hook.
