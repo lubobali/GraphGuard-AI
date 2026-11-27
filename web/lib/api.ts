@@ -1,4 +1,5 @@
 // The demo API (S7.6), same origin. Every number on screen comes from here.
+import { plainNames } from "./names.js";
 export type Ranking = {
   ranking: string; k: number; caught: number; missed: number; precision: number;
   recall: number; rings_caught: number; rings_touched: number; rings_total: number;
@@ -25,7 +26,7 @@ export type Meta = { banner: string; window_days: number; build: { model_version
 export async function get<T>(path: string): Promise<T> {
   const r = await fetch(`/api${path}`, { headers: { Accept: "application/json" } });
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
-  return (await r.json()) as T;
+  return plainNames(await r.json()) as T; // S8b.1: business types in plain words
 }
 
 /** S7.15: a visitor's cases (their own and their copy of Sam's). */

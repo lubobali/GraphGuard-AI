@@ -45,3 +45,4 @@
 .ownChip { font-size: 12px; background: var(--chip); color: var(--ink-2); border-radius: 999px; padding: 1px 8px; margin-right: 4px; }
 .detail { margin-top: 12px; }
 .detail summary { cursor: pointer; color: var(--ink-2); font-size: 14px; }
+.histNote { font-size: 13px; margin: -4px 0 8px; }

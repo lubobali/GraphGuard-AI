@@ -15,3 +15,8 @@
 .roleBtn, .roleOn { border: 0; background: transparent; color: var(--ink-2); font: inherit; padding: 4px 10px; border-radius: 999px; cursor: pointer; }
 .roleOn { background: var(--accent); color: #fff; }
 @media (max-width: 700px) { .viewLabel { display: none; } .bar { gap: 8px; } }
+/* S8b.1: on a phone the header was wider than the screen ("Try it" cut off): two rows */
+@media (max-width: 560px) {
+  .bar { flex-wrap: wrap; height: auto; padding: 8px 0; row-gap: 8px; }
+  .viewAs { order: 3; }
+}

@@ -38,8 +38,9 @@ export default function Layout({ children }: { children: ReactNode }) {
     <>
       <div className={s.banner} role="note">
         <div className="wrap">
-          <strong>Synthetic data.</strong> IBM AMLworld simulator, validation window 6–8 Sep
-          2022. No real people or banks. Every number here is measured on that window.
+          {/* S8b.1: a newcomer did not know "synthetic" or "validation window" */}
+          <strong>Synthetic data.</strong> Made up by IBM&apos;s AMLworld simulator: no real people or
+          banks. Every number here is measured on 2 days of it (6–8 Sep 2022).
         </div>
       </div>
       <header className={s.header}>

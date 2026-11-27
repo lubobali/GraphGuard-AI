@@ -22,6 +22,7 @@ from graphguard.demo import workflow as W
 OUT = REPO_ROOT / "web" / "lib" / "tour.json"
 TOP = 60
 MIN_PAYMENTS, MAX_PAYMENTS = 3, 12
+MAX_REASONS = 4  # S8b.1: the rules that flagged it first, then the model's reasons
 CHECKED = 211  # the home page's default: 100 checks a day over the window's 2.1 days
 REVIEWER = "anthropic/claude-sonnet-5.5"  # the second opinion whose label held up (FINDING-020)
 
@@ -75,7 +76,7 @@ def build(repo) -> dict:
         cases.append({
             "event_id": a["event_id"], "rank": a["rank"],
             "payment": {k: a[k] for k in PAYMENT},
-            "reasons": list(a["reasons"] or []),
+            "reasons": (list(a["rule_text"]) + list(a["reasons"] or []))[:MAX_REASONS],
             "ring": a["ring"],
             "answer": {"is_laundering": ans["is_laundering"], "pattern_type": ans["pattern_type"],
                        "ring_tx": [i for i in ans["ring_hops"] if i in shown]},

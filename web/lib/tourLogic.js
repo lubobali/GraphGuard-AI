@@ -21,7 +21,8 @@ export function verdict(choice, answer) {
   return {
     right,
     headline: right ? "You were right." : "Not this time.",
-    what: answer.is_laundering ? "This was money laundering." : "This was a normal payment.",
+    // S8b.1: an investigator never learns the truth; the simulator's answer key is the source
+    what: `The simulator's answer key: this was ${answer.is_laundering ? "money laundering" : "a normal payment"}.`,
     shape: answer.is_laundering
       ? (how ? `The scheme: ${how}.` : null)
       : "It looked unusual, so it was flagged — but it was fine. Investigators close many alerts like this.",
@@ -34,7 +35,23 @@ export function limitLine(l) {
 }
 const fmt = (n) => n.toLocaleString("en-US");
 
+/** "1 of 2 right"; nothing before the first answer (S8b.1: "0 of 0 right" read oddly). */
 export function scoreText(results) {
   const done = results.filter((r) => r !== null);
-  return `${done.filter(Boolean).length} of ${done.length} right`;
+  return done.length ? `${done.filter(Boolean).length} of ${done.length} right` : "";
+}
+
+/** S8b.1: what the answer's picture shows. The ring is drawn as of the flagged payment, so a
+ *  scheme's later payments (the "gather" of a split-then-gather) are not in it. */
+export function pictureLine(answer, eventId) {
+  if (!answer.is_laundering) return "The same picture: none of these payments belongs to a scheme.";
+  const mine = answer.ring_tx.includes(eventId) ? " The flagged payment (blue) was one of them." : "";
+  return `Red arrows are the scheme's payments.${mine} The picture shows only what happened up to the flagged payment; the rest of the scheme came later.`;
+}
+
+/** S8b.1: the AI argues against your choice on purpose, so it is wrong exactly when you were right. */
+export function opinionLesson(right) {
+  return right
+    ? "You were right, so this time the AI's case is wrong. That is why a person decides, not the AI."
+    : "This time the AI pointed the right way. That is what a second opinion is for.";
 }

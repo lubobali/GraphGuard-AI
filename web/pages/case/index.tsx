@@ -6,7 +6,7 @@ import Explain from "../../components/Explain";
 import RingGraph from "../../components/RingGraph";
 import WhyBars from "../../components/WhyBars";
 import { get } from "../../lib/api";
-import { agentView, answerText, money, ownAccount, whyFirst } from "../../lib/caseLogic.js";
+import { agentView, answerText, money, ownAccount, reasonText, whyFirst } from "../../lib/caseLogic.js";
 import { fmt, topShare } from "../../lib/logic.js";
 import s from "./case.module.css";
 
@@ -46,7 +46,7 @@ function Groups({ groups }: { groups: Group[] }) {
       <h3 className={s.h3}>What pushed the model&apos;s score up</h3>
       {up.length ? <ol className={s.reasons}>{up.map(item)}</ol>
         : <p className="muted">Nothing: the model&apos;s own score for this payment is low.</p>}
-      {against.length > 0 && (<><h3 className={s.h3}>Points against</h3><ul className={s.against}>{against.map(item)}</ul></>)}
+      {against.length > 0 && (<><h3 className={s.h3}>What pulled the model&apos;s score down</h3><ul className={s.against}>{against.map(item)}</ul></>)}
       {art.length > 0 && <Explain label="Not counted as a reason">{art.map((g) => <p key={g.key}>{g.label}: {g.sentences.join(" ")}</p>)}</Explain>}
     </div>
   );
@@ -114,9 +114,11 @@ function HistoryTable({ rows, title, id }: { rows: Hist[]; title: string; id: st
   return (
     <div id={id}>
       <h3 className={s.h3}>{title}</h3>
+      {/* S8b.1: an investigator found AI facts citing payments this table cannot show */}
+      <p className={`muted ${s.histNote}`}>From 6 Sep 13:34 only, the start of the data shown here, newest first. Earlier payments can still appear in the money picture and the AI&apos;s facts.</p>
       {rows.length === 0 ? <p className="muted">No earlier payments in the window.</p> : (
         <table className={s.hist}>
-          <thead><tr><th scope="col">When</th><th scope="col">From → to</th><th scope="col">Amount</th><th scope="col">Rank</th></tr></thead>
+          <thead><tr><th scope="col">When</th><th scope="col">From → to</th><th scope="col">Amount</th><th scope="col">Its rank in the list</th></tr></thead>
           <tbody>
             {rows.map((h) => (
               <tr key={h.event_id}>
@@ -181,7 +183,7 @@ export default function CasePage() {
             <ol className={s.reasons}>{a.reasons.map((r) => <li key={r}>{r}</li>)}</ol>
           ) : <p className="muted">Explanations are kept for the top 20,000 of the queue.</p>}
           {a.rule_text.length > 0 && (
-            <div className={s.rules}>{a.rule_text.map((r) => <p key={r}>{r}</p>)}</div>
+            <div className={s.rules}>{a.rule_text.map((r) => <p key={r}>{reasonText(r)}</p>)}</div>
           )}
           {a.contributions && (
             <details className={s.detail}><summary>Model detail: every feature</summary><p className="muted">Model {a.model_version}</p><WhyBars contributions={a.contributions} /></details>

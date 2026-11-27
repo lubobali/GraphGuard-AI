@@ -303,3 +303,12 @@ export function strengthText(strength, decision) {
   if (strength === "none") return "The AI found nothing that argues against your decision.";
   return `Points to check that this ${other}:`;
 }
+
+// S8b.1: an investigator objected that a 10,000 line means nothing across 15 currencies. The
+// rule's stored words stay as they are (the AI checker reads them); the screen adds the caveat.
+const STRUCTURING = "Rule: the amount is just under a reporting line";
+export function reasonText(r) {
+  return r.startsWith(STRUCTURING)
+    ? `${r} The simulator has no exchange rates, so the line is applied in each payment's own currency: a rough check.`
+    : r;
+}

@@ -591,9 +591,9 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 5 | Serving — online store, Ray Serve on k3s, p99 < 50ms | **done** (2026-11-19) — S5.1-S5.7; p99 13-15 ms at stream rates, 150 tx/s HTTP capacity (FINDING-013) |
 | 5b | Box security — GraphGuard hardened, host firewall, per-job users (R-3) | **done** (2026-11-19) — S5b.0-S5b.7; the full host firewall (S5b.4b) cancelled with the LuBot session: binding + watchdog instead |
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **done** (2026-11-22) — S6.1-S6.11: alert, exact live features (FINDING-015, ADR 0005), Kafka (ADR 0006), replayer, consumer on k3s, chaos 6/6, rules (FINDING-016, ADR 0007), late labels (FINDING-017), shadow; overnight soak exact on 1,015,300 transactions |
-| 7 | The interface — queue, ring, slider, measured investigator agent | **in progress** — S7.0-S7.10 done 2026-11-22 (`docs/stories/phase-7.md`, ADR 0008; agent: FINDING-019); left: S7.11, the test on a real person (Lubo's wife) |
+| 7 | The interface — queue, ring, slider, measured investigator agent | **done** (2026-11-27) — S7.0-S7.18 (`docs/stories/phase-7.md`, ADR 0008; FINDING-019, -020): queue, case, ring, slider, workflow with second review, manager page, AI drafts + AI second reviewer, try-one-case tour; API 0.1.22. Gate met with an **AI stand-in** for the real-person test (R-6); a real person still owed |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
-| 8b | Make it findable — demo, video, post | not started |
+| 8b | Make it findable — demo, video, post | **in progress** (before Phase 8, R-6) — `docs/stories/phase-8b.md`; S8b.1 done |
 | 9 | Second dataset — TransXion robustness check (R-2) | not started |
 | 10 | Scale to 180M, optional and honest | not started |
 

@@ -56,3 +56,15 @@ def test_the_committed_tour_file_has_three_cases_and_no_other_answers():
 def test_the_limit_line_is_the_home_pages_numbers():
     lim = json.loads(tour.OUT.read_text())["limits"]
     assert lim == {"checked": 211, "found": 167, "false_alarms": 44, "total": 1083}
+
+
+def test_a_rule_that_flagged_a_case_is_its_first_reason_and_at_most_four_are_shown():
+    # S8b.1: "The amount: 9,539.79 Euro." did not say why the amount mattered; the rule does
+    from graphguard.demo.reasons import RULE_TEXT
+
+    for c in json.loads(tour.OUT.read_text())["cases"]:
+        assert 1 <= len(c["reasons"]) <= tour.MAX_REASONS
+        rules = [r for r in c["reasons"] if r in RULE_TEXT.values()]
+        assert c["reasons"][: len(rules)] == rules  # rules come first
+    first = json.loads(tour.OUT.read_text())["cases"][0]
+    assert first["reasons"][0] == RULE_TEXT["structuring"]

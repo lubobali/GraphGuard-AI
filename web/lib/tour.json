@@ -23,6 +23,7 @@
     "payment_format": "ACH"
    },
    "reasons": [
+    "Rule: the amount is just under a reporting line (9,000 to 9,999.99).",
     "The sender's previous payment was less than a minute earlier.",
     "The receiver had received 1 payment before.",
     "The amount: 9,539.79 Euro."
@@ -299,9 +300,10 @@
     "payment_format": "ACH"
    },
    "reasons": [
+    "Rule: the receiver is paid by more different accounts than 99.9% of receivers.",
+    "Rule: the amount is just under a reporting line (9,000 to 9,999.99).",
     "The receiver gets many payments compared with how often the sender pays.",
-    "The sender had made 3 payments before this one.",
-    "Sender and receiver use different banks."
+    "The sender had made 3 payments before this one."
    ],
    "ring": {
     "cap": 6,

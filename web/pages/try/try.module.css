@@ -29,3 +29,4 @@
 .end { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; margin-top: 8px; }
 .full { margin-top: 16px; }
 @media (max-width: 520px) { .choices { grid-template-columns: 1fr; } .h1 { font-size: 19px; } }
+.lesson { font-weight: 600; border-left: 3px solid var(--accent); padding-left: 10px; margin-top: 12px; }

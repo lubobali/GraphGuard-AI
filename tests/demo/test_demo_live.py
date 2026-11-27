@@ -215,3 +215,12 @@ def test_the_tour_file_equals_the_database():
     from graphguard.demo.queries import PgRepo
 
     assert tour.build(PgRepo()) == json.loads(tour.OUT.read_text())
+
+
+def test_the_bank_names_file_equals_the_database():
+    """S8b.1: web/lib/bankNames.js covers every named bank the database holds."""
+
+    from graphguard.demo import banks
+    from graphguard.demo.queries import PgRepo
+
+    assert banks.build(PgRepo()) == banks.read()

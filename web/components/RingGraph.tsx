@@ -1,6 +1,6 @@
 import dagre from "@dagrejs/dagre";
-import { Background, Controls, Handle, MarkerType, Position, ReactFlow } from "@xyflow/react";
-import type { Edge, Node, NodeProps } from "@xyflow/react";
+import { Background, BaseEdge, Controls, EdgeLabelRenderer, getBezierPath, Handle, MarkerType, Position, ReactFlow } from "@xyflow/react";
+import type { Edge, EdgeProps, Node, NodeProps } from "@xyflow/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { money, nodeRole, playOrder, roleText, stepCaption, stepNumbers, toFlow } from "../lib/caseLogic.js";
 import Explain from "./Explain";
@@ -25,6 +25,23 @@ function AccountNode({ data }: NodeProps<Node<AccountData>>) {
   );
 }
 const nodeTypes = { account: AccountNode };
+
+// S8b.1: amounts drawn in their own layer above every arrow (in the SVG, a later arrow was
+// painted over an earlier arrow's amount and both testers could not read them).
+function MoneyEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, markerEnd, label }: EdgeProps) {
+  const [path, x, y] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  return (
+    <>
+      <BaseEdge id={id} path={path} style={style} markerEnd={markerEnd} />
+      {label && (
+        <EdgeLabelRenderer>
+          <div className={s.edgeLabel} style={{ transform: `translate(-50%, -50%) translate(${x}px, ${y}px)` }}>{label}</div>
+        </EdgeLabelRenderer>
+      )}
+    </>
+  );
+}
+const edgeTypes = { money: MoneyEdge };
 
 function layout(flow: ReturnType<typeof toFlow>) {
   const g = new dagre.graphlib.Graph();
@@ -94,10 +111,8 @@ export default function RingGraph({ graph, ringTx, compact = false }: { graph: G
     // the alert stays blue even when it is in the scheme: you must still see which one was flagged
     const color = e.alert ? "var(--accent)" : inRing ? "var(--ring-hl)" : "var(--edge)";
     return {
-      id: e.id, source: e.source, target: e.target,
+      id: e.id, source: e.source, target: e.target, type: "money",
       label: e.amount !== null ? `${steps.get(e.id)} · ${money(e.amount, e.currency)}` : undefined,
-      labelStyle: { fontSize: 11, fill: "var(--ink-2)" },
-      labelBgStyle: { fill: "var(--surface)" },
       style: { stroke: color, strokeWidth: e.alert || inRing ? 3 : 1.5,
         strokeDasharray: e.role === "more" ? "4 4" : undefined, opacity: on ? 1 : 0.12 },
       markerEnd: { type: MarkerType.ArrowClosed, color, width: 16, height: 16 },
@@ -146,7 +161,7 @@ export default function RingGraph({ graph, ringTx, compact = false }: { graph: G
       )}
       <div ref={box} className={s.canvas} style={{ height: canvasHeight(size.h) }} aria-hidden="true">
         {/* colorMode: the controls and attribution were light-on-dark blanks (screenshots) */}
-        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView minZoom={0.2}
+        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} edgeTypes={edgeTypes} fitView minZoom={0.2}
           colorMode={dark ? "dark" : "light"} fitViewOptions={{ padding: 0.08, minZoom: MIN_READABLE }}
           nodesConnectable={false} elementsSelectable={false} proOptions={{ hideAttribution: false }}>
           <Background gap={24} size={1} color="var(--grid)" />

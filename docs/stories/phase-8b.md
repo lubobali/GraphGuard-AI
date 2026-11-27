@@ -33,28 +33,33 @@ I understand it without help. **As** Lubo, **I want** the Phase 7 gate closed ho
 without the real-person test (R-6).
 
 Fixes (each with a test first):
-- [ ] The score line is hidden until the first answer: the kicker reads "Case 1 of 3", not
+- [x] The score line is hidden until the first answer: the kicker reads "Case 1 of 3", not
       "Case 1 of 3 · 0 of 0 right" (`tourLogic.scoreText([])` returns "").
-- [ ] When a case was flagged by a rule, that rule is its first reason in plain words (for
+- [x] When a case was flagged by a rule, that rule is its first reason in plain words (for
       example, "just under a 10,000 reporting line"), taken from the alert's own rule text and
       never from the answer key. `tour.json` is rebuilt and the live test still holds it
       equal to the database.
-- [ ] Business types read plainly: "Sole Proprietorship #29351" becomes "A small business
+- [x] Business types read plainly: "Sole Proprietorship #29351" becomes "A small business
       (#29351)". This is one pure function, tested on every type in the data, and used
       wherever a name is shown.
 
 The AI stand-in test:
-- [ ] A reviewer agent with **no project context** gets only screenshots, phone and desktop:
+- [x] A reviewer agent with **no project context** gets only screenshots, phone and desktop:
       home, then `/try` all the way through, then one Case page. It answers the S7.11
       questions in writing: what the system does, what it would do next, where it got stuck,
       and what it would tell a friend.
-- [ ] Run twice: as someone who has never heard of money laundering, and as a bank
+- [x] Run twice: as someone who has never heard of money laundering, and as a bank
       investigator.
-- [ ] Every blocker it names is fixed or written down with a reason. Its words are kept in
+- [x] Every blocker it names is fixed or written down with a reason. Its words are kept in
       `docs/stories/phase-7.md`.
-- [ ] The gate is marked in CLAUDE.md and PLAN.md as "met with an AI stand-in (R-6); a real
+- [x] The gate is marked in CLAUDE.md and PLAN.md as "met with an AI stand-in (R-6); a real
       person still owed", never as a real-person test.
-- [ ] Web tests and CI green, both remotes match.
+- [x] Web tests and CI green, both remotes match.
+
+**Done 2026-11-27.** All three fixes, then two stand-in runs. Their findings were checked
+against the data and fixed or recorded with a reason (`phase-7.md`, S7.11). Beyond the plan:
+real-sounding bank names replaced on the site; amounts readable in the money picture; the phone
+header and list fit.
 
 ## S8b.2 — Safe to open to the internet
 

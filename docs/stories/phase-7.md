@@ -1078,6 +1078,49 @@ measured, not assumed.
 
 S7.11 runs **after** S7.12-S7.18, on the improved site (the tester starts on the home page and may or may not take the tour — that choice is part of the test).
 
+**Done 2026-11-27, with an AI stand-in, not a real person (R-6).** Lubo's wife could not do it.
+Two reviewer agents, told to use only screenshots (home, the tour through all three cases, a
+case page; desktop and phone), answered the questions above. One played a newcomer who has
+never heard of money laundering, the other an AML investigator with 6 years of experience. Caveat:
+they are language models, not people, and may know more than the screen says. **A real person is
+still owed:** the first stranger on the public URL who tells us what confused them counts.
+
+*What they said it does.* Newcomer: "A computer picks out bank payments that might be criminals
+hiding money, and people check the worst ones first. The site lets you play the checker."
+Investigator: "an ML portfolio demo of alert prioritisation on fake data ... not a case
+management tool."
+
+*Where they got stuck, and what was done* (every claim was checked against the data first):
+- Phone: the header and the list table were cut off on the right. **Fixed** (two-row header;
+  the list becomes cards).
+- Payment amounts in the money picture were drawn under other arrows and could not be read.
+  **Fixed** (amounts in their own layer above every arrow).
+- The answer said "split, then collected into one", but the picture showed no collecting, and
+  the flagged (blue) payment was not marked as part of the scheme. **Fixed:** the answer says
+  whether the flagged payment was one of the scheme's, and that the picture stops at the
+  flagged payment (the rest came later). The clean case shows its picture too.
+- The AI's argument seemed to contradict the answer. **Fixed:** a line says the AI argues
+  against you on purpose, so it is wrong exactly when you were right.
+- "You were right / This was laundering": investigators never learn the truth. **Fixed:** "The
+  simulator's answer key: ..."
+- Some of the simulator's 468 US-style bank names are real banks' names (for example, "Bank of
+  the West"). **Fixed** for the public site: they are shown as "USA Bank #N"
+  (`demo/banks.py`, live test). Business types read plainly ("Small business #29351").
+- The structuring rule applies 9,000–9,999.99 to every currency. **Kept** (its words are the
+  checker's evidence; changing them would change measured results), with a caveat on screen
+  that the line ignores currencies.
+- "Rules find 1 of 211 looks rigged." Measured, FINDING-016. **Explained** on the home page
+  ("Why so few?").
+- An AI fact cited cheques missing from the history tables. **Checked: the fact is true.** The two
+  cheques are from 4–5 Sep, before the data shown. The tables now say so.
+- "Points against" read as points for. Renamed "What pulled the model's score down". The banner
+  is in plainer words.
+- **Not done, with reasons:** a customer/KYC panel (the simulator has no customer data); a SAR
+  narrative (out of scope; a reason is required for every decision); a "clue you could have
+  spotted" line per tour case (needs per-case writing, later); the small chart on phones (a
+  table view exists); the 24-hour due time (ADR 0008's choice).
+
+
 Out of scope for Phase 7: a public URL (separate step, LuBot session first), logins and
 roles for many users, live re-scoring, money totals, live (non-precomputed) AI calls. (The
 manager page came in with S7.16, 2026-11-23.) The video is Phase 8b.

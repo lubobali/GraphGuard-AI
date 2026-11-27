@@ -223,3 +223,11 @@ test("strength in words", () => {
   assert.match(strengthText("none", "close"), /found nothing/);
   assert.match(strengthText(null, "close"), /Points to check that this IS suspicious/);
 });
+
+import { reasonText } from "../lib/caseLogic.js";
+
+test("the structuring rule says it ignores currencies; other reasons are unchanged (S8b.1)", () => {
+  const r = "Rule: the amount is just under a reporting line (9,000 to 9,999.99).";
+  assert.match(reasonText(r), /^Rule: the amount is just under a reporting line \(9,000 to 9,999\.99\)\. .*own currency/);
+  assert.equal(reasonText("The amount: 9,539.79 Euro."), "The amount: 9,539.79 Euro.");
+});

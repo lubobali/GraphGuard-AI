@@ -601,6 +601,12 @@ Written for a person who does not know what a model is. Synthetic data, said on 
 what they would do next — tested on a real person, not on yourself (Lubo's wife) — and the agent's
 unsupported-claim rate is measured and at zero on the eval set.
 
+**Met 2026-11-27, with one change (R-6):** the real-person test ran with an AI stand-in (a
+newcomer and an investigator, screenshots only), because the tester could not do it. Its
+findings were fixed or recorded (`docs/stories/phase-7.md`, S7.11). A real person is still owed.
+The agent's facts reach the screen only after the checker; its rate before the checker is
+measured (FINDING-019, FINDING-020).
+
 ### Phase 8 — Monitoring, and the honest write-up
 
 - Feature staleness, score distribution, alert volume, drift via Evidently

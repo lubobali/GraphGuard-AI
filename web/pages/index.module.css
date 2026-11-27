@@ -60,3 +60,13 @@
 .tryRow { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin-top: 14px !important; }
 .tryBtn { background: var(--accent); color: #fff; border-radius: 10px; padding: 11px 18px;
   font-weight: 700; text-decoration: none; }
+/* S8b.1: on a phone the list's table was cut off on the right: each payment becomes a card */
+@media (max-width: 560px) {
+  .queue thead { display: none; }
+  .queue, .queue tbody, .queue tr { display: block; width: 100%; }
+  .queue tr { display: grid; grid-template-columns: 52px 1fr; column-gap: 8px; padding: 10px 0;
+    border-bottom: 1px solid var(--grid); }
+  .queue td { display: block; border: 0; padding: 2px 0; grid-column: 2; }
+  .queue td:first-child { grid-column: 1; grid-row: 1 / span 4; }
+  .queue td.due::before { content: "Check by "; color: var(--muted); }
+}

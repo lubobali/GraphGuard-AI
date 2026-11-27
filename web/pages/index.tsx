@@ -166,7 +166,7 @@ export default function QueuePage() {
             </ol>
             <Explain label="What do these mean?"><p>Checked = the top of the list. Some laundering looks exactly like normal payments, so no list finds all of it. False alarms were checked and were fine. Missed = laundering lower on the list, never checked.</p></Explain>
             <p className={s.rulesLine}>
-              Old fixed rules, same {fmt(flow.checked)} checks: <strong className="num">{plural(flow.rulesFound, "laundering payment", "laundering payments")}</strong> found.
+              Old fixed rules, same {fmt(flow.checked)} checks: <strong className="num">{plural(flow.rulesFound, "laundering payment", "laundering payments")}</strong> found. <Explain label="Why so few?"><p>The rules are the usual kind (many payments in a day, amounts just under a reporting line), with limits set on earlier data. The simulator&apos;s launderers rarely break simple rules, so here rules work as a safety net, not as the main alarm. That says more about this simulated data than about rules in general.</p></Explain>
             </p>
           </div>
         )}
