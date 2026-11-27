@@ -187,6 +187,19 @@ reading `globals.css` (light by default, dark only through the device setting), 
 phone and desktop; the switch turns light, survives a reload, and the money picture changes at
 once. 54 web tests (6 new). The README screenshots are dark.
 
+## S8b.4c — One message: the problem first, like a Forward Deployed Engineer
+
+**As** a business person, **I want** to see how this helps a business like mine; **as** an
+engineer, **I want** to see what was built behind it and why. *Asked and approved by Lubo
+2026-11-27; title chosen: "Money laundering hides in patterns, not payments. GraphGuard finds
+the pattern."* The same message goes in the README, then the video script, then the lubobali
+page (S8b.5), in that order, each previewed by Lubo before it goes live.
+- [ ] README: the new title; the FDE line ("the problem came first; the model came second")
+      with "no real client" said; a business part (catch more, lower cost, plan ahead, trust,
+      honest misses) and an engineering part (why this metric, the honest GNN test, production).
+- [ ] Every number still read from its source (`tests/test_readme.py` passes unchanged).
+- [ ] Video script rewritten in the same voice; then S8b.5.
+
 ## S8b.5 — The project page on Lubo's website
 
 **As** a visitor of lubobali.com, **I want** to find GraphGuard, **so that** the site leads to

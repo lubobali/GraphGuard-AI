@@ -1,32 +1,59 @@
 # GraphGuard-AI
 
-**Money laundering hides in the shape money moves in, not in any single payment.**
-GraphGuard scores every payment, ranks the riskiest first, and shows an investigator the
-money around it, with an AI draft whose every fact is checked by code. The person decides.
+## Money laundering hides in patterns, not payments. GraphGuard finds the pattern.
+
+Every single payment looks normal. The crime is in how they connect: money split out to many
+accounts, passed along, then collected again. GraphGuard looks at the whole picture, ranks the
+riskiest payments first, and helps a person decide.
 
 ### ▶ [Live demo: graphguard.lubobali.com](https://graphguard.lubobali.com) · [Try one case in 2 minutes](https://graphguard.lubobali.com/try/)
 
 > **Synthetic data, said first.** Everything here runs on IBM's AMLworld simulator: no real
-> people, no real banks. Every number below is measured on the **validation** window. The test
-> window is still sealed, and it gets opened once.
+> people, no real banks, no real client. Every number below is measured on the **validation**
+> window. The test window is still sealed, and it gets opened once.
 
 <p align="center">
   <img src="docs/img/try-answer.png" width="720"
        alt="Try one case: the visitor called it suspicious and was right. The money picture shows the sender's payments, the flagged one in blue and the scheme's in red.">
 </p>
 
+**How I built it:** like a Forward Deployed Engineer. I played the meeting with a bank
+myself: understand their problem first, then build the tool that fits it. The problem came
+first; the model came second.
+
 ---
 
-## In 30 seconds
+## For a bank or a business: what it changes
+
+**The problem.** A bank sees about a million payments a day. Its team has time to check about
+100. The old fixed rules pick the wrong ones, so most of that paid time finds nothing.
 
 | | |
 |---|---|
-| **The old way vs this** | A team checking 100 alerts a day (**211** over the 2-day window): the model-led queue finds **167** laundering payments. The old fixed rules, same 211 checks, find **1**. |
+| **Catch more crime, same team** | A team checking 100 alerts a day (**211** over the 2-day window): the model-led queue finds **167** laundering payments. The old fixed rules, same 211 checks, find **1**. |
+| **Lower cost** | Same people, same hours, far more real cases. Less staff time spent on false alarms. |
+| **Plan ahead** | Move the slider: it shows what a team of that size catches and misses. The manager page shows what is open, what is late, and how many people the work needs. |
+| **Trust you can show** | An AI writes the first report, code checks every fact against the real payments, and **a person decides**. Every decision is saved with its reason, so a regulator can read why. |
+| **Honest about misses** | The page shows what is missed (916 of 1,083), because no system finds it all. |
+
+**Why it means money:** less wasted staff time, lower risk of fines, and customers keep
+trusting a bank that stays clean.
+
+## For engineers: what I did behind it, and why
+
+**Problem first, model second.** A team with 100 checks a day does not need "accuracy". It
+needs the most real cases in its top 100. So the main metric is precision at the team's
+capacity, not AUC. Before building the interface, I read how real case-management tools
+work ([ADR 0008](docs/adr/0008-the-investigator-interface.md), [`docs/research/`](docs/research/)).
+
+| | |
+|---|---|
 | **Whole schemes found** | **127 of 168** laundering rings show up in the top 5,000 alerts (XGBoost, PR-AUC **0.28155**). |
-| **The graph neural network lost** | GraphSAGE: PR-AUC **0.04470**, 60 of 168 rings, with the same features and the same tuning budget. Written up as a finding, not tuned away. |
+| **An honest test: the graph neural network lost** | GraphSAGE: PR-AUC **0.04470**, 60 of 168 rings, with the same features and the same tuning budget. I shipped the simpler model and wrote down why. |
 | **Fast enough to sit in a payment flow** | p99 **13-15 ms** per score on Kubernetes (k3s), measured open loop. |
 | **Live equals offline** | The whole window, **1,015,300** payments, replayed overnight through Kafka: **0** score mismatches with the offline evaluation. |
 | **The AI, measured** | Before checking, **4.0%** (DeepSeek V4.1 Flash) and **5.6%** (Claude Sonnet 5.5) of the AI investigator's claims were unsupported. A code checker drops them, so the page shows 0. |
+| **Built like production** | No leakage (split by time, enforced by CI), a lakehouse with logins and grants, a restricted Kubernetes pod, nightly backups with a weekly restore drill, alerts by email. |
 
 ## How it fits together
 
@@ -53,7 +80,7 @@ flowchart LR
 </p>
 
 The home page answers a manager's real question: *with this many people, what do we catch and
-what do we miss?* It shows the misses (916 of 1,083), because no system finds all of it.
+what do we miss?*
 
 ---
 
