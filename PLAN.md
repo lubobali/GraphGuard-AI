@@ -9,7 +9,7 @@ the research arm. See "Plan revisions" below.*
 **Owner:** Lubo Bali
 **Started:** Aug 18, 2026
 **Status:** Phases 0-3 complete, Phase 4 comparison done, Phase 5 half built.
-Revised by R-2 on 2026-11-18. Last updated 2026-11-18.
+Revised by R-2 on 2026-11-18, R-6 on 2026-11-27. Last updated 2026-11-27.
 **Progress:** see the checkmarks below, `CLAUDE.md` for the phase table, and
 `docs/findings.md` for what the data turned out to actually contain.
 
@@ -164,6 +164,22 @@ Unchanged: three pages, SHAP reasons, the ring, the slider, the measured agent, 
   stream. That replay is both the bank's first day and the honest final score; no model change
   after it. Contract rule 4 holds: the window is opened once.
 - Bigger data stays Phase 10.
+
+### R-6 — Findable before monitoring: Phase 8b moves ahead of Phase 8
+
+*2026-11-27, end of Phase 7. Decided by Lubo. Cause: AWS re:Invent the following week; he
+wants a live demo and a finished-looking repo to show there.*
+
+- **Phase 8b runs before Phase 8.** The demo goes public on the validation window, as built in
+  Phase 7. The README says plainly that the numbers are **validation** numbers and that the test
+  window is still sealed. The plan's "drift alert followed by a retrain" story is told as *next*,
+  not claimed.
+- **The S7.11 test on a real person is replaced by an AI stand-in.** Lubo's wife could not do it.
+  A reviewer with no project context gets only screenshots and answers the same questions. This
+  is written down as **not a real-person test**, and a real person is still owed (the first
+  stranger who uses the public URL and tells us counts).
+- **Unchanged:** Phase 8, then the go-live replay of the sealed window (R-5), opened once. After
+  it, the README's numbers gain the test score.
 
 ---
 
