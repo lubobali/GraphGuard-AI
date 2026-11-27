@@ -562,6 +562,10 @@ demo-api-up:
 demo-api-down:
     docker compose --env-file {{ENVFILE}} stop demo-api
 
+# S8b.2: delete visitors' saved actions older than DAYS days (0 = all). Sam's cases are in code.
+demo-visitors-clear DAYS:
+    {{UV}} run python -m graphguard.demo.db clear-visitors {{DAYS}}
+
 demo-api-logs:
     docker logs --tail 100 graphguard-demo-api
 

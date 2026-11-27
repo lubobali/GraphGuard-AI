@@ -224,3 +224,30 @@ def test_the_bank_names_file_equals_the_database():
     from graphguard.demo.queries import PgRepo
 
     assert banks.build(PgRepo()) == banks.read()
+
+
+def test_the_apis_logins_carry_the_statement_time_limit_and_count_the_days_writes():
+    """S8b.2: no public visitor's query runs longer than 5 s; the daily cap can count."""
+    from graphguard.demo.queries import PgRepo
+
+    repo = PgRepo()
+    assert repo._one("SHOW statement_timeout")["statement_timeout"] == "5s"
+    assert repo.visitor_actions_last_day() >= 0
+
+
+def test_clearing_visitor_actions_deletes_only_older_rows():
+    """S8b.2: a 100-year cut deletes nothing and a fresh row survives it. Never a shorter cut
+    here: this is the live database (a 1-day cut once deleted a real visitor's row, restored
+    from the nightly backup)."""
+    v = "00000000-0000-4000-8000-0000000082b2"
+    with _conn(db.WRITER) as c, c.cursor() as cur:
+        cur.execute(
+            "INSERT INTO case_actions (event_id, case_owner, actor, role, action, reason) "
+            "VALUES (-1, %s, %s, 'investigator', 'escalate', 'clear test')",
+            (v, v),
+        )
+    assert db.clear_visitors(36_500) == 0
+    with _conn(db.OWNER) as c, c.cursor() as cur:
+        cur.execute("SELECT count(*) FROM case_actions WHERE actor = %s", (v,))
+        assert cur.fetchone()[0] == 1
+        cur.execute("DELETE FROM case_actions WHERE actor = %s", (v,))

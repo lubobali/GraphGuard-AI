@@ -49,6 +49,9 @@ class FakeRepo:
     def case_rows(self, event_id):
         return [r for r in self.actions if r["event_id"] == event_id]
 
+    def visitor_actions_last_day(self):  # S8b.2: the daily cap's count
+        return len(self.actions)
+
     def add_action(self, event_id, owner, actor, role, action, code, reason):
         self.actions.append({"event_id": event_id, "case_owner": owner, "actor": actor,
                              "role": role, "action": action, "code": code, "reason": reason,

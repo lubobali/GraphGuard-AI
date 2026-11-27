@@ -364,6 +364,13 @@ shown only after it; a model's strong/some/none label is shown only if it never 
 decision "strong" in testing (FINDING-020). Runs save after every review: re-run with `--resume`.
 The OpenRouter **account** credit can run out before the key's $10 limit — check
 `/api/v1/credits` before a long run.
+**Public demo (S8b.2):** API image **0.1.24**; behind nginx at `graphguard.lubobali.com`
+(nginx is the LuBot session's; our block + hand-over in `private/public-demo/`). The visitor's
+address comes from `X-Real-IP` only via the gateway (`GRAPHGUARD_TRUSTED_PROXY`); daily write
+caps; 5 s query limit; `WaitingPool` (psycopg2's pool raises when full). `just demo-api-down` is
+the kill switch; `just demo-visitors-clear DAYS`; load test `scripts/ops/demo_load.py` (deletes
+its rows by marked id). **Never run a short clean-up cut in a test: it is the live database.**
+Runbook `docs/runbooks/public-demo.md`.
 **Try one case (S7.18):** `/try`, four steps from the static `web/lib/tour.json` (`python -m
 graphguard.demo.tour build` after a demo rebuild; a live test compares it). Long explanations go
 in `components/Explain.tsx`; `scripts/ui/words.sh <paths>` counts what a visitor must read.
@@ -593,7 +600,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **done** (2026-11-22) — S6.1-S6.11: alert, exact live features (FINDING-015, ADR 0005), Kafka (ADR 0006), replayer, consumer on k3s, chaos 6/6, rules (FINDING-016, ADR 0007), late labels (FINDING-017), shadow; overnight soak exact on 1,015,300 transactions |
 | 7 | The interface — queue, ring, slider, measured investigator agent | **done** (2026-11-27) — S7.0-S7.18 (`docs/stories/phase-7.md`, ADR 0008; FINDING-019, -020): queue, case, ring, slider, workflow with second review, manager page, AI drafts + AI second reviewer, try-one-case tour; API 0.1.22. Gate met with an **AI stand-in** for the real-person test (R-6); a real person still owed |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
-| 8b | Make it findable — demo, video, post | **in progress** (before Phase 8, R-6) — `docs/stories/phase-8b.md`; S8b.1 done |
+| 8b | Make it findable — demo, video, post | **in progress** (before Phase 8, R-6) — `docs/stories/phase-8b.md`; S8b.1-S8b.2 done |
 | 9 | Second dataset — TransXion robustness check (R-2) | not started |
 | 10 | Scale to 180M, optional and honest | not started |
 

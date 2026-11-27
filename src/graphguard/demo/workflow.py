@@ -148,6 +148,16 @@ def score(cases: list[dict]) -> dict:
 # ---- S7.16: the manager's numbers ---------------------------------------------------------
 
 
+def cases_by_owner(rows: list[dict], truth: dict[int, bool]) -> list[dict]:
+    """Every visitor's cases from all their rows, grouped in one pass (S8b.2: it was a scan of
+    every row per case, quadratic in what strangers save)."""
+    groups: dict[tuple[int, str], list[dict]] = {}
+    for r in rows:
+        groups.setdefault((r["event_id"], r["case_owner"]), []).append(r)
+    return [{"event_id": eid, **case_state(groups[(eid, owner)]), "is_laundering": truth.get(eid)}
+            for eid, owner in sorted(groups)]  # fmt: skip
+
+
 def metrics(cases: list[dict], reviews_done: int) -> dict:
     """Counts for the manager's page. `cases`: state, decision (latest), is_laundering and
     ai_leans_suspicious (the AI draft named a pattern; None when there is no draft)."""

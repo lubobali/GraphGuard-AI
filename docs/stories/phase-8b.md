@@ -65,18 +65,51 @@ header and list fit.
 
 **As** Lubo, **I want** strangers to be able to use the demo without hurting the box, LuBot,
 or the data, **so that** a public link is not a risk.
-- [ ] The real visitor's address is used for rate limits behind nginx. The forwarded header is
-      trusted only from the local proxy. Today every visitor would share one limit.
-- [ ] Visitor writes are capped: per visitor, and in total per day. Visitor rows can be
-      cleared with one command; Sam's seeded cases are never touched.
-- [ ] Only the API's own routes and the static site answer. Errors show no stack traces.
-      Security headers and CSP are checked from outside.
-- [ ] The answer key appears only where the design shows it (after a decision, or in the
-      tour). A test calls every route without a decision.
-- [ ] Load: a burst from outside (for example, 50 visitors at once) keeps memory under the cap,
-      and LuBot's health is unchanged.
-- [ ] A kill switch: one command takes the public site down without touching anything else.
-- [ ] The weak-spot notes for this go to `private/` only.
+
+*Expanded 2026-11-27 after reading `demo/api.py`, `queries.py`, the compose service and the
+nginx `limit_req` docs.* What the code read found: nginx reaches the API through Docker, so
+every request arrives from the network gateway, one address. Today every visitor would share
+one rate limit. Visitor ids are made by the browser, so a per-visitor cap alone stops nobody.
+The manager's "all visitors" view is quadratic in saved rows (a stranger could slow it to a
+stop). The limiter's memory grows with every address it sees. Queries have no time limit.
+
+- [x] **Real address:** the visitor's address comes from `X-Real-IP` (set by nginx, which
+      overwrites anything the client sends) only when the request comes from the gateway.
+      From anywhere else the header is ignored. One pure function, tested with spoofed headers.
+- [x] **Limiter memory is bounded:** idle entries are dropped. Tested with 100,000 addresses.
+- [x] **Write caps:** at most 300 saved actions per address per day, and 20,000 visitor actions in
+      total in the last 24 hours (counted in the database). Over either → 503 "the demo is full
+      for today", nothing saved. Tested.
+- [x] **One live stream per address** (4 in total, as before). Tested.
+- [x] **The manager's all-visitors view is linear** (grouped once) and cached for 30 seconds.
+      A test builds 20,000 rows and must finish in under a second.
+- [x] **Every query has a time limit** (5 s, set on the connection). Tested on the DSN.
+- [x] **Errors show nothing inside:** a crash answers a plain 500 with no traceback. Tested.
+- [x] **Clean-up:** `just demo-visitors-clear DAYS` deletes visitor actions older than DAYS days
+      (owner login, host only). Sam's seeded decisions are in code, so they are never touched.
+- [x] **The answer key** stays where the design puts it: shown after a decision and in the
+      tour, and through its own endpoint for the case page's "Show the answer key" button. The
+      data is synthetic and this is a training demo, so this is accepted on purpose and written
+      down.
+- [x] **The nginx block** for the LuBot session (written, not applied by us): HTTPS, `X-Real-IP`,
+      per-address `limit_req` in front of ours, a small body limit, timeouts, no buffering for
+      the live stream, HSTS. Kept in `private/` with the hand-over message.
+- [x] **Load:** 50 simulated visitors from 50 addresses for 60 s against the API: no 5xx except
+      the caps, memory under the 256M cap, LuBot's health the same before and after. Numbers
+      recorded.
+- [x] **Kill switch:** `just demo-api-down` takes the public site down (nginx then answers 502)
+      without touching anything else. Written in the runbook.
+- [x] New image tag 0.1.24 (0.1.23 failed the load test) (never rebuild a tag). CI green, both remotes match.
+- [x] Notes on what an attacker could try go to `private/` only.
+
+**Done 2026-11-27.** Runbook `docs/runbooks/public-demo.md`; tests `tests/demo/test_public_safety.py`
+(+ live ones); the nginx block and the hand-over message are in `private/public-demo/` (syntax-checked
+with `nginx -t` on a scratch copy, nothing applied). **The load test found a real bug:** the database
+pool raised once more than 4 requests ran at once (31% of requests failed at 50 visitors). It now
+waits (`WaitingPool`): 0 errors, p95 696 ms, 61 MiB peak, LuBot unchanged. **A mistake, fixed:** a
+first version of the clean-up's live test ran a 1-day cut on the live database and deleted one
+real visitor row (23 Nov). It was restored from the nightly backup with its id and time; the test
+now uses only a 100-year cut.
 
 ## S8b.3 — The public URL
 

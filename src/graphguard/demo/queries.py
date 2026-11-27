@@ -36,6 +36,45 @@ def _env(path: str) -> dict[str, str]:
 TRUSTED_REVIEWER = "anthropic/claude-sonnet-5.5"
 
 
+class Busy(Exception):
+    """Every database connection is in use and none came free in time (the API answers 503)."""
+
+
+class WaitingPool:
+    """S8b.2: psycopg2's pool raises when all its connections are out; the API runs up to 40
+    requests at once, so under load most failed (the load test: 31% 500s). This waits for a
+    connection, up to `wait` seconds, then raises Busy. A broken connection is closed, not
+    reused (a Postgres restart would otherwise poison the pool)."""
+
+    def __init__(self, pool, size: int, wait: float = 10.0):
+        self.pool, self.wait = pool, wait
+        self.slots = threading.BoundedSemaphore(size)
+
+    def getconn(self):
+        if not self.slots.acquire(timeout=self.wait):
+            raise Busy
+        try:
+            return self.pool.getconn()
+        except BaseException:
+            self.slots.release()
+            raise
+
+    def putconn(self, conn, close: bool = False) -> None:
+        try:
+            self.pool.putconn(conn, close=close)
+        finally:
+            self.slots.release()
+
+
+STATEMENT_TIMEOUT_MS = 5_000  # S8b.2: no query from a public visitor runs longer
+
+
+def dsn(role: str, password: str, host: str) -> str:
+    """A demo login, with a time limit on every statement."""
+    opts = quote(f"-c statement_timeout={STATEMENT_TIMEOUT_MS}", safe="")
+    return f"postgresql://{role}:{quote(password, safe='')}@{host}/demo?options={opts}"
+
+
 class PgRepo:
     """Small connection pools: reads as demo_reader, the verdict as demo_writer."""
 
@@ -52,22 +91,29 @@ class PgRepo:
 
             env = _env(env_file or str(REPO_ROOT / ".secrets" / "demo-api.env"))
 
-        def dsn(role: str, var: str) -> str:
-            return f"postgresql://{role}:{quote(env[var], safe='')}@{host}/demo"
-
-        self._read = ThreadedConnectionPool(1, 4, dsn("demo_reader", "DEMO_READER_PASSWORD"))
-        self._write = ThreadedConnectionPool(1, 1, dsn("demo_writer", "DEMO_WRITER_PASSWORD"))
+        self._read = WaitingPool(
+            ThreadedConnectionPool(1, 4, dsn("demo_reader", env["DEMO_READER_PASSWORD"], host)), 4
+        )
+        self._write = WaitingPool(
+            ThreadedConnectionPool(1, 1, dsn("demo_writer", env["DEMO_WRITER_PASSWORD"], host)), 1
+        )
         self._lock = threading.Lock()
 
     @contextmanager
     def _cur(self, pool):
+        import psycopg2
+
         conn = pool.getconn()
+        broken = False
         try:
             conn.autocommit = True
             with conn.cursor() as cur:
                 yield cur
+        except psycopg2.OperationalError:
+            broken = True
+            raise
         finally:
-            pool.putconn(conn)
+            pool.putconn(conn, close=broken or bool(conn.closed))
 
     def _all(self, sql: str, args=()) -> list[dict]:
         with self._cur(self._read) as cur:
@@ -236,6 +282,12 @@ class PgRepo:
             f"SELECT {self._ROW} FROM case_actions WHERE event_id = %s ORDER BY id", (event_id,)
         )
 
+    def visitor_actions_last_day(self) -> int:
+        """S8b.2: what all visitors saved in the last 24 hours (the demo's daily cap)."""
+        return self._one(
+            "SELECT count(*) AS n FROM case_actions WHERE at > now() - interval '24 hours'"
+        )["n"]
+
     def add_action(self, event_id, owner, actor, role, action, code, reason) -> None:
         with self._cur(self._write) as cur:
             cur.execute(
@@ -297,19 +349,14 @@ class PgRepo:
             rows = self._all(
                 f"SELECT {self._ROW} FROM case_actions WHERE case_owner <> 'demo' ORDER BY id"
             )
-            keys = sorted({(r["event_id"], r["case_owner"]) for r in rows})
             truth = {
                 r["event_id"]: r["is_laundering"]
                 for r in self._all(
                     "SELECT event_id, is_laundering FROM truth WHERE event_id = ANY(%s)",
-                    (sorted({k[0] for k in keys}),),
+                    (sorted({r["event_id"] for r in rows}),),
                 )
             }
-            cases = []
-            for eid, owner in keys:
-                mine = [r for r in rows if r["event_id"] == eid and r["case_owner"] == owner]
-                cases.append({"event_id": eid, **W.case_state(mine),
-                              "is_laundering": truth.get(eid)})  # fmt: skip
+            cases = W.cases_by_owner(rows, truth)
             reviews = self._one("SELECT count(*) AS n FROM case_actions WHERE role = 'reviewer'")[
                 "n"
             ]

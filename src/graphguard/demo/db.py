@@ -336,12 +336,29 @@ def load(tables: dict[str, pl.DataFrame], info: dict) -> None:
         cur.execute("ANALYZE transactions; ANALYZE accounts; ANALYZE truth")
 
 
+def clear_visitors(days: int, conn=None) -> int:
+    """S8b.2: delete visitors' case actions older than `days` days (owner login, host only).
+    Sam's seeded decisions live in code (workflow.DEMO_CASES), so they are never touched."""
+    if days < 0:
+        raise ValueError("days must be 0 or more")
+    own = conn or connect(OWNER)
+    with own, own.cursor() as cur:
+        cur.execute(
+            "DELETE FROM case_actions WHERE at < now() - make_interval(days => %s)", (days,)
+        )
+        return cur.rowcount
+
+
 def main(argv: list[str]) -> int:
-    if (argv[1] if len(argv) > 1 else "") == "setup":
+    cmd = argv[1] if len(argv) > 1 else ""
+    if cmd == "setup":
         setup()
         print(f"database {DB}: roles {', '.join(ROLES)}, tables ready")
         return 0
-    print(f"usage: {argv[0]} setup")
+    if cmd == "clear-visitors" and len(argv) == 3 and argv[2].isdigit():
+        print(f"deleted {clear_visitors(int(argv[2]))} visitor actions older than {argv[2]} days")
+        return 0
+    print(f"usage: {argv[0]} setup | clear-visitors DAYS")
     return 2
 
 

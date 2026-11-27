@@ -11,6 +11,9 @@ accept JSON only, so a cross-site form cannot post one.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
+import logging
+import os
 import threading
 import time
 from typing import Annotated, Any, Literal
@@ -21,7 +24,9 @@ from fastapi.sse import EventSourceResponse, ServerSentEvent
 from pydantic import BaseModel, Field, ValidationError
 
 from graphguard.demo import workflow as W
-from graphguard.demo.queries import BANNER, k_for, to_json
+from graphguard.demo.queries import BANNER, Busy, k_for, to_json
+
+log = logging.getLogger("graphguard.demo.api")
 
 SECURITY_HEADERS = {
     "Content-Security-Policy": (
@@ -39,24 +44,84 @@ READ_RATE, READ_BURST = 20.0, 40.0
 WRITE_RATE, WRITE_BURST = 1.0, 5.0
 MAX_LIVE = 4
 LIVE_PER_SECOND = 4
+# S8b.2, public behind nginx. nginx reaches the container through Docker, so every request
+# arrives from the network's gateway; only that peer may name the visitor's address.
+TRUSTED_PROXY = os.environ.get("GRAPHGUARD_TRUSTED_PROXY", "172.25.0.1")
+WRITES_PER_IP_DAY = 300  # saved actions per address per day
+WRITES_TOTAL_DAY = 20_000  # visitor actions in the last 24 h, all addresses together
+TOTAL_RECHECK_SECONDS = 30
+MANAGER_CACHE_SECONDS = 30
+FULL = "the demo is full for today; reading still works"
+
+
+def client_ip(peer: str, real_ip: str | None, trusted: str = TRUSTED_PROXY) -> str:
+    """The visitor's address: nginx's `X-Real-IP` (nginx overwrites what a client sends) when
+    the request comes from the proxy and the header is one valid address; otherwise the peer."""
+    if peer != trusted or not real_ip:
+        return peer
+    try:
+        return str(ipaddress.ip_address(real_ip.strip()))
+    except ValueError:
+        return peer
 
 
 class RateLimiter:
-    """Token bucket per (client, kind)."""
+    """Token bucket per (client, kind). Idle entries are dropped, so memory stays bounded
+    however many addresses call (S8b.2)."""
 
-    def __init__(self, clock=time.monotonic):
+    IDLE_SECONDS = 600
+
+    def __init__(self, clock=time.monotonic, max_entries: int = 50_000):
         self.clock = clock
+        self.max_entries = max_entries
         self.state: dict[tuple, tuple[float, float]] = {}
         self.lock = threading.Lock()
+
+    def _prune(self, now: float) -> None:
+        self.state = {k: v for k, v in self.state.items() if now - v[1] < self.IDLE_SECONDS}
+        if len(self.state) >= self.max_entries:  # still full: keep the most recent half
+            recent = sorted(self.state.items(), key=lambda kv: kv[1][1])[-self.max_entries // 2 :]
+            self.state = dict(recent)
 
     def allow(self, client: str, kind: str, rate: float, burst: float) -> bool:
         now = self.clock()
         with self.lock:
+            if len(self.state) >= self.max_entries:
+                self._prune(now)
             tokens, last = self.state.get((client, kind), (burst, now))
             tokens = min(burst, tokens + (now - last) * rate)
             ok = tokens >= 1.0
             self.state[(client, kind)] = (tokens - 1.0 if ok else tokens, now)
             return ok
+
+
+class WriteCaps:
+    """Daily caps on saved actions (S8b.2): per address, and for all visitors together (counted
+    in the database, re-read every 30 s and counted up locally in between)."""
+
+    def __init__(self, clock=time.monotonic):
+        self.clock = clock
+        self.lock = threading.Lock()
+        self.per_ip: dict[str, int] = {}
+        self.day = -1
+        self.total, self.total_at = 0, float("-inf")
+
+    def allow(self, ip: str, repo) -> bool:
+        now = self.clock()
+        with self.lock:
+            day = int(now // 86_400)
+            if day != self.day:
+                self.day, self.per_ip = day, {}
+            if self.per_ip.get(ip, 0) >= WRITES_PER_IP_DAY:
+                return False
+            if now - self.total_at >= TOTAL_RECHECK_SECONDS:
+                self.total, self.total_at = repo.visitor_actions_last_day(), now
+            return self.total < WRITES_TOTAL_DAY
+
+    def saved(self, ip: str) -> None:
+        with self.lock:
+            self.per_ip[ip] = self.per_ip.get(ip, 0) + 1
+            self.total += 1
 
 
 UUID = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
@@ -181,7 +246,11 @@ async def act(event_id: int, request: Request, r: Repo):
     why = W.check(history, a.visitor, owner, a.role, a.action, a.code, a.reason)
     if why:
         raise HTTPException(409, why)
+    caps, ip = request.app.state.caps, request.state.client
+    if not caps.allow(ip, r):
+        raise HTTPException(503, FULL)
     r.add_action(event_id, owner, a.visitor, a.role, a.action, a.code, a.reason)
+    caps.saved(ip)
     history = _history(r, event_id, owner, a.visitor)
     body = {"saved": True, "repeat": False, "case": _case(history, a.visitor)}
     return Response(to_json(body), media_type="application/json", status_code=201)
@@ -195,8 +264,26 @@ def decisions(visitor: Visitor, r: Repo):
 
 
 @router.get("/manager")
-def manager(visitor: Visitor, r: Repo, scope: Literal["me", "all"] = "me", per_day: PerDay = 100):
-    return _ok(r.manager(visitor, scope, k_for(per_day)))
+def manager(
+    request: Request,
+    visitor: Visitor,
+    r: Repo,
+    scope: Literal["me", "all"] = "me",
+    per_day: PerDay = 100,
+):
+    if scope == "me":
+        return _ok(r.manager(visitor, scope, k_for(per_day)))
+    # every visitor's cases together: the same for everyone, so cached briefly (S8b.2)
+    st, k = request.app.state, k_for(per_day)
+    now = st.clock()
+    with st.manager_lock:
+        hit = st.manager_cache.get(k)
+        if hit and now - hit[0] < MANAGER_CACHE_SECONDS:
+            return _ok(hit[1])
+    data = r.manager(visitor, scope, k)
+    with st.manager_lock:
+        st.manager_cache[k] = (now, data)
+    return _ok(data)
 
 
 @router.get("/next")
@@ -205,12 +292,20 @@ def next_alert(visitor: Visitor, r: Repo, after: Annotated[int, Query(ge=0)] = 0
     return _ok(r.next_undecided(visitor, after, k_for(per_day)) or {"event_id": None})
 
 
-def _take_live_slot(state) -> bool:
+def _take_live_slot(state, ip: str = "?") -> bool:
+    """A live stream slot: at most MAX_LIVE in all, one per address (S8b.2)."""
     with state.live_lock:
-        if state.live_open["n"] >= MAX_LIVE:
+        if state.live_open["n"] >= MAX_LIVE or ip in state.live_ips:
             return False
         state.live_open["n"] += 1
+        state.live_ips.add(ip)
         return True
+
+
+def _give_live_slot(state, ip: str = "?") -> None:
+    with state.live_lock:
+        state.live_open["n"] -= 1
+        state.live_ips.discard(ip)
 
 
 @router.get("/live", response_class=EventSourceResponse)
@@ -219,8 +314,8 @@ async def live(
 ):
     # The slot is taken inside the stream, so it is always given back (finally); a full
     # server answers with one "busy" event and closes rather than failing mid-stream.
-    st = request.app.state
-    if not _take_live_slot(st):
+    st, ip = request.app.state, request.state.client
+    if not _take_live_slot(st, ip):
         yield ServerSentEvent(raw_data='{"detail": "too many live streams"}', event="busy")
         return
     try:
@@ -234,22 +329,33 @@ async def live(
             cursor = (str(rows[-1]["event_time"]), rows[-1]["event_id"])
             await asyncio.sleep(1.0)
     finally:
-        with st.live_lock:
-            st.live_open["n"] -= 1
+        _give_live_slot(st, ip)
 
 
-def create_app(repo=None, limiter: RateLimiter | None = None, web_dir: str | None = None):
+def create_app(
+    repo=None,
+    limiter: RateLimiter | None = None,
+    web_dir: str | None = None,
+    clock=time.monotonic,
+):
     app = FastAPI(title="GraphGuard investigator demo", docs_url=None, redoc_url=None,
                   openapi_url=None)  # fmt: skip
     app.state.repo = repo
     app.state.limiter = limiter or RateLimiter()
     app.state.live_open = {"n": 0}
+    app.state.live_ips = set()
     app.state.live_lock = threading.Lock()
     app.state.banner = BANNER
+    app.state.clock = clock
+    app.state.caps = WriteCaps(clock)
+    app.state.manager_cache = {}
+    app.state.manager_lock = threading.Lock()
 
     @app.middleware("http")
     async def guard(request: Request, call_next):
-        client = request.client.host if request.client else "?"
+        peer = request.client.host if request.client else "?"
+        client = client_ip(peer, request.headers.get("x-real-ip"))
+        request.state.client = client
         write = request.method not in ("GET", "HEAD")
         rate, burst = (WRITE_RATE, WRITE_BURST) if write else (READ_RATE, READ_BURST)
         if request.url.path.startswith("/api/") and not request.app.state.limiter.allow(
@@ -257,7 +363,13 @@ def create_app(repo=None, limiter: RateLimiter | None = None, web_dir: str | Non
         ):
             response: Response = JSONResponse({"detail": "too many requests"}, status_code=429)
         else:
-            response = await call_next(request)
+            try:
+                response = await call_next(request)
+            except Busy:
+                response = JSONResponse({"detail": "busy, try again in a moment"}, status_code=503)
+            except Exception:  # S8b.2: a crash says nothing about the inside, but is logged
+                log.exception("unhandled error on %s %s", request.method, request.url.path)
+                response = JSONResponse({"detail": "internal error"}, status_code=500)
         for k, v in SECURITY_HEADERS.items():
             response.headers[k] = v
         return response
