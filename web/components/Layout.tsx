@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { useEffect, useState, type ReactNode } from "react";
 import { ROLES, readRole, roleForPath, saveRole } from "../lib/role.js";
+import { label, nextTheme, readTheme, saveTheme } from "../lib/theme.js";
 import s from "./Layout.module.css";
 
 const NAV = [
@@ -32,6 +33,28 @@ function ViewAs() {
   );
 }
 
+// window.localStorage itself can throw when site data is blocked
+function storage() {
+  try { return window.localStorage; } catch { return null; }
+}
+
+function ThemeSwitch() {
+  const [theme, setTheme] = useState("dark");
+  useEffect(() => { setTheme(readTheme(storage())); }, []);
+  function flip() {
+    const t = nextTheme(theme);
+    if (t === "light") document.documentElement.dataset.theme = "light";
+    else delete document.documentElement.dataset.theme;
+    saveTheme(storage(), t);
+    setTheme(t);
+  }
+  return (
+    <button type="button" className={s.theme} onClick={flip} aria-label={label(theme)} title={label(theme)}>
+      <span aria-hidden="true">{theme === "light" ? "🌙" : "☀"}</span>
+    </button>
+  );
+}
+
 export default function Layout({ children }: { children: ReactNode }) {
   const { pathname } = useRouter();
   return (
@@ -56,6 +79,7 @@ export default function Layout({ children }: { children: ReactNode }) {
                 {n.label}
               </Link>
             ))}
+            <ThemeSwitch />
           </nav>
         </div>
         <p className={`wrap ${s.tagline}`}>

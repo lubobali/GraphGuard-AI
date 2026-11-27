@@ -161,6 +161,32 @@ diagram" (2 screenshots, not 3).*
 
 **Done 2026-11-27.** Screenshots taken from the live public site.
 
+## S8b.4b — Dark by default, with a switch
+
+**As** a visitor, **I want** the site to look the same deep dark on every device, **so that**
+the money picture (red and blue arrows) stands out. **As** someone who prefers light, **I want**
+a switch that is remembered.
+
+*Asked by Lubo 2026-11-27 ("it looks better when the background is deep dark"). Expanded after
+reading `globals.css` (light by default, dark only through the device setting), `Layout.tsx`,
+`RingGraph.tsx` (its React Flow colours read the device setting in JS) and the CSP
+(`script-src 'self'`: no inline script, so the early theme script is its own file).*
+- [x] Dark for everyone by default, whatever the device says. Light only by choice.
+- [x] A ☀/🌙 button in the header, with a clear label for screen readers ("Switch to light
+      mode"). The choice is saved in the browser (`localStorage`, wrapped in try/catch: a
+      private window or blocked storage just means dark).
+- [x] No flash: a small same-site script (`/theme.js`) sets the saved theme before the page
+      paints. The export check still finds no inline script.
+- [x] The money picture follows the switch at once, not just on reload.
+- [x] Pure logic (`lib/theme.js`: read, next, label) tested first; the export holds `theme.js`.
+- [x] Checked by screenshot in both themes, desktop and phone: banner, home, `/try` answer,
+      a case. Text stays readable (the dark tokens already passed the palette check).
+- [x] The README's two screenshots retaken in dark. Web tests and CI green, both remotes match.
+
+**Done 2026-11-27.** Checked on the public site in a browser set to light: dark by default on
+phone and desktop; the switch turns light, survives a reload, and the money picture changes at
+once. 54 web tests (6 new). The README screenshots are dark.
+
 ## S8b.5 — The project page on Lubo's website
 
 **As** a visitor of lubobali.com, **I want** to find GraphGuard, **so that** the site leads to

@@ -71,7 +71,7 @@ function canvasHeight(h: number) {
 export default function RingGraph({ graph, ringTx, compact = false }: { graph: Graph; ringTx: Set<number> | null; compact?: boolean }) {
   const flow = useMemo(() => toFlow(graph), [graph]);
   const { nodes, size } = useMemo(() => layout(flow), [flow]);
-  const [dark, setDark] = useState(false);
+  const [dark, setDark] = useState(true);
   // Never open below a readable zoom: a wide ring opens centred, with a note to pan or fit.
   const box = useRef<HTMLDivElement>(null);
   const [wide, setWide] = useState(false);
@@ -80,14 +80,13 @@ export default function RingGraph({ graph, ringTx, compact = false }: { graph: G
     setWide(w > 0 && (w / size.w) < MIN_READABLE);
   }, [size.w]);
   useEffect(() => {
-    const q = window.matchMedia?.("(prefers-color-scheme: dark)");
-    const read = () => {
-      const t = document.documentElement.dataset.theme;
-      setDark(t ? t === "dark" : !!q?.matches);
-    };
+    // S8b.4b: dark unless the visitor chose light; follows the header switch at once
+    const root = document.documentElement;
+    const read = () => setDark(root.dataset.theme !== "light");
     read();
-    q?.addEventListener?.("change", read);
-    return () => q?.removeEventListener?.("change", read);
+    const watch = new MutationObserver(read);
+    watch.observe(root, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => watch.disconnect();
   }, []);
   const order = useMemo(() => playOrder(flow.edges), [flow]);
   const [shown, setShown] = useState<number>(order.length);
