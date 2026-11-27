@@ -140,16 +140,26 @@ Postgres now keeps its data on disk (deleted after), the drill also counts the d
 
 **As** a hiring engineer, **I want** to understand the project in one screen, **so that** I keep
 reading.
-- [ ] Top: synthetic data first, one line on the problem, the live link, the diagram, 3
-      screenshots.
-- [ ] The headline numbers (validation): 127 of 168 rings at 5,000 alerts; XGBoost vs the GNN
-      (the GNN lost, and that is written up); p99 13–15 ms; the full window replayed with 0
-      mismatches; the agent's measured unsupported-claim rate.
-- [ ] "What I'd do differently" and "Next" (Phase 8, the sealed window's one-time replay,
-      Phases 9–10).
-- [ ] How to run it, links to the findings, ADRs and stories.
-- [ ] Every number is checked against its source file by a test, and the README is grepped for
-      weak spots.
+
+*Expanded 2026-11-27 after reading the old README (stopped at Phase 7 "in progress", no link,
+no picture) and each number's source file. Lubo: "make it catchy with 1, 2 screenshots and
+diagram" (2 screenshots, not 3).*
+- [x] Top: one line on the problem, the live link and "Try one case", synthetic data in the
+      first lines, a screenshot of the tour's answer step (the scheme in red).
+- [x] "In 30 seconds": the queue vs the old rules (167 vs 1 at the same 211 checks), 127 of 168
+      rings, the GNN lost (0.04470), p99 13-15 ms, the 1,015,300-payment replay with 0
+      mismatches, the AI's 4.0% / 5.6% unsupported claims before the checker.
+- [x] A diagram in Mermaid (drawn by GitHub and Forgejo, follows light and dark), then the home
+      page screenshot with what it means.
+- [x] "What I'd do differently" and "Next" (Phase 8, the sealed window's one-time replay,
+      Phases 9-10).
+- [x] How to run it, the stack, links to the plan, findings, ADRs and stories.
+- [x] `tests/test_readme.py`: every headline number is read from its source file (capacity,
+      model comparison, FINDING-013, the soak record, the agent's clean set); images and links
+      exist; no addresses, ports, paths or passwords. A broken number was tried: it fails.
+- [x] On the way: the phone header lost its side gutter (`padding: 8px 0`); fixed and live.
+
+**Done 2026-11-27.** Screenshots taken from the live public site.
 
 ## S8b.5 — The project page on Lubo's website
 

@@ -17,6 +17,6 @@
 @media (max-width: 700px) { .viewLabel { display: none; } .bar { gap: 8px; } }
 /* S8b.1: on a phone the header was wider than the screen ("Try it" cut off): two rows */
 @media (max-width: 560px) {
-  .bar { flex-wrap: wrap; height: auto; padding: 8px 0; row-gap: 8px; }
+  .bar { flex-wrap: wrap; height: auto; padding-block: 8px; row-gap: 8px; } /* block only: keeps the 16px side gutter */
   .viewAs { order: 3; }
 }

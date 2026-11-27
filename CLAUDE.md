@@ -600,7 +600,7 @@ One command from a clean clone. If a result cannot be reproduced, it does not co
 | 6 | The stream — Kafka 4 (was Redpanda), rules layer, label delay | **done** (2026-11-22) — S6.1-S6.11: alert, exact live features (FINDING-015, ADR 0005), Kafka (ADR 0006), replayer, consumer on k3s, chaos 6/6, rules (FINDING-016, ADR 0007), late labels (FINDING-017), shadow; overnight soak exact on 1,015,300 transactions |
 | 7 | The interface — queue, ring, slider, measured investigator agent | **done** (2026-11-27) — S7.0-S7.18 (`docs/stories/phase-7.md`, ADR 0008; FINDING-019, -020): queue, case, ring, slider, workflow with second review, manager page, AI drafts + AI second reviewer, try-one-case tour; API 0.1.22. Gate met with an **AI stand-in** for the real-person test (R-6); a real person still owed |
 | 8 | Monitoring, retraining DAG, champion/challenger, model-risk card | not started |
-| 8b | Make it findable — demo, video, post | **in progress** (before Phase 8, R-6) — `docs/stories/phase-8b.md`; S8b.1-S8b.3 done; live at https://graphguard.lubobali.com |
+| 8b | Make it findable — demo, video, post | **in progress** (before Phase 8, R-6) — `docs/stories/phase-8b.md`; S8b.1-S8b.4 done; live at https://graphguard.lubobali.com |
 | 9 | Second dataset — TransXion robustness check (R-2) | not started |
 | 10 | Scale to 180M, optional and honest | not started |
 

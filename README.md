@@ -1,34 +1,85 @@
 # GraphGuard-AI
 
-Detecting money laundering in 5 million bank transfers by the **shape** the money
-moves in, not by any single transaction.
+**Money laundering hides in the shape money moves in, not in any single payment.**
+GraphGuard scores every payment, ranks the riskiest first, and shows an investigator the
+money around it, with an AI draft whose every fact is checked by code. The person decides.
 
-> **Status:** Phases 0–6 complete — data, evaluation harness, tuned tabular
-> baseline (XGBoost, in production), a graph neural network compared against it,
-> serving on k3s, box security, and a replayed Kafka stream that ran overnight with
-> every decision equal to the offline evaluation. Phase 7 (the investigator
-> interface) in progress. Build plan in [`PLAN.md`](PLAN.md).
+### ▶ [Live demo: graphguard.lubobali.com](https://graphguard.lubobali.com) · [Try one case in 2 minutes](https://graphguard.lubobali.com/try/)
+
+> **Synthetic data, said first.** Everything here runs on IBM's AMLworld simulator: no real
+> people, no real banks. Every number below is measured on the **validation** window. The test
+> window is still sealed, and it gets opened once.
+
+<p align="center">
+  <img src="docs/img/try-answer.png" width="720"
+       alt="Try one case: the visitor called it suspicious and was right. The money picture shows the sender's payments, the flagged one in blue and the scheme's in red.">
+</p>
 
 ---
 
-## Results
+## In 30 seconds
 
-All numbers on the **validation** window. The test window has never been opened.
+| | |
+|---|---|
+| **The old way vs this** | A team checking 100 alerts a day (**211** over the 2-day window): the model-led queue finds **167** laundering payments. The old fixed rules, same 211 checks, find **1**. |
+| **Whole schemes found** | **127 of 168** laundering rings show up in the top 5,000 alerts (XGBoost, PR-AUC **0.28155**). |
+| **The graph neural network lost** | GraphSAGE: PR-AUC **0.04470**, 60 of 168 rings, with the same features and the same tuning budget. Written up as a finding, not tuned away. |
+| **Fast enough to sit in a payment flow** | p99 **13-15 ms** per score on Kubernetes (k3s), measured open loop. |
+| **Live equals offline** | The whole window, **1,015,300** payments, replayed overnight through Kafka: **0** score mismatches with the offline evaluation. |
+| **The AI, measured** | Before checking, **4.0%** (DeepSeek V4.1 Flash) and **5.6%** (Claude Sonnet 5.5) of the AI investigator's claims were unsupported. A code checker drops them, so the page shows 0. |
 
-| Model | PR-AUC | precision@1000 | Laundering rings caught |
-|---|---|---|---|
-| random ranking | 0.00107 | 0.000 | 0 / 168 |
-| rank by amount | 0.00170 | 0.001 | 0 / 168 |
-| MLP, graph disabled | 0.01869 | 0.085 | 34 / 168 |
-| GraphSAGE (GNN) | 0.04470 | 0.111 | 60 / 168 |
-| **XGBoost** | **0.28155** | **0.332** | **127 / 168** |
+## How it fits together
 
-**What that means operationally.** At 1,000 alerts a day — one team's realistic
-capacity — **332 of them are real laundering**, against roughly 1 for a random
-queue. The model surfaces **76% of complete laundering operations** in the data.
+```mermaid
+flowchart LR
+  subgraph train["Train (offline, by time)"]
+    A["IBM AMLworld<br/>5M synthetic payments"] --> B["Iceberg lakehouse on S3<br/>point-in-time features"]
+    B --> C["XGBoost<br/>tuned, tracked in MLflow"]
+    C --> M[("Model on S3<br/>hash pinned in git")]
+  end
+  subgraph live["Score (a replayed live stream)"]
+    K["Kafka<br/>payments arrive"] --> S["Scorer on k3s<br/>live features in Redis"]
+    S --> P[("Postgres<br/>every decision, once")]
+  end
+  M --> S
+  P --> Q["Investigator app<br/>queue · case · money picture"]
+  Q --> AI["AI draft<br/>every fact checked by code"]
+  Q --> H(["A person decides"])
+```
 
-**The graph model lost.** That is reported as a finding rather than tuned away;
-see below.
+<p align="center">
+  <img src="docs/img/home.png" width="720"
+       alt="The home page: a slider for how many alerts the team checks a day, and what that finds: 211 checked, 167 laundering found, 44 false alarms, 916 missed.">
+</p>
+
+The home page answers a manager's real question: *with this many people, what do we catch and
+what do we miss?* It shows the misses (916 of 1,083), because no system finds all of it.
+
+---
+
+## What I'd do differently
+
+- **Put the interface in front of a person sooner.** Serving and the stream were built before
+  anyone used the queue. The first outside test (an AI stand-in, see R-6 in `PLAN.md`) found
+  confusing words that could have been fixed in week one. A real-person test is still owed.
+- **Hold out the AI checker's test set from day one.** The first checker was fixed on the
+  same alerts it was judged on. The clean number came from a second set, drawn afterwards
+  ([FINDING-019](docs/findings.md)).
+- **Skip Ray Serve for one small model.** 94% of the scorer's CPU went to the serving
+  framework, not the model ([FINDING-013](docs/findings.md)). The stream now scores in
+  process.
+- **Check the simulator's artifacts before the first model.** Three features (and later the
+  weekday) learned the simulator, not the crime ([FINDING-006](docs/findings.md),
+  [FINDING-018](docs/findings.md)).
+
+## Next
+
+| | |
+|---|---|
+| Phase 8 | monitoring and drift, a retraining pipeline, champion vs challenger, a model-risk card |
+| Go-live | the sealed test window, replayed once, as if it were the next days of payments |
+| Phase 9 | a second dataset (TransXion), to see what holds outside one simulator |
+| Phase 10 | scale toward 180M payments, optional and honest about the box |
 
 ---
 
@@ -54,6 +105,22 @@ investigating, with a reason attached.
 
 **What it does not do:** decide anything. A human works the queue; the model
 decides the order.
+
+---
+
+## Results in full
+
+All on the **validation** window.
+
+| Model | PR-AUC | precision@1000 | Laundering rings caught |
+|---|---|---|---|
+| random ranking | 0.00107 | 0.000 | 0 / 168 |
+| rank by amount | 0.00170 | 0.001 | 0 / 168 |
+| MLP, graph disabled | 0.01869 | 0.085 | 34 / 168 |
+| GraphSAGE (GNN) | 0.04470 | 0.111 | 60 / 168 |
+| **XGBoost** | **0.28155** | **0.332** | **127 / 168** |
+
+At 1,000 alerts, **332 are real laundering**, against roughly 1 for a random queue.
 
 ---
 
@@ -87,7 +154,7 @@ The split itself is committed and checksummed:
 
 ### Findings that changed the build
 
-Seven are recorded in [`docs/findings.md`](docs/findings.md). Three that
+Twenty are recorded in [`docs/findings.md`](docs/findings.md). Three early ones that
 mattered most:
 
 **The dataset disagrees with its own documentation.** HI-Small is described as
@@ -183,46 +250,36 @@ nothing.
 
 | Layer | Choice |
 |---|---|
-| Packaging | uv, committed lockfile, project-local pinned toolchain |
-| Dataframes | Polars |
-| Baseline | XGBoost |
-| Graph model | PyTorch Geometric (GraphSAGE, inductive) |
-| Tuning | Optuna |
-| Tracking | MLflow on its own Postgres |
-| Data contracts | Pandera |
-| CI | Forgejo Actions on a dedicated isolated runner |
+| Data | Polars, Apache Iceberg on S3 (Lakekeeper catalog, logins and grants), DuckDB for SQL |
+| Models | XGBoost (production), PyTorch Geometric GraphSAGE (the research arm), Optuna, MLflow |
+| Stream | Kafka 4 (KRaft), live features in Redis, Postgres, rules beside the model |
+| Serving | k3s (Kubernetes), restricted pods, model pulled from S3 and checked against a pinned hash |
+| App | Next.js (static), FastAPI, React Flow for the money picture |
+| AI | LLMs through OpenRouter with read-only tools bound to one alert, a deterministic claim checker, MCP server |
+| Engineering | uv lockfile, pytest (unit, integration, determinism, metamorphic, parity, latency budget), Forgejo CI on an isolated runner, nightly backups with a weekly restore drill |
 
 ---
 
 ## Reproducing
 
 ```bash
-./scripts/bootstrap.sh            # pinned uv, Python, just, prek — all inside the repo
-./.tools/bin/just data-download   # needs .secrets/kaggle.json
-./.tools/bin/just check           # 159 tests, lint, and the three leakage guards
+./scripts/bootstrap.sh            # pinned uv, Python, just, prek, all inside the repo
+./.tools/bin/just data-download   # needs a Kaggle token in .secrets/
+./.tools/bin/just check           # tests, lint, and the three leakage guards
 ./.tools/bin/just data-summary    # shape, date range, class balance
 ./.tools/bin/just baselines       # the two dumb baselines
 ./.tools/bin/just train-tabular   # XGBoost, with and without the artifacts
 ./.tools/bin/just train-gnn       # GraphSAGE
 ```
 
-The toolchain lives in `.tools/` inside the repo and is pinned — uv, Python,
-`just` and `prek` all at fixed versions. Nothing is shared with other projects
-on the host, so upgrading a tool elsewhere cannot change a result here. CI runs
-the identical bootstrap script, so local and CI cannot drift.
+The toolchain lives in `.tools/` inside the repo and is pinned. CI runs the same bootstrap
+script, so local and CI cannot drift. Every seed is fixed and every path comes from config. The
+split is frozen and checksummed. Reruns are byte-identical.
 
-Every seed is fixed and every path comes from config. The split is frozen and
-checksummed. Reruns are byte-identical.
+## Read more
 
----
-
-## What is next
-
-| Phase | | |
-|---|---|---|
-| 0–4 | data, harness, baseline, graph model | done |
-| 5 | serving — online feature store, Ray Serve on k3s, p99 < 50ms | done |
-| 5b | box security — hardened services, per-job users, backups | done |
-| 6 | replayed transaction stream — Kafka 4, rules, late labels, overnight soak | done |
-| 7 | the interface — alert queue, the ring drawn, capacity slider, measured agent | in progress |
-| 8 | monitoring, retraining DAG, champion/challenger, model card |  |
+- [`PLAN.md`](PLAN.md): the build plan and every revision to it, with its cause
+- [`docs/findings.md`](docs/findings.md): 20 findings, including the ones against this project
+- [`docs/model_comparison.md`](docs/model_comparison.md) and
+  [`docs/leakage_audit.md`](docs/leakage_audit.md)
+- [`docs/adr/`](docs/adr/): design decisions · [`docs/stories/`](docs/stories/): each phase's stories and what was done
