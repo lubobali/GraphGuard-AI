@@ -61,6 +61,11 @@ COUNTS: dict[str, dict[str, str]] = {
     },
     "openfga": {"tuples": "select count(*) from tuple"},
     "dex": {"keys": "select count(*) from keys"},
+    # the public demo: visitors' saved decisions are the one thing in it not rebuilt from code
+    "demo": {
+        "transactions": "select count(*) from transactions",
+        "case_actions": "select count(*) from case_actions",
+    },
 }
 
 
@@ -239,16 +244,18 @@ def backup() -> int:
 # --- the weekly drill -----------------------------------------------------------
 
 
-def drill_run_args(name: str) -> list[str]:
+def drill_run_args(name: str, data_dir: Path) -> list[str]:
     """`docker run` for the drill's throwaway Postgres: offline, no capabilities, no
-    privilege escalation, 256 MB, its own non-root uid, data only in memory."""
+    privilege escalation, 256 MB, its own non-root uid. Its data goes to `data_dir` on disk
+    (inside the drill's temp folder, deleted after): a tmpfs counts against the 256 MB cap,
+    and the 734 MB demo database got the drill killed (2026-11-27)."""
     return [
         "docker", "run", "-d", "--rm", "--name", name,
         "--network", "none",
         "--memory", "256m", "--pids-limit", "128",
         "--cap-drop", "ALL", "--security-opt", "no-new-privileges",
         "--user", "70:70",
-        "--tmpfs", "/var/lib/postgresql/data:uid=70,gid=70,mode=0700",
+        "-v", f"{data_dir}:/var/lib/postgresql/data",
         "--tmpfs", "/var/run/postgresql:uid=70,gid=70",
         "--tmpfs", "/tmp:uid=70,gid=70",
         "-e", "POSTGRES_PASSWORD=drill", "-e", "POSTGRES_USER=postgres",
@@ -256,8 +263,10 @@ def drill_run_args(name: str) -> list[str]:
     ]  # fmt: skip
 
 
-def _drill_container(name: str) -> None:
-    subprocess.run(drill_run_args(name), check=True, capture_output=True)
+def _drill_container(name: str, data_dir: Path) -> None:
+    data_dir.mkdir(mode=0o700)
+    os.chown(data_dir, 70, 70)
+    subprocess.run(drill_run_args(name, data_dir), check=True, capture_output=True)
     for _ in range(60):
         r = subprocess.run(["docker", "exec", name, "pg_isready", "-U", "postgres", "-q"])
         if r.returncode == 0:
@@ -265,6 +274,60 @@ def _drill_container(name: str) -> None:
             return
         time.sleep(1)
     raise TimeoutError("drill Postgres did not start")
+
+
+def _drill_restore(name: str, data_dir: Path, dumps: Path) -> dict:
+    """Load every dump into the drill Postgres and count the rows that must survive."""
+    _drill_container(name, data_dir)
+    # Each dump streams in on stdin, so the dumps never enter the container's folders.
+    for db in databases():
+        subprocess.run(
+            ["docker", "exec", name, "createdb", "-U", "postgres", db],
+            check=True,
+            capture_output=True,
+        )
+        with open(dumps / f"{db}.dump", "rb") as f:
+            subprocess.run(
+                [
+                    "docker",
+                    "exec",
+                    "-i",
+                    name,
+                    "pg_restore",
+                    "-U",
+                    "postgres",
+                    "--no-owner",
+                    "--no-privileges",
+                    "-d",
+                    db,
+                ],
+                stdin=f,
+                check=True,
+                capture_output=True,
+            )
+    return {
+        db: {
+            k: int(
+                subprocess.run(
+                    ["docker", "exec", name, "psql", "-U", "postgres", "-d", db, "-Atc", q],
+                    check=True,
+                    text=True,
+                    capture_output=True,
+                ).stdout.strip()
+            )
+            for k, q in qs.items()
+        }
+        for db, qs in COUNTS.items()
+    }
+
+
+def _stderr_tail(e: Exception) -> str:
+    """A failed command's last error lines: 'exit status 1' alone says nothing (2026-11-27)."""
+    err = getattr(e, "stderr", None)
+    if not err:
+        return ""
+    text = err.decode(errors="replace") if isinstance(err, bytes) else err
+    return " | " + text.strip()[-300:]
 
 
 def restore_check() -> int:
@@ -291,48 +354,10 @@ def restore_check() -> int:
                 _sha256(root / "models/production/model.json")
                 == (dumps / "model.sha256").read_text()
             )
-            _drill_container(name)
-            # Each dump streams in on stdin: `docker cp` cannot write into the
-            # container's tmpfs, so a copied file would be invisible to Postgres.
-            for db in databases():
-                subprocess.run(
-                    ["docker", "exec", name, "createdb", "-U", "postgres", db],
-                    check=True,
-                    capture_output=True,
-                )
-                with open(dumps / f"{db}.dump", "rb") as f:
-                    subprocess.run(
-                        [
-                            "docker",
-                            "exec",
-                            "-i",
-                            name,
-                            "pg_restore",
-                            "-U",
-                            "postgres",
-                            "--no-owner",
-                            "--no-privileges",
-                            "-d",
-                            db,
-                        ],
-                        stdin=f,
-                        check=True,
-                        capture_output=True,
-                    )
-            got = {
-                db: {
-                    k: int(
-                        subprocess.run(
-                            ["docker", "exec", name, "psql", "-U", "postgres", "-d", db, "-Atc", q],
-                            check=True,
-                            text=True,
-                            capture_output=True,
-                        ).stdout.strip()
-                    )
-                    for k, q in qs.items()
-                }
-                for db, qs in COUNTS.items()
-            }
+            try:
+                got = _drill_restore(name, root / "pgdata", dumps)
+            finally:  # stop Postgres before its data folder is deleted
+                subprocess.run(["docker", "rm", "-f", name], capture_output=True)
             assert got == expected, f"restored counts {got} != backed-up counts {expected}"
         _status(
             {
@@ -355,7 +380,7 @@ def restore_check() -> int:
                 "drill": {
                     "ok": False,
                     "at": now.isoformat(timespec="seconds"),
-                    "error": f"{type(e).__name__}: {str(e)[:300]}",
+                    "error": f"{type(e).__name__}: {str(e)[:300]}{_stderr_tail(e)}",
                 }
             }
         )

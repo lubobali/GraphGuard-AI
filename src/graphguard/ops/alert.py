@@ -24,8 +24,13 @@ from __future__ import annotations
 import datetime as dt
 import json
 import re
+import socket
+import ssl
 import subprocess
 import sys
+import time
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -234,6 +239,21 @@ def assess_health(code: int | None, body: str) -> list[str]:
     return [f"scorer /health {code}: {reason}"]
 
 
+PUBLIC_URL = "https://graphguard.lubobali.com"
+CERT_WARN_DAYS = 14  # certbot renews at 30 days left; under 14 means renewal is failing
+
+
+def assess_public(code: int | None, error: str | None, cert_days: float | None) -> list[str]:
+    """S8b.3: the public demo through nginx and HTTPS, and its certificate's time left."""
+    if code is None:
+        return [f"public demo {PUBLIC_URL}: no answer ({error})"]
+    if code != 200:
+        return [f"public demo {PUBLIC_URL}: answered {code}"]
+    if cert_days is not None and cert_days < CERT_WARN_DAYS:
+        return [f"public demo certificate expires in {cert_days:.0f} days (renewal not working?)"]
+    return []
+
+
 # --- the outside world ---------------------------------------------------------------
 _PROBE = (
     "import urllib.request, urllib.error\n"
@@ -265,6 +285,25 @@ def probe_health() -> list[str]:
     first, _, rest = out.stdout.partition("\n")
     code = int(first) if out.returncode == 0 and first.strip().isdigit() else None
     return assess_health(code, rest)
+
+
+def public_problems() -> list[str]:
+    """Ask the public demo's /api/health the way a visitor would (DNS, nginx, TLS)."""
+    host = PUBLIC_URL.removeprefix("https://")
+    code, error, days = None, None, None
+    try:
+        with urllib.request.urlopen(PUBLIC_URL + "/api/health", timeout=15) as r:
+            code = r.status
+        ctx = ssl.create_default_context()
+        with socket.create_connection((host, 443), timeout=15) as sock:
+            with ctx.wrap_socket(sock, server_hostname=host) as tls:
+                not_after = ssl.cert_time_to_seconds(tls.getpeercert()["notAfter"])
+        days = (not_after - time.time()) / 86_400
+    except urllib.error.HTTPError as e:
+        code = e.code
+    except Exception as e:  # noqa: BLE001
+        error = f"{type(e).__name__}: {str(e)[:120]}"
+    return assess_public(code, error, days)
 
 
 def _env_file(path: Path) -> dict[str, str]:
@@ -345,7 +384,7 @@ def probe_stream() -> tuple[int | None, int | None]:
 def check(now: dt.datetime) -> int:
     prior = load_state() or initial_state()
     stream, stream_state = stream_problems(prior.get("stream"), *probe_stream(), now)
-    problems = k8s_health.collect_problems() + probe_health() + stream
+    problems = k8s_health.collect_problems() + probe_health() + public_problems() + stream
     state, email = step({**prior, "stream": stream_state}, problems, now)
     if email:
         error = _deliver(email)

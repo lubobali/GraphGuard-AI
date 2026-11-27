@@ -166,6 +166,27 @@ def test_health_answer_is_judged(code, body, expected):
     assert alert.assess_health(code, body) == expected
 
 
+# --- the public demo (S8b.3) ---------------------------------------------------------
+@pytest.mark.parametrize(
+    ("code", "error", "days", "expected"),
+    [
+        (200, None, 80, []),
+        (502, None, 80, ["public demo https://graphguard.lubobali.com: answered 502"]),
+        (None, "certificate has expired", None,
+         ["public demo https://graphguard.lubobali.com: no answer (certificate has expired)"]),
+        (200, None, 10, ["public demo certificate expires in 10 days (renewal not working?)"]),
+    ],
+)  # fmt: skip
+def test_the_public_demo_is_judged(code, error, days, expected):
+    assert alert.assess_public(code, error, days) == expected
+
+
+def test_the_check_includes_the_public_demo():
+    import inspect
+
+    assert "public_problems()" in inspect.getsource(alert.check)
+
+
 # --- the SES call --------------------------------------------------------------------
 class FakeSes:
     def __init__(self):

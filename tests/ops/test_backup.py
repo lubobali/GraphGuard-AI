@@ -3,6 +3,7 @@
 import configparser
 import datetime as dt
 import re
+from pathlib import Path
 
 import pytest
 
@@ -90,8 +91,24 @@ def test_services_are_capped_and_sandboxed(svc):
 
 
 def test_the_drill_postgres_is_powerless_and_offline():
-    args = bk.drill_run_args("x")
+    args = bk.drill_run_args("x", Path("/d/pgdata"))
     pairs = set(zip(args, args[1:], strict=False))  # neighbouring flag-value pairs
     assert {("--network", "none"), ("--cap-drop", "ALL"), ("--memory", "256m")} <= pairs
     assert ("--security-opt", "no-new-privileges") in pairs and ("--user", "70:70") in pairs
     assert args[-1] == bk.DRILL_IMAGE and "@sha256:" in bk.DRILL_IMAGE
+
+
+def test_the_drill_keeps_its_data_on_disk_not_in_its_memory_cap():
+    """2026-11-27: the 734 MB demo database in a tmpfs counted against the drill's 256 MB cap
+    and the kernel killed the drill Postgres (the drill had failed since 22 Nov)."""
+    args = bk.drill_run_args("x", Path("/d/pgdata"))
+    assert ("-v", "/d/pgdata:/var/lib/postgresql/data") in set(zip(args, args[1:], strict=False))
+    assert not any(a.startswith("/var/lib/postgresql/data") for a in args if a != args[-1])
+
+
+def test_a_failed_drill_records_the_commands_error_text():
+    import subprocess
+
+    e = subprocess.CalledProcessError(1, ["pg_restore"], stderr=b"x\npg_restore: out of memory\n")
+    assert bk._stderr_tail(e) == " | x\npg_restore: out of memory"
+    assert bk._stderr_tail(RuntimeError("no")) == ""

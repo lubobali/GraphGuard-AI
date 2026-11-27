@@ -13,6 +13,8 @@ AMLworld); nothing a visitor does reaches the stream, the scorer or the models.
 | On | `just demo-api-up` |
 | Logs | `just demo-api-logs` (errors are logged here, never shown to visitors) |
 | Remove the site | ask the LuBot session to remove the nginx site (it owns nginx) |
+| Watched by | the 5-minute alert (`graphguard-alert.timer`): `/api/health` through the public address, and the certificate (< 14 days left = renewal failing). Planned downtime: `just alert-pause 2h` first |
+| Certificate | Let's Encrypt, renewed by the LuBot session's certbot (reloads nginx) |
 
 ## What protects it
 

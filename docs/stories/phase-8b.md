@@ -115,13 +115,26 @@ now uses only a 100-year cut.
 
 **As** a stranger, **I want** a normal web address with HTTPS, **so that** I can click it from
 a post or a resume.
-- [ ] Name and DNS chosen by Lubo (for example, `graphguard.lubobali.com`).
-- [ ] The nginx site and certificate are added **by the LuBot session** (a box-wide change).
+- [x] Name and DNS chosen by Lubo: `graphguard.lubobali.com` (Namecheap A record).
+- [x] The nginx site and certificate are added **by the LuBot session** (a box-wide change).
       We hand it the exact block; we do not edit nginx ourselves.
-- [ ] Afterwards: `just edge-baseline`, the edge and health checks green, and lubot.ai and its
+- [x] Afterwards: `just edge-baseline`, the edge and health checks green, and lubot.ai and its
       siblings still answer.
-- [ ] Checked from outside the box: the home page, `/try`, a case, and a decision saved.
-- [ ] The scorer alert (or an uptime check) covers the public URL.
+- [x] Checked from outside the box: the home page, `/try`, a case, and a decision saved.
+- [x] The scorer alert (or an uptime check) covers the public URL.
+
+**Done 2026-11-27.** Applied by the LuBot session at 16:22 UTC with three changes to our block
+(no HTTP/2: on this nginx it would switch on for every site; the access log where logrotate
+finds it; certbot's reload hook). Our hand-over had a chicken-and-egg bug (the HTTPS block
+needed the certificate before certbot could get it); fixed into two steps before it was sent.
+From outside: home, `/api/meta` answer; in a real browser on the public address, home (desktop
+and phone), `/try`, a case and the manager page render; one decision saved through nginx (201),
+read back, then deleted by its own id. lubot.ai, staging, git and lubobali.com answered 200
+after. The alert now checks the public `/api/health` and the certificate's days left.
+**Found on the way:** the weekly restore drill had failed since 22 Nov. The 734 MB demo database
+in the drill's in-memory folder hit its 256 MB cap and the kernel killed it. The drill's
+Postgres now keeps its data on disk (deleted after), the drill also counts the demo's rows
+(visitors' decisions), and a failed command's error text is recorded. Drill green in 48 s.
 
 ## S8b.4 — The README and a 10-second diagram
 
