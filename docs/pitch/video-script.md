@@ -110,7 +110,7 @@ Every click and number below was checked on the live site on 2026-11-28.
 
 **DO:** Scroll back to the top. Click **"Suspicious"**. In the box, type:
 *Money goes out to many accounts, then comes back together.*
-Click **"Submit"**.
+Click the small grey **"Submit"** button, **not** the blue "Submit and next alert →" (the blue one jumps to the next case).
 
 **SAY:**
 > I decide: suspicious. I write my reason, because a bank must explain every decision.
