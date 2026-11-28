@@ -171,9 +171,10 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 
 **SAY:**
 > For the engineers: problem first, model second.
-> I measured what the team really needs: when they check a payment, is it a real criminal?
-> The old rules: right **less than 1 time in 100.**
-> GraphGuard: right **about 79 times in 100.**
+> A rule looks at one payment. My model looks at the **whole story of each account**:
+> who it paid, who paid it, how fast, how many different people.
+> And only what was known at that moment. **No peeking at the future.**
+> When the team checks a payment, GraphGuard is right **about 79 times in 100.** The old rules: less than once.
 > I tested a neural network against a simpler model, XGBoost, with the same rules.
 > **The neural network lost.** XGBoost found more than twice as many crime rings.
 > So I shipped XGBoost, and wrote down why.
@@ -206,6 +207,7 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 | #11 is laundering; #10 (Sam closed it) is laundering | the answer key (`/api/alerts/<id>/answer`), checked 2026-11-28 |
 | about 5 in 100 AI facts | FINDING-019: 4.0% (DeepSeek) and 5.6% (Claude Sonnet) could not be proven before the checker |
 | about 200 open, most past the check time | the manager page, Backlog (211 open / 147 past 24 h for a fresh visitor; one fewer after your decision) |
+| the account's story, known at that moment | the 15 point-in-time features (counts, amounts, distinct counterparties, 24 h sends, time since last send; `as_of` cutoff, the leakage contract) |
 | right about 79 in 100 vs less than 1 in 100 | `s7.3-capacity.json` at k = 211: GraphGuard 167 / 211 = 79.1%, rules 1 / 211 = 0.5% |
 | more than twice as many rings | `docs/model_comparison.md`: XGBoost 127 of 168, GraphSAGE 60 of 168 |
 | almost every payment under 15 ms | FINDING-013: p99 13–15 ms (99 of 100) |
