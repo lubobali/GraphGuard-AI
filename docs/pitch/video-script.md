@@ -177,15 +177,15 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 
 **SAY:**
 > At about 2,400 checks a day: GraphGuard finds **542** laundering payments. The old rules: **21**.
-> Why? For the engineers: problem first, model second.
-> A rule looks at one payment. My model looks at the **whole story of each account**:
+> How can GraphGuard see what the rules can't?
+> A rule looks at one payment. GraphGuard looks at the **whole story of each account**:
 > who it paid, who paid it, how fast, how many different people.
 > And only what was known at that moment. **No peeking at the future.**
 
 **DO:** Leave the mouse at the end of the blue line. Stay on the chart.
 
 **SAY:**
-> I tested a neural network against a simpler model, XGBoost, with the same rules.
+> For the engineers: I tested a neural network against a simpler model, XGBoost, with the same rules.
 > **The neural network lost.** XGBoost found more than twice as many crime rings.
 > So I shipped XGBoost, and wrote down why.
 > Then I built it like production: Kafka, Kubernetes,
