@@ -1,118 +1,190 @@
-# GraphGuard demo video: the script (S8b.6)
+# GraphGuard demo video: the script (S8b.6, voice of S8b.4c)
 
-About **2½–3 minutes** (~370 words, read slowly). Screen + your voice. No face needed.
+About **5 minutes** when read slowly (~700 spoken words). Screen + your voice. No face needed.
 
-**How to read it:** **CLICK** = what you do. **SAY** = what you read out loud.
-Short pauses are fine. Read slowly. If you make a mistake, keep going: small mistakes sound real.
+**How to read it:** each step has **DO** (what you click, on top) and **SAY** (what you read
+while you click, below). Short pauses are fine. If you make a mistake, keep going.
 
-Every number below was checked on the live site on 2026-11-27.
+**The message:** money laundering hides in patterns, not payments. Problem first, like a
+Forward Deployed Engineer: what it changes for a bank, then what I built behind it and why.
 
----
-
-## 1. The hook (0:00 – 0:15)
-
-**CLICK:** Start on the home page, https://graphguard.lubobali.com. Don't move yet.
-
-**SAY:**
-> Money laundering hides in plain sight.
-> The crime is in the **shape**: how the money moves between accounts.
-> I built GraphGuard to find that shape.
-> Quick note: the data is synthetic, from IBM's simulator. No real people, no real banks.
+Every click and number below was checked on the live site on 2026-11-28.
 
 ---
 
-## 2. The big number (0:15 – 0:45)
+## Before you record
 
-**CLICK:** Move your mouse over the slider: "Your team checks the top 100 payments a day".
-
-**SAY:**
-> A bank can't check a million payments.
-> So GraphGuard scores every one, and puts the riskiest on top.
-> Five people, 100 checks a day.
-> In two days, that's 211 checks, and **167 of them are real laundering.**
-
-**CLICK:** Point at the line "Old fixed rules, same 211 checks: 1 laundering payment found."
-
-**SAY:**
-> The old fixed rules, with the same 211 checks?
-> They find... **one.**
-
-**CLICK:** Point at the box "916 laundering missed".
-
-**SAY:**
-> And I show what it misses, too. No system finds it all.
+- Open a **fresh Chrome window** (or a new profile) at **https://graphguard.lubobali.com**.
+  A fresh window has no old decisions from you, so the pages look like this script.
+- Zoom **110%** (Cmd +). Hide the bookmarks bar (Cmd Shift B).
+- At the top, **View as** should say **Investigator**.
 
 ---
 
-## 3. You are the investigator (0:45 – 1:40)
+## Step 1: The problem
 
-**CLICK:** The blue button **"Try one case — 2 minutes"**.
-
-**SAY:**
-> Now, you are the investigator.
-> This payment: 9,539 euros, just under a reporting line.
-
-**CLICK:** **"Play all"**. Wait until the arrows stop.
+**DO:** Stay on the home page. Don't move yet.
 
 **SAY:**
-> Each box is an account. Each arrow is a payment.
-
-**CLICK:** **"I've looked: decide →"**, then **"Suspicious"**.
-
-**SAY:**
-> I say: suspicious.
-> ...And I was right.
-> The red arrows are the scheme: money split out to many accounts, then collected again.
-
-**CLICK:** **"What does the AI say? →"**
-
-**SAY:**
-> My favorite part: an AI reads the same payments, and **argues against me.**
-> Every fact it says is checked by code, against the real payments.
-> This time, the AI is wrong. And that's the point:
-> **the AI helps. A person decides.**
+> Money laundering hides in patterns, not payments.
+> Every single payment looks normal.
+> The crime is in how they connect: money split out to many accounts, then collected again.
+> I built GraphGuard to find that pattern.
+> I worked like a Forward Deployed Engineer: I played the meeting with a bank myself.
+> First understand their problem. Then build the tool that fits it.
+> Quick note: the data is made up, by IBM's simulator. No real people, no real client.
 
 ---
 
-## 4. The real tool (1:40 – 2:10)
+## Step 2: The size of the problem
 
-**CLICK:** **"See the full tool: the whole list, worst first"**. Scroll down to the list. Click **#1**.
-
-**SAY:**
-> The full tool. Alert number one, and why, in plain words.
-
-**CLICK:** Scroll down slowly to **"AI draft, checked"**.
+**DO:** Point your mouse at the line **"Over 2 days: 1,015,300 payments, 1,083 laundering"**.
 
 **SAY:**
-> An AI writes the first draft. Every fact links to its payment.
-> If the AI says something the data can't prove, the code throws it out.
-> Before the check, about 5 in 100 AI facts could not be proven.
-> After the check: **zero** reach the screen.
+> Here is the bank's real problem.
+> In just two days: over one million payments.
+> Hidden inside: about one thousand laundering payments.
+> No person can search a million payments by hand.
+> A computer has to look at every one.
 
 ---
 
-## 5. The manager (2:10 – 2:20)
+## Step 3: Which 100?
 
-**CLICK:** At the top, **View as → "Manager"**.
+**DO:** Point at the slider **"Your team checks the top 100 payments a day"** and **"= about 5 people"**.
 
 **SAY:**
-> And the manager sees the whole team:
-> what's open, what's late, and how many people they need.
+> A bank team of about 5 people can check about 100 payments a day.
+> With GraphGuard or without it. That doesn't change.
+> What changes is **which 100.**
+
+**DO:** Point at **"Old fixed rules, same 211 checks: 1 laundering payment found."**
+
+**SAY:**
+> With the old fixed rules, in two days: 211 checks.
+> **210 of them are innocent customers.** One criminal found.
+> Two days of salaries, almost all wasted.
+
+**DO:** Point at the green box **"167 laundering found"**, then **"44 false alarms"**.
+
+**SAY:**
+> With GraphGuard: the same 211 checks.
+> **167 are real money laundering.** Only 44 false alarms.
+> Same people. Same salaries. From **one** criminal found to **167**.
+
+**DO:** Point at **"916 laundering missed"**.
+
+**SAY:**
+> And it shows what it still misses. No system catches everything. I don't hide it.
 
 ---
 
-## 6. The honest part, and goodbye (2:20 – 2:45)
+## Step 4: The list
 
-**CLICK:** Click **"GraphGuard"** (top left) to go back home.
+**DO:** Scroll down slowly to **"The list: most suspicious payments first"**. Point at **"211 payments from 190 senders"**.
 
 **SAY:**
-> One honest result.
-> I also built a graph neural network. **It lost.** XGBoost found 127 of 168 laundering rings. The neural network found 60.
-> I wrote that down. I didn't hide it.
->
-> Under the hood: Kafka, Kubernetes, 99 of 100 scores in under 15 milliseconds,
-> and over a million payments replayed with every score matching the offline test.
->
+> This is the investigator's list. Out of a million payments, the riskiest come first.
+> Each one says **why** it was flagged, in plain words, and **when** it must be checked.
+> The first few are flagged by the bank's fixed rules. A bank checks those anyway.
+> Below them, the model's own finds.
+
+---
+
+## Step 5: The investigator
+
+**DO:** Scroll down to row **11** (Partnership #1332 → Small business #3159, 19,169.54 US Dollar). Click it.
+
+**SAY:**
+> Let's open one. Number 11.
+> On the left: why it's here. Money moved on fast, less than a minute.
+> Many different accounts paid the receiver.
+
+**DO:** Scroll down slowly past **"AI draft, checked"** to **"The money around it"**. Click **"▶ Play all"**. Wait until it stops.
+
+**SAY:**
+> An AI writes the first report. Every fact links to a real payment.
+> AI sometimes says things it can't back up, about 5 facts in 100.
+> So my code checks every fact. Anything it can't prove is thrown out.
+> Now the money picture. Each box is an account. Each arrow is a payment.
+> Watch: many accounts pay in... and the money moves on.
+> That's the pattern. No single payment shows it.
+
+**DO:** Scroll back to the top. Click **"Suspicious"**. In the box, type:
+*Money goes out to many accounts, then comes back together.*
+Click **"Submit"**.
+
+**SAY:**
+> I decide: suspicious. I write my reason, because a bank must explain every decision.
+> ...And I was right. This payment was money laundering.
+> An AI also gives a second opinion: it looks for reasons I could be wrong.
+> Here, it found none.
+> **The AI helps. A person decides.**
+
+---
+
+## Step 6: The reviewer (four eyes)
+
+**DO:** At the top, click **View as → "Reviewer"**.
+
+**SAY:**
+> In a bank, every decision gets a second look before it's final. It's called "four eyes".
+> Here, Sam, a demo investigator, decided 8 alerts. Some are wrong.
+
+**DO:** Click **#10** in the list.
+
+**SAY:**
+> Sam closed this one: "not enough evidence".
+> But the AI second opinion says: this IS suspicious.
+> And the money picture shows it too.
+
+**DO:** In **"Your note"**, type: *Look at the money picture again.* Click **"Send back"**.
+
+**SAY:**
+> So I send it back to Sam, with a note.
+> Every step is saved. Nothing is edited or deleted. A regulator can read why.
+
+---
+
+## Step 7: The manager
+
+**DO:** At the top, click **View as → "Manager"**. Scroll down slowly to **"Backlog"**.
+
+**SAY:**
+> And the manager sees the whole team.
+> What's decided. What's waiting. And the quality of the decisions.
+> The backlog: about 200 open alerts, and most are already past their 24-hour check time.
+
+**DO:** Scroll to **"Plan the team"**. Move the slider a little to the right, then back to 100.
+
+**SAY:**
+> And the manager can plan: more people, more checks, more crime found.
+> 100 checks a day: about 5 people.
+
+---
+
+## Step 8: For the engineers
+
+**DO:** Click **"GraphGuard"** at the top left to go home.
+
+**SAY:**
+> For the engineers: problem first, model second.
+> A team with 100 checks a day doesn't need "accuracy".
+> It needs the most real cases in its top 100. So that's what I measured.
+> I tested a neural network against a simpler model, XGBoost, with the same rules.
+> **The neural network lost.** XGBoost found more than twice as many crime rings.
+> So I shipped XGBoost, and wrote down why.
+> Then I built it like production: Kafka, Kubernetes,
+> almost every payment scored in under 15 milliseconds.
+> I replayed over a million payments. Every score matched.
+
+---
+
+## Step 9: Goodbye
+
+**DO:** Stay on the home page.
+
+**SAY:**
 > Try it yourself at **graphguard.lubobali.com**. The code is on GitHub.
 > I'm Lubo Bali. Thanks for watching.
 
@@ -122,10 +194,17 @@ Every number below was checked on the live site on 2026-11-27.
 
 | Said | Source |
 |---|---|
-| 211 checks, 167 found, 916 missed | the home page at 100 a day (`docs/analysis/s7.3-capacity.json`) |
-| old rules find 1 | the same page, "Old fixed rules" |
-| 9,539 euros, 9,000–9,999.99 line | /try case 1 |
-| about 5 in 100 AI facts | FINDING-019: 4.0% (DeepSeek) and 5.6% (Claude Sonnet) before the checker |
-| 127 vs 60 of 168 rings | `docs/model_comparison.md` |
-| 99 of 100 under 15 ms | FINDING-013: p99 13–15 ms |
+| 1,015,300 payments, 1,083 laundering, in 2 days | the home page ("Over 2 days"); the validation window |
+| 100 a day = about 5 people; 211 checks | the home page slider at 100 (`docs/analysis/s7.3-capacity.json`, k = 211) |
+| 167 found, 44 false alarms, 916 missed | the same page and file (`system`, k = 211) |
+| old rules: 1 found, so 210 innocent | the same file (`rules`, k = 211: 1 caught) |
+| 211 payments from 190 senders | the list's header |
+| #11 is laundering; #10 (Sam closed it) is laundering | the answer key (`/api/alerts/<id>/answer`), checked 2026-11-28 |
+| about 5 in 100 AI facts | FINDING-019: 4.0% (DeepSeek) and 5.6% (Claude Sonnet) could not be proven before the checker |
+| about 200 open, most past the check time | the manager page, Backlog (211 open / 147 past 24 h for a fresh visitor; one fewer after your decision) |
+| more than twice as many rings | `docs/model_comparison.md`: XGBoost 127 of 168, GraphSAGE 60 of 168 |
+| almost every payment under 15 ms | FINDING-013: p99 13–15 ms (99 of 100) |
 | over a million payments, every score matched | the overnight soak: 1,015,300 payments, 0 score mismatches |
+
+The rules' 1 in 211 is on simulated data: the page itself says the simulator's launderers
+rarely break simple rules ("Why so few?"). Say so if someone asks.
