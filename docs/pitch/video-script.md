@@ -61,6 +61,10 @@ Every click and number below was checked on the live site on 2026-11-28.
 **DO:** Point at **"Old fixed rules, same 211 checks: 1 laundering payment found."**
 
 **SAY:**
+> Before GraphGuard, banks use **fixed rules**, like a checklist.
+> For example: a payment just under 10,000. Or an account paying too many people in one day.
+> Each rule looks at **one payment at a time.**
+> But here, every criminal payment looks normal. The crime is only in the pattern.
 > With the old fixed rules, in two days: 211 checks.
 > **210 of them are innocent customers.** One criminal found.
 > Two days of salaries, almost all wasted.
@@ -196,6 +200,7 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 | 1,015,300 payments, 1,083 laundering, in 2 days | the home page ("Over 2 days"); the validation window |
 | 100 a day = about 5 people; 211 checks | the home page slider at 100 (`docs/analysis/s7.3-capacity.json`, k = 211) |
 | 167 found, 44 false alarms, 916 missed | the same page and file (`system`, k = 211) |
+| the rules: just under 10,000; paying too many people | `src/graphguard/demo/reasons.py` RULE_TEXT (structuring 9,000-9,999.99; fan out; velocity; fan in; new accounts), limits from training only |
 | old rules: 1 found, so 210 innocent | the same file (`rules`, k = 211: 1 caught) |
 | 211 payments from 190 senders | the list's header |
 | #11 is laundering; #10 (Sam closed it) is laundering | the answer key (`/api/alerts/<id>/answer`), checked 2026-11-28 |
