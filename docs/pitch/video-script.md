@@ -165,16 +165,26 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 
 ---
 
-## Step 8: For the engineers
+## Step 8: For the engineers (the chart)
 
-**DO:** Click **"GraphGuard"** at the top left to go home.
+**DO:** Click **"GraphGuard"** at the top left. Scroll down slowly to the chart **"More checks find more laundering"**.
 
 **SAY:**
-> For the engineers: problem first, model second.
+> Look at this chart. **Blue is GraphGuard.** Orange is the old rules.
+> The more payments the team checks, the bigger the gap.
+
+**DO:** Put your mouse at the left of the chart. Move it **slowly to the right** along the blue line, all the way to the end.
+
+**SAY:**
+> At about 2,400 checks a day: GraphGuard finds **542** laundering payments. The old rules: **21**.
+> Why? For the engineers: problem first, model second.
 > A rule looks at one payment. My model looks at the **whole story of each account**:
 > who it paid, who paid it, how fast, how many different people.
 > And only what was known at that moment. **No peeking at the future.**
-> When the team checks a payment, GraphGuard is right **about 79 times in 100.** The old rules: less than once.
+
+**DO:** Leave the mouse at the end of the blue line. Stay on the chart.
+
+**SAY:**
 > I tested a neural network against a simpler model, XGBoost, with the same rules.
 > **The neural network lost.** XGBoost found more than twice as many crime rings.
 > So I shipped XGBoost, and wrote down why.
@@ -186,7 +196,7 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 
 ## Step 9: Goodbye
 
-**DO:** Stay on the home page.
+**DO:** Scroll back up to the top of the home page.
 
 **SAY:**
 > Try it yourself at **graphguard.lubobali.com**. The code is on GitHub.
@@ -208,7 +218,7 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 | about 5 in 100 AI facts | FINDING-019: 4.0% (DeepSeek) and 5.6% (Claude Sonnet) could not be proven before the checker |
 | about 200 open, most past the check time | the manager page, Backlog (211 open / 147 past 24 h for a fresh visitor; one fewer after your decision) |
 | the account's story, known at that moment | the 15 point-in-time features (counts, amounts, distinct counterparties, 24 h sends, time since last send; `as_of` cutoff, the leakage contract) |
-| right about 79 in 100 vs less than 1 in 100 | `s7.3-capacity.json` at k = 211: GraphGuard 167 / 211 = 79.1%, rules 1 / 211 = 0.5% |
+| 542 vs 21 at about 2,400 checks a day | the chart's end labels; `s7.3-capacity.json` / FINDING-016: k = 5,000 (2,373 a day), model 542, rules 21 |
 | more than twice as many rings | `docs/model_comparison.md`: XGBoost 127 of 168, GraphSAGE 60 of 168 |
 | almost every payment under 15 ms | FINDING-013: p99 13–15 ms (99 of 100) |
 | over a million payments, every score matched | the overnight soak: 1,015,300 payments, 0 score mismatches |
