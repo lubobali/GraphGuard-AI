@@ -167,8 +167,9 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 
 **SAY:**
 > For the engineers: problem first, model second.
-> A team with 100 checks a day doesn't need "accuracy".
-> It needs the most real cases in its top 100. So that's what I measured.
+> Many AI projects show off their "accuracy". Here, that number lies.
+> A model that says "every payment is clean" is **99.9% accurate**, and catches **zero** criminals.
+> So I measured what the team really needs: how many real criminals are in its top 100.
 > I tested a neural network against a simpler model, XGBoost, with the same rules.
 > **The neural network lost.** XGBoost found more than twice as many crime rings.
 > So I shipped XGBoost, and wrote down why.
@@ -200,6 +201,7 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 | #11 is laundering; #10 (Sam closed it) is laundering | the answer key (`/api/alerts/<id>/answer`), checked 2026-11-28 |
 | about 5 in 100 AI facts | FINDING-019: 4.0% (DeepSeek) and 5.6% (Claude Sonnet) could not be proven before the checker |
 | about 200 open, most past the check time | the manager page, Backlog (211 open / 147 past 24 h for a fresh visitor; one fewer after your decision) |
+| 99.9% accurate for "all clean" | 1,083 laundering of 1,015,300 payments = 0.107%, so "all clean" is right 99.89% of the time |
 | more than twice as many rings | `docs/model_comparison.md`: XGBoost 127 of 168, GraphSAGE 60 of 168 |
 | almost every payment under 15 ms | FINDING-013: p99 13–15 ms (99 of 100) |
 | over a million payments, every score matched | the overnight soak: 1,015,300 payments, 0 score mismatches |
