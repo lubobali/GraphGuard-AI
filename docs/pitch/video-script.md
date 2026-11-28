@@ -86,8 +86,6 @@ Every click and number below was checked on the live site on 2026-11-28.
 **SAY:**
 > This is the investigator's list. Out of a million payments, the riskiest come first.
 > Each one says **why** it was flagged, in plain words, and **when** it must be checked.
-> The first few are flagged by the bank's fixed rules. A bank checks those anyway.
-> Below them, the model's own finds.
 
 ---
 
