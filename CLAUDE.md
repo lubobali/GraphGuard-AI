@@ -364,7 +364,7 @@ shown only after it; a model's strong/some/none label is shown only if it never 
 decision "strong" in testing (FINDING-020). Runs save after every review: re-run with `--resume`.
 The OpenRouter **account** credit can run out before the key's $10 limit — check
 `/api/v1/credits` before a long run.
-**Public demo (S8b.2):** API image **0.1.24**; behind nginx at `graphguard.lubobali.com`
+**Public demo (S8b.2):** API image **0.1.25** (0.1.25: strict JSON, S8b.4d); behind nginx at `graphguard.lubobali.com`
 (nginx is the LuBot session's; our block + hand-over in `private/public-demo/`). The visitor's
 address comes from `X-Real-IP` only via the gateway (`GRAPHGUARD_TRUSTED_PROXY`); daily write
 caps; 5 s query limit; `WaitingPool` (psycopg2's pool raises when full). `just demo-api-down` is

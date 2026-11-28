@@ -200,6 +200,29 @@ page (S8b.5), in that order, each previewed by Lubo before it goes live.
 - [ ] Every number still read from its source (`tests/test_readme.py` passes unchanged).
 - [ ] Video script rewritten in the same voice; then S8b.5.
 
+## S8b.4d — Every case in the list opens (bug fix)
+
+**As** an investigator (or a visitor recording the demo), **I want** every alert in the list to
+open, **so that** the tool works past the first case.
+
+*Found 2026-11-28 while dry-running the new video path: 6 of the first 8 alerts (#2, #3, #5-#8)
+showed "SyntaxError ... NaN is not valid JSON". When a sender never paid before, "time since
+the sender's last payment" is NaN; Python's `json.dumps` writes `NaN`, which browsers refuse.
+Missed because the live test only opened the list's first alert, and Python's own JSON reader
+accepts `NaN`. The page already shows a missing value as "none (never sent)". Approved by Lubo
+2026-11-28 ("yes fix but with a story first").*
+- [x] RED first: a unit test that the API's JSON is strict (NaN and ±Infinity become `null`,
+      also nested; nothing anywhere can write `NaN` again), and an API test with such an alert.
+- [x] A live test that opens **every** alert in the 211-alert list and reads it with a strict
+      JSON reader (it fails today on the real database).
+- [x] The fix in one place (`queries.to_json`), so every endpoint is covered.
+- [x] New image tag 0.1.25 (never rebuild a tag), the demo API recreated; LuBot untouched.
+- [x] Checked on the public site: every alert in the list opens with a strict reader; #2 in a
+      browser shows "none (never sent)"; the investigator → reviewer → manager path works.
+- [x] CI green, both remotes match.
+
+**Done 2026-11-28.** RED first (2 unit + 1 live test failed; the live one named the same 6 alerts). Fixed in `queries.to_json` (non-finite -> null, `allow_nan=False`). Image 0.1.25; on the public site all 190 alerts in the list read as strict JSON, #2 opens in a browser, and decide -> second review -> manager works. 1,093 tests pass. LuBot and lubobali.com answered 200 throughout.
+
 ## S8b.5 — The project page on Lubo's website
 
 **As** a visitor of lubobali.com, **I want** to find GraphGuard, **so that** the site leads to

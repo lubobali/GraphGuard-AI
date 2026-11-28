@@ -207,3 +207,37 @@ def test_the_manager_page_takes_a_scope_and_a_visitor(client):
     assert client.get(f"/api/manager?visitor={ME}&scope=all").json()["scope"] == "all"
     assert client.get(f"/api/manager?visitor={ME}&scope=everyone").status_code == 422
     assert client.get("/api/manager").status_code == 422
+
+
+# ---- S8b.4d: strict JSON (a browser refuses NaN; Python's own reader accepts it) -----------
+
+
+def _strict(text):
+    import json
+
+    def refuse(name):
+        raise ValueError(f"not JSON: {name}")
+
+    return json.loads(text, parse_constant=refuse)
+
+
+def test_the_api_json_has_no_nan_or_infinity_anywhere():
+    from graphguard.demo.queries import to_json
+
+    nan, inf = float("nan"), float("inf")
+    obj = {"v": nan, "w": [1.5, -inf, {"x": inf}], "t": (nan,), "ok": 2.0, "s": "NaN", "d": T}
+    assert _strict(to_json(obj)) == {"v": None, "w": [1.5, None, {"x": None}], "t": [None],
+                                     "ok": 2.0, "s": "NaN", "d": str(T)}  # fmt: skip
+
+
+def test_an_alert_whose_sender_never_paid_before_opens_in_a_browser():
+    class NeverPaid(FakeRepo):
+        def alert(self, event_id):
+            a = super().alert(event_id)
+            return a and {**a, "contributions": [
+                {"feature": "sender_seconds_since_last_send", "value": float("nan"),
+                 "contribution": -0.79}]}  # fmt: skip
+
+    r = TestClient(A.create_app(repo=NeverPaid())).get("/api/alerts/7")
+    assert r.status_code == 200
+    assert _strict(r.text)["contributions"][0]["value"] is None

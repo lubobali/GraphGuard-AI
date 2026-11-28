@@ -146,3 +146,24 @@ def test_the_manager_numbers_equal_a_direct_count_and_never_leak_ids(client):
     finally:
         with db.connect(db.OWNER, secrets_dir=SECRETS) as c, c.cursor() as cur:
             cur.execute("DELETE FROM case_actions WHERE actor = %s", (me,))
+
+
+def test_every_alert_in_the_list_opens_in_a_browser(client):
+    """S8b.4d: 6 of the first 8 alerts were invalid JSON (NaN) and the page broke; only the
+    first alert was ever tested. Every alert of the 211, read the way a browser reads it."""
+    import json
+
+    def refuse(name):
+        raise ValueError(name)
+
+    ids, page = [], 1
+    while groups := client.get(f"/api/queue?per_day=100&page={page}").json()["groups"]:
+        ids += [g["event_id"] for g in groups]
+        page += 1
+    broken = []
+    for e in dict.fromkeys(ids):
+        try:
+            json.loads(client.get(f"/api/alerts/{e}").text, parse_constant=refuse)
+        except ValueError:
+            broken.append(e)
+    assert ids and broken == []

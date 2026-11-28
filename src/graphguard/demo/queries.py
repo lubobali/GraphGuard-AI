@@ -6,6 +6,7 @@ container stays small.
 from __future__ import annotations
 
 import json
+import math
 import os
 import threading
 from contextlib import contextmanager
@@ -406,5 +407,17 @@ class PgRepo:
         )
 
 
+def _finite(obj):
+    """NaN and +-Infinity -> None (S8b.4d): browsers refuse them; Python's reader does not."""
+    if isinstance(obj, float):
+        return obj if math.isfinite(obj) else None
+    if isinstance(obj, dict):
+        return {k: _finite(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [_finite(v) for v in obj]
+    return obj
+
+
 def to_json(obj) -> str:
-    return json.dumps(obj, default=str)
+    """Strict JSON: allow_nan=False, so a missed non-finite number fails here, not in a browser."""
+    return json.dumps(_finite(obj), default=str, allow_nan=False)
