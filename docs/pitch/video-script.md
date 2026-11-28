@@ -165,7 +165,7 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 
 ---
 
-## Step 8: For the engineers (the chart)
+## Step 8: The technical part (the chart)
 
 **DO:** Click **"GraphGuard"** at the top left. Scroll down slowly to the chart **"More checks find more laundering"**.
 
@@ -185,7 +185,8 @@ Click the small grey **"Submit"** button, **not** the blue "Submit and next aler
 **DO:** Leave the mouse at the end of the blue line. Stay on the chart.
 
 **SAY:**
-> For the engineers: I tested a neural network against a simpler model, XGBoost, with the same rules.
+> So, the technical part, in short. The full code is on GitHub.
+> I tested a neural network against a simpler model, XGBoost, with the same rules.
 > **The neural network lost.** XGBoost found more than twice as many crime rings.
 > So I shipped XGBoost, and wrote down why.
 > Then I built it like production: Kafka, Kubernetes,
